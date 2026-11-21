@@ -3,13 +3,95 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Scanner Accueil — ACSES JEF</title>
+  <title>ACSES JEF — Scanner Accueil</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
-    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #0F172A; }
-    iframe { border: none; width: 100%; height: 100%; display: block; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0F172A; color: #FFF; margin: 0; padding: 16px; text-align: center; }
+    h2 { font-size: 19px; margin: 0 0 6px; color: #38BDF8; }
+    p.sub { font-size: 13px; color: #94A3B8; margin: 0 0 14px; }
+    #reader { width: 100%; max-width: 420px; margin: 0 auto; border-radius: 14px; overflow: hidden; border: 3px solid #0066B3; background: #1E293B; }
+    #reader button { background: #0066B3; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 14px; margin: 8px 4px; cursor: pointer; }
+    #reader select { padding: 8px; border-radius: 8px; margin: 6px; max-width: 90%; }
+    #resultat { max-width: 420px; margin: 16px auto 0; padding: 18px; border-radius: 14px; display: none; text-align: left; }
+    .ok { background: #065F46; border: 2px solid #10B981; }
+    .warn { background: #78350F; border: 2px solid #F59E0B; }
+    .err { background: #7F1D1D; border: 2px solid #EF4444; }
+    .pill { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; background: rgba(255,255,255,0.2); margin-top: 6px; margin-right: 4px; }
   </style>
 </head>
 <body>
-  <iframe src="https://script.google.com/macros/s/AKfycbwxg1EBEA5RBxH56fCz_tQhRMR1dCyqFh8nr9tcQzHiNrrSzfA08RYZlrm0Y53suO4OQw/exec?page=scanner" allow="camera *; microphone *"></iframe>
+  <h2>📷 Accueil & Émargement ACSES JEF</h2>
+  <p class="sub">Scannez le QR Code du badge (1er scan = présence globale validée)</p>
+  <div id="reader"></div>
+  <div id="resultat"></div>
+
+  <script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwxg1EBEA5RBxH56fCz_tQhRMR1dCyqFh8nr9tcQzHiNrrSzfA08RYZlrm0Y53suO4OQw/exec";
+    let pauseScan = false;
+
+    function appelerAppsScriptJSONP(qrText, onSuccess, onError) {
+      const cbName = "acses_cb_" + Date.now();
+      const script = document.createElement("script");
+      const timer = setTimeout(() => {
+        delete window[cbName];
+        script.remove();
+        onError("Délai dépassé : vérifiez votre connexion internet.");
+      }, 15000);
+
+      window[cbName] = function(res) {
+        clearTimeout(timer);
+        delete window[cbName];
+        script.remove();
+        onSuccess(res);
+      };
+
+      script.onerror = function() {
+        clearTimeout(timer);
+        delete window[cbName];
+        script.remove();
+        onError("Impossible de joindre Google Sheets.");
+      };
+
+      script.src = `${SCRIPT_URL}?action=scan&qr=${encodeURIComponent(qrText)}&callback=${cbName}`;
+      document.body.appendChild(script);
+    }
+
+    function onScanSuccess(decodedText) {
+      if (pauseScan) return;
+      pauseScan = true;
+      const box = document.getElementById('resultat');
+      box.style.display = 'block';
+      box.className = 'ok';
+      box.innerHTML = '⏳ Vérification du badge...';
+
+      appelerAppsScriptJSONP(
+        decodedText,
+        function(res) {
+          if (res.succes) {
+            box.className = res.dejaScanne ? 'warn' : 'ok';
+            const badgeStatut = res.dejaScanne ? '⚠️ Déjà enregistré présent' : '✅ Présence globale validée (10h)';
+            box.innerHTML = `
+              <div style="font-size:18px; font-weight:800;">${res.nom}</div>
+              <div style="font-size:13px; color:#E2E8F0;">${res.etablissement}</div>
+              <div class="pill">${res.categorie}</div>
+              <div class="pill" style="background:#F59E0B; color:#000;">🍽️ Repas : ${res.repas}</div>
+              <div style="font-size:13px; margin-top:10px; font-weight:bold;">${badgeStatut} (${res.id})</div>
+            `;
+          } else {
+            box.className = 'err';
+            box.innerHTML = `<strong>❌ Erreur :</strong> ${res.message}`;
+          }
+          setTimeout(() => { pauseScan = false; }, 2500);
+        },
+        function(errMsg) {
+          box.className = 'err';
+          box.innerHTML = `<strong>❌ Erreur réseau :</strong> ${errMsg}`;
+          setTimeout(() => { pauseScan = false; }, 2500);
+        }
+      );
+    }
+
+    new Html5QrcodeScanner("reader", { fps: 10, qrbox: { width: 240, height: 240 } }, false).render(onScanSuccess);
+  </script>
 </body>
 </html>
