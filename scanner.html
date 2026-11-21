@@ -52,7 +52,9 @@
         const res = await envoyerScan(decodedText);
         if (res.succes) {
           box.className = res.dejaScanne ? 'warn' : 'ok';
-          const badgeStatut = res.dejaScanne ? '⚠️ Déjà enregistré présent' : '✅ Présence validée';
+          const badgeStatut = res.dejaScanne
+            ? '⚠️ Déjà enregistré présent'
+            : (res.attestationEnvoyee ? '✅ Présence validée & Attestation Qualiopi envoyée !' : '✅ Présence validée');
           box.innerHTML = `
             <div style="font-size:18px; font-weight:800;">${res.nom}</div>
             <div style="font-size:13px; color:#E2E8F0;">${res.etablissement}</div>
