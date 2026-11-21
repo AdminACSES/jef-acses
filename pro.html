@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Accréditation Exposants & Invités — ACSES JEF</title>
+  <style>
+    :root { --primary: #D97706; --bg: #F1F5F9; --card: #FFFFFF; --border: #CBD5E1; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: #1E293B; margin: 0; padding: 20px 12px; }
+    .container { max-width: 680px; margin: 0 auto; background: var(--card); border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.06); overflow: hidden; }
+    .header { background: linear-gradient(135deg, #1E293B, #0F172A); color: #FFF; padding: 28px 24px; text-align: center; }
+    .header h1 { margin: 0 0 8px; font-size: 22px; color: #FBBF24; }
+    .header p { margin: 0; font-size: 14px; opacity: 0.9; }
+    .nav-bar { background: #FEF3C7; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #92400E; }
+    .nav-bar a { color: #0066B3; font-weight: 700; text-decoration: none; }
+    form { padding: 24px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+    .full { grid-column: 1 / -1; }
+    label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; color: #334155; }
+    input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+    button[type="submit"] { width: 100%; margin-top: 22px; padding: 15px; background: #0F172A; color: #FFF; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; }
+    button[type="submit"]:disabled { background: #94A3B8; }
+    #confirmation { display: none; padding: 32px 24px; text-align: center; }
+    .badge-ok { background: #DCFCE7; color: #166534; padding: 16px; border-radius: 12px; border: 1px solid #86EFAC; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Accréditation Exposants & Invités</h1>
+    <p>Journées d'Études et de Formation ACSES (Hors parcours formation Qualiopi)</p>
+  </div>
+  <div class="nav-bar">
+    <span>🤝 Espace Partenaires, Exposants & Invités</span>
+    <a href="index.html">Inscription Stagiaire (Qualiopi) →</a>
+  </div>
+
+  <form id="form-pro">
+    <div class="grid">
+      <div>
+        <label>Statut d'accréditation *</label>
+        <select id="profil" required>
+          <option value="Exposant">Exposant / Partenaire</option>
+          <option value="Invité">Invité(e) / Intervenant(e)</option>
+        </select>
+      </div>
+      <div>
+        <label>Restauration sur place *</label>
+        <select id="optionRepas" required>
+          <option value="OUI">OUI — Présent aux repas</option>
+          <option value="NON">NON — Sans repas</option>
+        </select>
+      </div>
+      <div>
+        <label>Civilité *</label>
+        <select id="civilite" required>
+          <option value="Madame">Madame</option>
+          <option value="Monsieur">Monsieur</option>
+        </select>
+      </div>
+      <div>
+        <label>Fonction *</label>
+        <input type="text" id="fonction" required placeholder="Ex: Directeur commercial, Intervenant...">
+      </div>
+      <div>
+        <label>Nom *</label>
+        <input type="text" id="nom" required>
+      </div>
+      <div>
+        <label>Prénom *</label>
+        <input type="text" id="prenom" required>
+      </div>
+      <div>
+        <label>Email professionnel *</label>
+        <input type="email" id="email" required>
+      </div>
+      <div>
+        <label>Téléphone portable *</label>
+        <input type="tel" id="telephone" required>
+      </div>
+      <div class="full">
+        <label>Société / Organisme représenté *</label>
+        <input type="text" id="organisme" required>
+      </div>
+      <div>
+        <label>N° de Stand ou Thème d'intervention</label>
+        <input type="text" id="detailPresence" placeholder="Ex: Stand B4 ou Table ronde">
+      </div>
+      <div>
+        <label>Régime alimentaire / Allergies</label>
+        <input type="text" id="regimeAlimentaire" value="Standard">
+      </div>
+      <div class="full">
+        <label>Informations logistiques complémentaires</label>
+        <textarea id="commentaires" rows="2"></textarea>
+      </div>
+    </div>
+
+    <button type="submit" id="btn-submit">Valider ma demande d'accréditation</button>
+  </form>
+
+  <div id="confirmation">
+    <div class="badge-ok">
+      <h2 style="margin:0 0 8px;">✅ Accréditation enregistrée !</h2>
+      <p style="margin:0;" id="msg-conf"></p>
+    </div>
+    <p style="font-size:14px; color:#475569;">Vous venez de recevoir un email de confirmation avec le programme des journées.<br>Votre badge d'accès nominatif vous sera envoyé par email avant l'événement.</p>
+  </div>
+</div>
+
+<script>
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwxg1EBEA5RBxH56fCz_tQhRMR1dCyqFh8nr9tcQzHiNrrSzfA08RYZlrm0Y53suO4OQw/exec";
+
+  document.getElementById("form-pro").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("btn-submit");
+    btn.disabled = true;
+    btn.textContent = "⏳ Enregistrement en cours...";
+
+    const data = {
+      profil: document.getElementById("profil").value,
+      optionRepas: document.getElementById("optionRepas").value,
+      civilite: document.getElementById("civilite").value,
+      fonction: document.getElementById("fonction").value,
+      nom: document.getElementById("nom").value,
+      prenom: document.getElementById("prenom").value,
+      email: document.getElementById("email").value,
+      telephone: document.getElementById("telephone").value,
+      organisme: document.getElementById("organisme").value,
+      detailPresence: document.getElementById("detailPresence").value,
+      regimeAlimentaire: document.getElementById("regimeAlimentaire").value,
+      commentaires: document.getElementById("commentaires").value
+    };
+
+    try {
+      const response = await fetch(SCRIPT_URL, {
+        method: "POST",
+        credentials: "omit",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "inscrire_pro", data: data })
+      });
+      const res = await response.json();
+      if (res.succes) {
+        document.getElementById("form-pro").style.display = "none";
+        document.getElementById("confirmation").style.display = "block";
+        document.getElementById("msg-conf").textContent = `Accréditation n° ${res.id} confirmée.`;
+      } else {
+        alert("Erreur : " + res.message);
+        btn.disabled = false;
+        btn.textContent = "Valider ma demande d'accréditation";
+      }
+    } catch (err) {
+      alert("Erreur réseau : " + err.message);
+      btn.disabled = false;
+      btn.textContent = "Valider ma demande d'accréditation";
+    }
+  });
+</script>
+</body>
+</html>
