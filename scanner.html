@@ -21,7 +21,7 @@
 </head>
 <body>
   <h2>📷 Accueil & Émargement ACSES JEF</h2>
-  <p class="sub">Scannez le QR Code du badge (1er scan = présence globale validée)</p>
+  <p class="sub">Scannez le QR Code du badge (Stagiaires, Bureau, Exposants & Invités)</p>
   <div id="reader"></div>
   <div id="resultat"></div>
 
@@ -29,15 +29,14 @@
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwxg1EBEA5RBxH56fCz_tQhRMR1dCyqFh8nr9tcQzHiNrrSzfA08RYZlrm0Y53suO4OQw/exec";
     let pauseScan = false;
 
-    async function envoyerScanSansCookies(qrText) {
-      const response = await fetch(SCRIPT_URL, {
-        method: "POST",
+    async function envoyerScan(qrText) {
+      const url = `${SCRIPT_URL}?action=scan&qr=${encodeURIComponent(qrText)}`;
+      const response = await fetch(url, {
+        method: "GET",
         credentials: "omit",
-        redirect: "follow",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "scan", qr: qrText })
+        redirect: "follow"
       });
-      if (!response.ok) throw new Error("Erreur HTTP " + response.status);
+      if (!response.ok) throw new Error("HTTP " + response.status);
       return await response.json();
     }
 
@@ -50,10 +49,10 @@
       box.innerHTML = '⏳ Vérification du badge...';
 
       try {
-        const res = await envoyerScanSansCookies(decodedText);
+        const res = await envoyerScan(decodedText);
         if (res.succes) {
           box.className = res.dejaScanne ? 'warn' : 'ok';
-          const badgeStatut = res.dejaScanne ? '⚠️ Déjà enregistré présent' : '✅ Présence globale validée (10h)';
+          const badgeStatut = res.dejaScanne ? '⚠️ Déjà enregistré présent' : '✅ Présence validée';
           box.innerHTML = `
             <div style="font-size:18px; font-weight:800;">${res.nom}</div>
             <div style="font-size:13px; color:#E2E8F0;">${res.etablissement}</div>
@@ -67,7 +66,7 @@
         }
       } catch (err) {
         box.className = 'err';
-        box.innerHTML = `<strong>❌ Erreur réseau :</strong> ${err.message}`;
+        box.innerHTML = `<strong>❌ Erreur connexion :</strong> ${err.message}`;
       }
       setTimeout(() => { pauseScan = false; }, 2500);
     }
