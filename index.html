@@ -29,9 +29,19 @@
     button[type="submit"]:disabled { background: #94A3B8; cursor: not-allowed; }
     #confirmation { display: none; padding: 32px 24px; text-align: center; }
     .badge-ok { background: #DCFCE7; color: #166534; padding: 16px; border-radius: 12px; border: 1px solid #86EFAC; margin-bottom: 16px; }
+    #overlay-loader { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.88); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; color: #FFF; text-align: center; padding: 24px; }
+    .spinner { width: 56px; height: 56px; border: 5px solid rgba(255,255,255,0.25); border-top-color: #38BDF8; border-radius: 50%; animation: spin 0.9s linear infinite; margin-bottom: 18px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
+
+<div id="overlay-loader">
+  <div class="spinner"></div>
+  <div style="font-size:19px; font-weight:700; margin-bottom:8px;">Enregistrement de votre dossier en cours...</div>
+  <div style="font-size:14px; color:#CBD5E1; max-width:420px;">Génération de vos documents PDF Qualiopi (Convention, Fiche, Programme, CGV) et envoi sur votre boîte email. Merci de ne pas fermer cette page.</div>
+</div>
+
 <div class="container">
   <div class="header">
     <h1 id="titre-event">Inscription Formation — ACSES JEF</h1>
@@ -218,8 +228,9 @@
   document.getElementById("form-stagiaire").addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = document.getElementById("btn-submit");
+    const loader = document.getElementById("overlay-loader");
     btn.disabled = true;
-    btn.textContent = "⏳ Enregistrement et génération de votre dossier Qualiopi...";
+    loader.style.display = "flex";
 
     const data = {
       typologie: document.getElementById("typologie").value,
@@ -255,6 +266,7 @@
         body: JSON.stringify({ action: "inscrire_stagiaire", data: data })
       });
       const res = await response.json();
+      loader.style.display = "none";
       if (res.succes) {
         document.getElementById("form-stagiaire").style.display = "none";
         document.getElementById("confirmation").style.display = "block";
@@ -262,12 +274,11 @@
       } else {
         alert("Erreur : " + res.message);
         btn.disabled = false;
-        btn.textContent = "Valider mon inscription";
       }
     } catch (err) {
+      loader.style.display = "none";
       alert("Erreur réseau : " + err.message);
       btn.disabled = false;
-      btn.textContent = "Valider mon inscription";
     }
   });
 </script>
