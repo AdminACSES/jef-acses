@@ -3,13 +3,273 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inscription — Journées d'Études et de Formation ACSES</title>
+  <title>Inscription Formation — Journées d'Études et de Formation ACSES</title>
   <style>
-    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #F1F5F9; }
-    iframe { border: none; width: 100%; height: 100%; display: block; }
+    :root { --primary: #0066B3; --dark: #0F172A; --bg: #F1F5F9; --card: #FFFFFF; --border: #CBD5E1; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: #1E293B; margin: 0; padding: 20px 12px; }
+    .container { max-width: 780px; margin: 0 auto; background: var(--card); border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.06); overflow: hidden; }
+    .header { background: linear-gradient(135deg, #0B3B60, #0066B3); color: #FFF; padding: 28px 24px; text-align: center; }
+    .header h1 { margin: 0 0 8px; font-size: 22px; }
+    .header p { margin: 0; font-size: 14px; opacity: 0.9; }
+    .nav-bar { background: #E2E8F0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+    .nav-bar a { color: #0066B3; font-weight: 700; text-decoration: none; }
+    form { padding: 24px; }
+    .section-title { font-size: 16px; font-weight: 700; color: var(--primary); border-bottom: 2px solid #E2E8F0; padding-bottom: 6px; margin: 24px 0 14px; }
+    .section-title:first-child { margin-top: 0; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+    .full { grid-column: 1 / -1; }
+    label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; color: #334155; }
+    input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: #FFF; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,102,179,0.15); }
+    .tarif-box { background: #F8FAFC; border: 2px solid #0066B3; border-radius: 12px; padding: 16px; margin-top: 20px; display: flex; justify-content: space-between; align-items: center; }
+    .tarif-val { font-size: 22px; font-weight: 800; color: #0066B3; }
+    button[type="submit"] { width: 100%; margin-top: 22px; padding: 15px; background: #0066B3; color: #FFF; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; }
+    button[type="submit"]:disabled { background: #94A3B8; cursor: not-allowed; }
+    #confirmation { display: none; padding: 32px 24px; text-align: center; }
+    .badge-ok { background: #DCFCE7; color: #166534; padding: 16px; border-radius: 12px; border: 1px solid #86EFAC; margin-bottom: 16px; }
   </style>
 </head>
 <body>
-  <iframe src="https://script.google.com/macros/s/AKfycbwxg1EBEA5RBxH56fCz_tQhRMR1dCyqFh8nr9tcQzHiNrrSzfA08RYZlrm0Y53suO4OQw/exec"></iframe>
+<div class="container">
+  <div class="header">
+    <h1 id="titre-event">Inscription Formation — ACSES JEF</h1>
+    <p id="sous-titre-event">Parcours Stagiaires & Membres du Bureau (Dossier Qualiopi)</p>
+  </div>
+  <div class="nav-bar">
+    <span>🎓 Espace Formation Qualiopi</span>
+    <a href="pro.html">Vous êtes Exposant ou Invité ? Cliquez ici →</a>
+  </div>
+
+  <form id="form-stagiaire">
+    <div class="section-title">1. Formule & Option Restauration</div>
+    <div class="grid">
+      <div>
+        <label>Profil du participant *</label>
+        <select id="typologie" required onchange="calculerTarif()">
+          <option value="Stagiaire Adhérent">Stagiaire Adhérent ACSES</option>
+          <option value="Stagiaire Non-Adhérent">Stagiaire Non-Adhérent</option>
+          <option value="Stagiaire - Membre du Bureau">Stagiaire — Membre du Bureau ACSES</option>
+        </select>
+      </div>
+      <div>
+        <label>Forfait 3 Repas (Déjeuners + Dîner de gala) *</label>
+        <select id="optionRepas" required onchange="calculerTarif()">
+          <option value="OUI">OUI — Avec forfait 3 repas</option>
+          <option value="NON">NON — Sans repas</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-title">2. Identité du Stagiaire</div>
+    <div class="grid">
+      <div>
+        <label>Civilité *</label>
+        <select id="civilite" required>
+          <option value="Madame">Madame</option>
+          <option value="Monsieur">Monsieur</option>
+        </select>
+      </div>
+      <div>
+        <label>Fonction occupée *</label>
+        <input type="text" id="fonction" required placeholder="Ex: Responsable restauration, Directeur...">
+      </div>
+      <div>
+        <label>Nom *</label>
+        <input type="text" id="nom" required>
+      </div>
+      <div>
+        <label>Prénom *</label>
+        <input type="text" id="prenom" required>
+      </div>
+      <div>
+        <label>Email personnel / direct du participant *</label>
+        <input type="email" id="emailParticipant" required>
+      </div>
+      <div>
+        <label>Téléphone portable *</label>
+        <input type="tel" id="telephoneParticipant" required>
+      </div>
+      <div class="full">
+        <label>Adresse postale du participant</label>
+        <input type="text" id="adresseParticipant">
+      </div>
+    </div>
+
+    <div class="section-title">3. Établissement & Financement (Convention Qualiopi)</div>
+    <div class="grid">
+      <div class="full">
+        <label>Nom de l'établissement / Collectivité / Entreprise *</label>
+        <input type="text" id="etablissement" required>
+      </div>
+      <div>
+        <label>N° SIRET *</label>
+        <input type="text" id="siretClient" required>
+      </div>
+      <div>
+        <label>Code NAF / APE</label>
+        <input type="text" id="codeNaf">
+      </div>
+      <div>
+        <label>Effectif salariés</label>
+        <input type="text" id="nbSalaries">
+      </div>
+      <div>
+        <label>Représentant légal (Signataire convention) *</label>
+        <input type="text" id="responsableEtablissement" required>
+      </div>
+      <div class="full">
+        <label>Adresse de facturation de l'établissement *</label>
+        <input type="text" id="adresseEtablissement" required>
+      </div>
+      <div>
+        <label>Contact Service Formation / RH</label>
+        <input type="text" id="contactAdmin">
+      </div>
+      <div>
+        <label>Email Service Formation (recevra la convention & facture)</label>
+        <input type="email" id="emailServiceFormation">
+      </div>
+      <div>
+        <label>Mode de financement *</label>
+        <select id="modeFinancement" required>
+          <option value="Établissement / Employeur">Établissement / Employeur</option>
+          <option value="OPCO / ANFH / CNFPT">OPCO / ANFH / CNFPT</option>
+          <option value="Prise en charge ACSES (Bureau)">Prise en charge ACSES (Membre du Bureau)</option>
+          <option value="Financement individuel">Financement individuel</option>
+        </select>
+      </div>
+      <div>
+        <label>Nom OPCO / N° Bon de commande (si applicable)</label>
+        <input type="text" id="nomOpco">
+      </div>
+    </div>
+
+    <div class="section-title">4. Positionnement Pédagogique & Besoins Spécifiques (Qualiopi)</div>
+    <div class="grid">
+      <div>
+        <label>Niveau de connaissance préalable</label>
+        <select id="niveauStagiaire">
+          <option value="Débutant / Découverte">Débutant / Découverte</option>
+          <option value="Intermédiaire / Pratique régulière">Intermédiaire / Pratique régulière</option>
+          <option value="Confirmé / Expert">Confirmé / Expert</option>
+        </select>
+      </div>
+      <div>
+        <label>Régime alimentaire / Allergies</label>
+        <input type="text" id="regimeAlimentaire" value="Standard">
+      </div>
+      <div class="full">
+        <label>Objectifs professionnels attendus de la formation</label>
+        <textarea id="objectifFormation" rows="2"></textarea>
+      </div>
+      <div class="full">
+        <label>Situation de handicap nécessitant une adaptation</label>
+        <input type="text" id="situationHandicap" value="Aucun">
+      </div>
+    </div>
+
+    <div class="tarif-box">
+      <div>
+        <div style="font-weight:700; font-size:15px;">Montant Total TTC</div>
+        <div style="font-size:12px; color:#64748B;">Convention & dossier Qualiopi envoyés immédiatement par email</div>
+      </div>
+      <div class="tarif-val" id="affichage-total">310 €</div>
+    </div>
+
+    <button type="submit" id="btn-submit">Valider mon inscription & Recevoir mon dossier Qualiopi</button>
+  </form>
+
+  <div id="confirmation">
+    <div class="badge-ok">
+      <h2 style="margin:0 0 8px;">✅ Inscription enregistrée !</h2>
+      <p style="margin:0;" id="msg-conf"></p>
+    </div>
+    <p style="font-size:14px; color:#475569;">Votre dossier réglementaire Qualiopi (Convention, Programme, CGV, Règlement intérieur) vient d'être envoyé sur votre boîte email.<br>Votre badge d'accès nominatif vous sera adressé après validation de votre dossier.</p>
+  </div>
+</div>
+
+<script>
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwxg1EBEA5RBxH56fCz_tQhRMR1dCyqFh8nr9tcQzHiNrrSzfA08RYZlrm0Y53suO4OQw/exec";
+  let tarifs = { tarifAdhForm: 250, tarifAdhRepas: 60, tarifNonAdhForm: 350, tarifNonAdhRepas: 60, tarifBureauForm: 0, tarifBureauRepas: 0 };
+
+  window.addEventListener("DOMContentLoaded", async () => {
+    try {
+      const r = await fetch(`${SCRIPT_URL}?action=params`, { credentials: "omit" });
+      const p = await r.json();
+      tarifs = Object.assign(tarifs, p);
+      if (p.intitule) document.getElementById("titre-event").textContent = p.intitule;
+      if (p.dates || p.lieu) document.getElementById("sous-titre-event").textContent = `${p.dates} — ${p.lieu}`;
+      calculerTarif();
+    } catch (e) { calculerTarif(); }
+  });
+
+  function calculerTarif() {
+    const typo = document.getElementById("typologie").value;
+    const repas = document.getElementById("optionRepas").value === "OUI";
+    let total = 0;
+    if (typo === "Stagiaire Adhérent") total = tarifs.tarifAdhForm + (repas ? tarifs.tarifAdhRepas : 0);
+    else if (typo === "Stagiaire Non-Adhérent") total = tarifs.tarifNonAdhForm + (repas ? tarifs.tarifNonAdhRepas : 0);
+    else if (typo === "Stagiaire - Membre du Bureau") total = tarifs.tarifBureauForm + (repas ? tarifs.tarifBureauRepas : 0);
+    document.getElementById("affichage-total").textContent = total + " €";
+  }
+
+  document.getElementById("form-stagiaire").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("btn-submit");
+    btn.disabled = true;
+    btn.textContent = "⏳ Enregistrement et génération de votre dossier Qualiopi...";
+
+    const data = {
+      typologie: document.getElementById("typologie").value,
+      optionRepas: document.getElementById("optionRepas").value,
+      civilite: document.getElementById("civilite").value,
+      fonction: document.getElementById("fonction").value,
+      nom: document.getElementById("nom").value,
+      prenom: document.getElementById("prenom").value,
+      emailParticipant: document.getElementById("emailParticipant").value,
+      telephoneParticipant: document.getElementById("telephoneParticipant").value,
+      adresseParticipant: document.getElementById("adresseParticipant").value,
+      etablissement: document.getElementById("etablissement").value,
+      siretClient: document.getElementById("siretClient").value,
+      codeNaf: document.getElementById("codeNaf").value,
+      nbSalaries: document.getElementById("nbSalaries").value,
+      responsableEtablissement: document.getElementById("responsableEtablissement").value,
+      adresseEtablissement: document.getElementById("adresseEtablissement").value,
+      contactAdmin: document.getElementById("contactAdmin").value,
+      emailServiceFormation: document.getElementById("emailServiceFormation").value,
+      modeFinancement: document.getElementById("modeFinancement").value,
+      nomOpco: document.getElementById("nomOpco").value,
+      niveauStagiaire: document.getElementById("niveauStagiaire").value,
+      regimeAlimentaire: document.getElementById("regimeAlimentaire").value,
+      objectifFormation: document.getElementById("objectifFormation").value,
+      situationHandicap: document.getElementById("situationHandicap").value
+    };
+
+    try {
+      const response = await fetch(SCRIPT_URL, {
+        method: "POST",
+        credentials: "omit",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "inscrire_stagiaire", data: data })
+      });
+      const res = await response.json();
+      if (res.succes) {
+        document.getElementById("form-stagiaire").style.display = "none";
+        document.getElementById("confirmation").style.display = "block";
+        document.getElementById("msg-conf").textContent = `Dossier n° ${res.id} enregistré (${res.total} € TTC).`;
+      } else {
+        alert("Erreur : " + res.message);
+        btn.disabled = false;
+        btn.textContent = "Valider mon inscription";
+      }
+    } catch (err) {
+      alert("Erreur réseau : " + err.message);
+      btn.disabled = false;
+      btn.textContent = "Valider mon inscription";
+    }
+  });
+</script>
 </body>
 </html>
