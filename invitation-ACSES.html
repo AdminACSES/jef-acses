@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invitation Visiteur Stands — 33èmes JEF ACSES 2027</title>
+  <style>
+    :root { --vert: #059669; --fonce: #0F172A; }
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { margin: 0; background: #ECFDF5; color: #1E293B; padding: 20px 12px; }
+    .container { max-width: 680px; margin: 0 auto; background: #fff; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); overflow: hidden; }
+    .header { background: #fff; padding: 22px 28px; border-bottom: 4px solid var(--vert); display: flex; align-items: center; gap: 20px; }
+    .header img { height: 70px; }
+    form { padding: 28px; }
+    .conditions { background: #FEF2F2; border-left: 4px solid #DC2626; padding: 14px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem; color: #7F1D1D; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    @media(max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+    label { display: block; font-size: 0.86rem; font-weight: 600; margin-bottom: 5px; }
+    input, select { width: 100%; padding: 10px 12px; border: 1.5px solid #CBD5E1; border-radius: 8px; font-size: 0.95rem; }
+    button { width: 100%; background: var(--vert); color: #fff; border: none; padding: 15px; font-size: 1.05rem; font-weight: 700; border-radius: 10px; cursor: pointer; margin-top: 10px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <img src="logo-acses.png" alt="Logo ACSES">
+    <div>
+      <h1 style="margin:0; font-size:1.35rem; color:var(--fonce);">Invitation Visiteur — Espace Stands & Partenaires</h1>
+      <p style="margin:4px 0 0; color:#475569;">33èmes JEF ACSES • 10 et 11 juin 2027 — BIARRITZ</p>
+    </div>
+  </div>
+
+  <form id="form-invite">
+    <div class="conditions">
+      <strong>Conditions de cette invitation :</strong><br>
+      Cette accréditation gratuite vous donne accès <strong>uniquement à l'espace exposants (stands) et aux rencontres avec nos partenaires</strong>. Elle ne comprend ni l'accès aux conférences Qualiopi ni la restauration (sans repas).
+    </div>
+
+    <div class="grid">
+      <div>
+        <label>Civilité *</label>
+        <select id="civilite"><option value="M.">M.</option><option value="Mme">Mme</option></select>
+      </div>
+      <div>
+        <label>Fonction *</label>
+        <input type="text" id="fonction" required>
+      </div>
+      <div>
+        <label>Nom *</label>
+        <input type="text" id="nom" required>
+      </div>
+      <div>
+        <label>Prénom *</label>
+        <input type="text" id="prenom" required>
+      </div>
+      <div>
+        <label>Établissement / Société *</label>
+        <input type="text" id="organisme" required>
+      </div>
+      <div>
+        <label>Téléphone *</label>
+        <input type="tel" id="telephone" required>
+      </div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label>Email professionnel (réception du badge visiteur) *</label>
+      <input type="email" id="email" required>
+    </div>
+
+    <button type="submit" id="btn-submit">Demander mon badge Visiteur Stands</button>
+  </form>
+
+  <div id="resultat" style="display:none; padding:30px; text-align:center;"></div>
+</div>
+
+<script>
+  const API_URL = "https://script.google.com/macros/s/AKfycbz8t24mM38r5oJ_G2y0m8sI6yG97k_pA0o9B1o5E7_rN51m63c84n/exec";
+
+  document.getElementById("form-invite").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const btn = document.getElementById("btn-submit");
+    btn.disabled = true; btn.textContent = "Création de votre invitation...";
+    const payload = {
+      action: "inscrire_invite_stands",
+      data: {
+        civilite: document.getElementById("civilite").value,
+        fonction: document.getElementById("fonction").value,
+        nom: document.getElementById("nom").value,
+        prenom: document.getElementById("prenom").value,
+        organisme: document.getElementById("organisme").value,
+        telephone: document.getElementById("telephone").value,
+        email: document.getElementById("email").value
+      }
+    };
+    const res = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+    const json = await res.json();
+    if (json.succes) {
+      document.getElementById("form-invite").style.display = "none";
+      const r = document.getElementById("resultat");
+      r.style.display = "block";
+      r.innerHTML = `<h2 style="color:#059669;">✅ Invitation Visiteur enregistrée (${json.id})</h2><p>Votre badge d'accès Stands (sans repas) vous sera envoyé par email avant l'événement.</p>`;
+    } else {
+      alert("Erreur : " + json.message);
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
