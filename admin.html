@@ -5,47 +5,103 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cockpit Gestion JEF ACSES 2027</title>
   <style>
-    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
-    body { margin: 0; background: #F1F5F9; color: #0F172A; }
-    .topbar { background: #fff; padding: 14px 24px; border-bottom: 3px solid #0066B3; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
-    .topbar-left { display: flex; align-items: center; gap: 14px; }
-    .topbar img { height: 52px; }
-    .legende { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 24px; background: #fff; border-bottom: 1px solid #E2E8F0; font-size: 0.82rem; font-weight: 600; }
-    .tag { padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); }
-    .c-bleu { background: #DBEAFE; color: #1E3A8A; }
-    .c-bureau { background: #E2E8F0; color: #0F172A; border-color: #64748B; }
-    .c-orange { background: #FEF3C7; color: #92400E; }
-    .c-vert { background: #DCFCE7; color: #065F46; }
-    .c-violet { background: #EDE9FE; color: #5B21B6; }
-    .main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
-    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
-    input.search { padding: 9px 14px; border: 1.5px solid #CBD5E1; border-radius: 8px; width: 300px; }
-    .btn { padding: 8px 12px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; font-size: 0.82rem; margin: 2px; }
-    .btn-vip { background: #7C3AED; color: #fff; }
-    .btn-valider { background: #059669; color: #fff; }
-    .btn-paye { background: #0284C7; color: #fff; }
-    .btn-bureau { background: #1E293B; color: #FBBF24; }
-    .btn-badge { background: #D97706; color: #fff; }
-    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 28px; }
-    th { background: #0F172A; color: #fff; text-align: left; padding: 11px 12px; font-size: 0.82rem; }
-    td { padding: 10px 12px; border-bottom: 1px solid #E2E8F0; font-size: 0.88rem; }
-    #login-box { max-width: 380px; margin: 90px auto; background: #fff; padding: 30px; border-radius: 14px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-    #modal-vip { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.75); align-items: center; justify-content: center; z-index: 999; padding: 16px; }
-    .modal-card { background: #fff; max-width: 520px; width: 100%; padding: 24px; border-radius: 14px; }
-    .modal-card input, .modal-card select { width: 100%; padding: 9px; margin: 5px 0 12px; border: 1px solid #CBD5E1; border-radius: 7px; }
+    :root {
+      --bleu: #0066B3; --bleu-fonce: #0B3B60; --vert: #059669;
+      --orange: #D97706; --violet: #7C3AED; --rouge: #DC2626;
+      --gris-fond: #F1F5F9; --bordure: #E2E8F0; --texte: #0F172A;
+    }
+    * { box-sizing: border-box; font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; }
+    body { margin: 0; background: var(--gris-fond); color: var(--texte); }
+
+    /* HEADER */
+    .topbar { background: #fff; padding: 14px 28px; border-bottom: 3px solid var(--bleu); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); }
+    .topbar-left { display: flex; align-items: center; gap: 16px; }
+    .topbar img { height: 54px; }
+    .topbar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* KPI CARDS */
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; padding: 20px 28px 6px; max-width: 1560px; margin: 0 auto; }
+    .kpi-card { background: #fff; padding: 16px 18px; border-radius: 12px; border: 1px solid var(--bordure); box-shadow: 0 2px 6px rgba(0,0,0,0.03); }
+    .kpi-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: #64748B; letter-spacing: 0.03em; }
+    .kpi-val { font-size: 1.7rem; font-weight: 800; color: var(--bleu-fonce); margin-top: 4px; }
+    .kpi-sub { font-size: 0.8rem; color: #475569; margin-top: 2px; }
+
+    /* FILTRES & LÉGENDE */
+    .filter-bar { max-width: 1560px; margin: 14px auto 0; padding: 0 28px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pill { padding: 6px 12px; border-radius: 99px; font-size: 0.8rem; font-weight: 700; cursor: pointer; border: 1.5px solid transparent; transition: 0.15s; background: #fff; color: #334155; border-color: #CBD5E1; }
+    .pill.active { background: var(--bleu-fonce); color: #fff; border-color: var(--bleu-fonce); }
+    .search-box { position: relative; }
+    .search-box input { padding: 9px 14px 9px 36px; border: 1.5px solid #CBD5E1; border-radius: 10px; width: 320px; font-size: 0.9rem; background: #fff; }
+    .search-box::before { content: "🔍"; position: absolute; left: 11px; top: 9px; font-size: 0.9rem; }
+
+    /* TABLEAUX */
+    .main { padding: 16px 28px 40px; max-width: 1560px; margin: 0 auto; }
+    .section-title { font-size: 1.08rem; font-weight: 800; color: var(--bleu-fonce); margin: 22px 0 12px; display: flex; align-items: center; gap: 8px; }
+    .table-wrap { background: #fff; border-radius: 12px; border: 1px solid var(--bordure); box-shadow: 0 4px 16px rgba(15,23,42,0.05); overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 1050px; }
+    th { background: #0F172A; color: #F8FAFC; text-align: left; padding: 12px 14px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    td { padding: 12px 14px; border-bottom: 1px solid #E2E8F0; font-size: 0.88rem; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { filter: brightness(0.98); }
+
+    /* COULEURS LIGNES PAR PROFIL */
+    tr.row-stag { background: #F8FAFC; border-left: 5px solid var(--bleu); }
+    tr.row-bureau { background: #F1F5F9; border-left: 5px solid #0F172A; }
+    tr.row-expo { background: #FFFBEB; border-left: 5px solid var(--orange); }
+    tr.row-stands { background: #F0FDF4; border-left: 5px solid var(--vert); }
+    tr.row-vip { background: #F5F3FF; border-left: 5px solid var(--violet); }
+
+    /* BADGES & PILLS */
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; white-space: nowrap; }
+    .b-step1 { background: #FEF3C7; color: #92400E; }
+    .b-step2 { background: #E0F2FE; color: #075985; }
+    .b-step3 { background: #DCFCE7; color: #166534; }
+    .b-step4 { background: #059669; color: #fff; }
+    .b-bureau { background: #0F172A; color: #FBBF24; }
+    .b-repas-oui { background: #DCFCE7; color: #065F46; }
+    .b-repas-non { background: #FEE2E2; color: #991B1B; }
+
+    /* BOUTONS D'ACTION PROPRES */
+    .actions-grid { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+    .btn { padding: 6px 10px; border-radius: 7px; border: 1px solid transparent; font-weight: 700; cursor: pointer; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; transition: 0.15s; white-space: nowrap; }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 2px 5px rgba(0,0,0,0.12); }
+    .btn-primary { background: var(--bleu); color: #fff; }
+    .btn-success { background: var(--vert); color: #fff; }
+    .btn-warning { background: var(--orange); color: #fff; }
+    .btn-vip { background: var(--violet); color: #fff; padding: 9px 14px; font-size: 0.85rem; }
+    .btn-dark { background: #1E293B; color: #FBBF24; }
+    .btn-outline { background: #fff; color: #334155; border-color: #CBD5E1; }
+    .btn-danger { background: #FEE2E2; color: #B91C1C; border-color: #FECACA; }
+    .btn-danger:hover { background: #DC2626; color: #fff; }
+
+    /* LOGIN & MODALS */
+    #login-box { max-width: 390px; margin: 90px auto; background: #fff; padding: 34px; border-radius: 16px; text-align: center; box-shadow: 0 12px 30px rgba(15,23,42,0.1); }
+    #modal-vip, #loader-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.75); align-items: center; justify-content: center; z-index: 9999; padding: 16px; }
+    .modal-card { background: #fff; max-width: 500px; width: 100%; padding: 26px; border-radius: 14px; box-shadow: 0 20px 40px rgba(0,0,0,0.25); }
+    .modal-card input, .modal-card select { width: 100%; padding: 10px; margin: 5px 0 12px; border: 1.5px solid #CBD5E1; border-radius: 8px; }
+    .spinner { width: 46px; height: 46px; border: 4px solid rgba(255,255,255,0.25); border-top-color: #FBBF24; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
 
+<div id="loader-overlay">
+  <div style="text-align:center; color:#fff;">
+    <div class="spinner"></div>
+    <div id="loader-text" style="font-weight:700; font-size:1.05rem;">Traitement en cours...</div>
+  </div>
+</div>
+
 <div id="login-box">
-  <img src="logo-acses.png" alt="Logo ACSES" style="height:70px; margin-bottom:12px;">
-  <h2 style="margin:0 0 8px;">Cockpit Bureau ACSES</h2>
-  <p style="color:#64748B; font-size:0.9rem;">Accès réservé aux membres du Bureau</p>
+  <img src="logo-acses.png" alt="Logo ACSES" style="height:74px; margin-bottom:14px;">
+  <h2 style="margin:0 0 6px; color:var(--bleu-fonce);">Cockpit Bureau ACSES</h2>
+  <p style="color:#64748B; font-size:0.9rem; margin-bottom:20px;">33èmes JEF 2027 • Accès sécurisé</p>
   <form onsubmit="event.preventDefault(); chargerCockpit();">
-    <input type="password" id="pin-input" placeholder="Code d'accès" autocomplete="off" required style="width:100%; padding:11px; border:1.5px solid #CBD5E1; border-radius:8px; text-align:center; font-size:1.1rem; margin-bottom:12px;">
-    <button type="submit" id="btn-login" class="btn btn-paye" style="width:100%; padding:12px;">Accéder au tableau de bord</button>
+    <input type="password" id="pin-input" placeholder="Code d'accès Bureau" autocomplete="off" required style="width:100%; padding:12px; border:1.5px solid #CBD5E1; border-radius:9px; text-align:center; font-size:1.1rem; margin-bottom:14px;">
+    <button type="submit" id="btn-login" class="btn btn-primary" style="width:100%; justify-content:center; padding:13px; font-size:0.95rem;">Accéder au Cockpit</button>
   </form>
-  <div id="login-err" style="color:#DC2626; font-size:0.86rem; margin-top:10px; font-weight:600;"></div>
+  <div id="login-err" style="color:#DC2626; font-size:0.86rem; margin-top:12px; font-weight:600;"></div>
 </div>
 
 <div id="app" style="display:none;">
@@ -53,50 +109,76 @@
     <div class="topbar-left">
       <img src="logo-acses.png" alt="Logo ACSES">
       <div>
-        <strong style="font-size:1.15rem;">Cockpit de Gestion — 33èmes JEF ACSES 2027 (Biarritz)</strong><br>
-        <span style="font-size:0.83rem; color:#475569;" id="compteurs">Chargement...</span>
+        <strong style="font-size:1.18rem; color:var(--bleu-fonce);">Cockpit de Gestion — 33èmes JEF ACSES 2027 (Biarritz)</strong><br>
+        <span style="font-size:0.84rem; color:#475569;">10 & 11 juin 2027 • Palais des Congrès Le Bellevue • Pilote Qualiopi & Accueil</span>
       </div>
     </div>
-    <div>
+    <div class="topbar-actions">
+      <a href="scanner.html" target="_blank" class="btn btn-dark" style="padding:9px 14px; font-size:0.85rem;">📷 Ouvrir le Scanner Accueil</a>
       <button class="btn btn-vip" onclick="ouvrirModalVIP()">+ Créer une Invitation VIP Bureau</button>
-      <button class="btn" style="background:#E2E8F0;" onclick="chargerCockpit()">↻ Actualiser</button>
+      <button class="btn btn-outline" style="padding:9px 14px;" onclick="chargerCockpit()">↻ Actualiser</button>
     </div>
   </div>
 
-  <div class="legende">
-    <span class="tag c-bleu">🔵 Stagiaire Formation</span>
-    <span class="tag c-bureau">⚫ Stagiaire — Membre du Bureau</span>
-    <span class="tag c-orange">🟠 Exposant (Repas inclus)</span>
-    <span class="tag c-vert">🟢 Invité Stands LinkedIn (Sans repas)</span>
-    <span class="tag c-violet">🟣 Invité VIP Bureau</span>
+  <!-- COMPTEURS CLÉS -->
+  <div class="kpis" id="kpi-container"></div>
+
+  <!-- BARRE DE FILTRES -->
+  <div class="filter-bar">
+    <div class="pills">
+      <button class="pill active" onclick="appliquerFiltreCategorie('TOUS', this)">Tous les inscrits</button>
+      <button class="pill" onclick="appliquerFiltreCategorie('STAG', this)">🔵 Stagiaires</button>
+      <button class="pill" onclick="appliquerFiltreCategorie('BUREAU', this)">⭐ Membres Bureau</button>
+      <button class="pill" onclick="appliquerFiltreCategorie('ATTENTE', this)">⏳ À valider / Impayés</button>
+      <button class="pill" onclick="appliquerFiltreCategorie('EXPO', this)">🟠 Exposants</button>
+      <button class="pill" onclick="appliquerFiltreCategorie('VIP', this)">🟣 VIP & Invités</button>
+    </div>
+    <div class="search-box">
+      <input type="text" id="filtre" placeholder="Rechercher nom, établissement, ID..." onkeyup="filtrerTables()">
+    </div>
   </div>
 
   <div class="main">
-    <div class="toolbar">
-      <h2 style="margin:0; font-size:1.1rem;">1. Parcours Formation Qualiopi (Stagiaires & Membres du Bureau)</h2>
-      <input type="text" class="search" id="filtre" placeholder="Rechercher un nom, établissement, ID..." onkeyup="filtrerTables()">
+    <div class="section-title">1. Parcours Formation Qualiopi (Stagiaires & Membres du Bureau)</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Dossier</th>
+            <th>Participant & Contact</th>
+            <th>Établissement</th>
+            <th>Repas & Tarif</th>
+            <th>État d'avancement</th>
+            <th>Présence</th>
+            <th>Actions & Documents</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-stag"></tbody>
+      </table>
     </div>
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th><th>Profil</th><th>Participant</th><th>Établissement</th><th>Total</th><th>Statut</th><th>Présent</th><th>Actions rapides</th>
-        </tr>
-      </thead>
-      <tbody id="tbody-stag"></tbody>
-    </table>
 
-    <h2 style="margin:0 0 12px; font-size:1.1rem;">2. Exposants, Invités Stands (LinkedIn) & VIP Bureau</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th><th>Catégorie</th><th>Nom</th><th>Organisme</th><th>Pass / Formule</th><th>Repas</th><th>Statut</th><th>Action</th>
-        </tr>
-      </thead>
-      <tbody id="tbody-pro"></tbody>
-    </table>
+    <div class="section-title">2. Exposants, Invités Stands (LinkedIn) & VIP Bureau</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Réf.</th>
+            <th>Profil & Pass</th>
+            <th>Participant & Contact</th>
+            <th>Société / Organisme</th>
+            <th>Restauration</th>
+            <th>État</th>
+            <th>Présence</th>
+            <th>Actions & Documents</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-pro"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
+<!-- MODAL VIP -->
 <div id="modal-vip">
   <div class="modal-card">
     <h3 style="margin-top:0; color:#5B21B6;">🟣 Créer une Invitation VIP Bureau</h3>
@@ -111,10 +193,12 @@
       <option value="OUI">OUI — 3 repas inclus (Offert Bureau)</option>
       <option value="NON">NON — Sans repas</option>
     </select>
-    <label><input type="checkbox" id="vip-badge-direct" checked style="width:auto;"> Générer et envoyer immédiatement son badge par email</label>
-    <div style="display:flex; gap:10px; margin-top:14px;">
-      <button class="btn btn-vip" style="flex:1;" onclick="creerVIP()">Créer l'invitation VIP</button>
-      <button class="btn" style="background:#E2E8F0;" onclick="document.getElementById('modal-vip').style.display='none'">Annuler</button>
+    <label style="display:flex; align-items:center; gap:8px; margin-top:8px; cursor:pointer;">
+      <input type="checkbox" id="vip-badge-direct" checked style="width:auto; margin:0;"> Générer et envoyer immédiatement son badge par email
+    </label>
+    <div style="display:flex; gap:10px; margin-top:16px;">
+      <button class="btn btn-vip" style="flex:1; justify-content:center;" onclick="creerVIP()">Créer l'invitation VIP</button>
+      <button class="btn btn-outline" onclick="document.getElementById('modal-vip').style.display='none'">Annuler</button>
     </div>
   </div>
 </div>
@@ -122,6 +206,20 @@
 <script>
   const API_URL = "https://script.google.com/macros/s/AKfycbwxg1EBEA5RBxH56fCz_tQhRMR1dCyqFh8nr9tcQzHiNrrSzfA08RYZlrm0Y53suO4OQw/exec";
   let pinActuel = "";
+  let filtreCatActif = "TOUS";
+
+  function setLoader(visible, texte) {
+    document.getElementById("loader-text").textContent = texte || "Traitement en cours...";
+    document.getElementById("loader-overlay").style.display = visible ? "flex" : "none";
+  }
+
+  function formaterBadgeStatut(statut) {
+    const s = String(statut || "");
+    if (s.indexOf("4. Payé") !== -1) return '<span class="badge b-step4">💶 Payé / Soldé</span>';
+    if (s.indexOf("3.") !== -1 || s.indexOf("2. Badge") !== -1) return '<span class="badge b-step3">🎟️ Validé • Badge envoyé</span>';
+    if (s.indexOf("2. Dossier") !== -1) return '<span class="badge b-step2">📄 Dossier complet • Attente conv.</span>';
+    return '<span class="badge b-step1">⏳ Pré-inscrit • Attente RH/Conv.</span>';
+  }
 
   async function chargerCockpit() {
     const btn = document.getElementById("btn-login");
@@ -129,8 +227,7 @@
     pinActuel = document.getElementById("pin-input").value || pinActuel;
     if (!pinActuel) return;
 
-    btn.disabled = true;
-    btn.textContent = "Connexion en cours...";
+    btn.disabled = true; btn.textContent = "Connexion...";
     errBox.textContent = "";
 
     try {
@@ -138,67 +235,152 @@
       const data = await res.json();
       if (!data.succes) {
         errBox.textContent = "❌ " + (data.message || "Code d'accès incorrect");
-        btn.disabled = false;
-        btn.textContent = "Accéder au tableau de bord";
+        btn.disabled = false; btn.textContent = "Accéder au Cockpit";
         return;
       }
 
       document.getElementById("login-box").style.display = "none";
       document.getElementById("app").style.display = "block";
-      document.getElementById("compteurs").textContent = data.stagiaires.length + " Stagiaire(s) Formation • " + data.pros.length + " Exposant(s) / Invité(s)";
 
+      // Calcul KPIs
+      const nbStag = data.stagiaires.length;
+      const nbBureau = data.stagiaires.filter(s => s.estBureau).length;
+      const nbAttente = data.stagiaires.filter(s => String(s.statut).indexOf("1.") !== -1 || String(s.statut).indexOf("2.") !== -1).length;
+      const nbPresents = data.stagiaires.filter(s => s.present).length + data.pros.filter(p => p.present).length;
+      const nbRepas = data.stagiaires.filter(s => String(s.repas).indexOf("OUI") !== -1).length + data.pros.filter(p => String(p.repas).indexOf("OUI") !== -1).length;
+
+      document.getElementById("kpi-container").innerHTML = `
+        <div class="kpi-card"><div class="kpi-title">Stagiaires Formation</div><div class="kpi-val">${nbStag}</div><div class="kpi-sub">dont ${nbBureau} Membre(s) du Bureau</div></div>
+        <div class="kpi-card"><div class="kpi-title">Exposants & Invités</div><div class="kpi-val">${data.pros.length}</div><div class="kpi-sub">Partenaires, Stands & VIP</div></div>
+        <div class="kpi-card"><div class="kpi-title">Dossiers en cours</div><div class="kpi-val" style="color:#D97706;">${nbAttente}</div><div class="kpi-sub">En attente RH ou convention signée</div></div>
+        <div class="kpi-card"><div class="kpi-title">Repas réservés</div><div class="kpi-val" style="color:#059669;">${nbRepas}</div><div class="kpi-sub">Formules 3 repas inclus</div></div>
+        <div class="kpi-card"><div class="kpi-title">Présents émargés</div><div class="kpi-val" style="color:#0066B3;">${nbPresents}</div><div class="kpi-sub">Validés par scan ou accueil</div></div>
+      `;
+
+      // Rendu Stagiaires
       const tbS = document.getElementById("tbody-stag");
       tbS.innerHTML = data.stagiaires.map(function(s) {
-        return '<tr class="' + (s.estBureau ? 'c-bureau' : 'c-bleu') + '">' +
-          '<td><strong>' + s.id + '</strong></td>' +
-          '<td>' + (s.estBureau ? '⭐ Membre Bureau' : s.profil) + '</td>' +
-          '<td><strong>' + s.nom + '</strong><br><small>' + s.email + '</small></td>' +
-          '<td>' + s.etablissement + '</td>' +
-          '<td><strong>' + s.total + ' €</strong></td>' +
-          '<td>' + s.statut + '</td>' +
-          '<td>' + (s.present ? '✅ OUI' : '—') + '</td>' +
-          '<td>' +
-            '<button class="btn btn-bureau" onclick="actionAdmin(\'admin_basculer_bureau\',\'' + s.id + '\')">' + (s.estBureau ? 'Retirer Bureau' : '⭐ Passer Bureau') + '</button>' +
-            '<button class="btn btn-valider" onclick="actionAdmin(\'admin_valider_convention\',\'' + s.id + '\')">✓ Valider Conv.</button>' +
-            '<button class="btn btn-paye" onclick="actionAdmin(\'admin_valider_paiement\',\'' + s.id + '\')">💶 Payé</button>' +
-          '</td>' +
-        '</tr>';
+        const avecRepas = String(s.repas).indexOf("OUI") !== -1;
+        const estAttente = (String(s.statut).indexOf("1.") !== -1 || String(s.statut).indexOf("2.") !== -1);
+        const tags = (s.estBureau ? "BUREAU " : "STAG ") + (estAttente ? "ATTENTE" : "");
+
+        return `<tr class="${s.estBureau ? 'row-bureau' : 'row-stag'}" data-cat="${tags}">
+          <td>
+            <strong>${s.id}</strong><br>
+            ${s.estBureau ? '<span class="badge b-bureau">⭐ Membre Bureau</span>' : '<span style="font-size:0.78rem; color:#475569;">' + s.profil + '</span>'}
+          </td>
+          <td>
+            <strong>${s.nom}</strong><br>
+            <span style="font-size:0.8rem; color:#475569;">${s.email}</span>
+          </td>
+          <td>${s.etablissement || '<em style="color:#94A3B8;">Non renseigné</em>'}</td>
+          <td>
+            <strong>${s.total || 0} €</strong><br>
+            <span class="badge ${avecRepas ? 'b-repas-oui' : 'b-repas-non'}">${avecRepas ? '🍽️ 3 repas' : '✕ Sans repas'}</span>
+          </td>
+          <td>${formaterBadgeStatut(s.statut)}</td>
+          <td>
+            ${s.present
+              ? '<span class="badge b-step4">✅ Présent</span>'
+              : `<button class="btn btn-outline" onclick="actionAdmin('admin_emarger_manuel','${s.id}','STAG','Émarger manuellement ce participant et envoyer son attestation Qualiopi ?')">☑️ Émarger</button>`}
+          </td>
+          <td>
+            <div class="actions-grid">
+              ${s.dossierUrl ? `<a href="${s.dossierUrl}" target="_blank" class="btn btn-outline" title="Ouvrir le dossier Google Drive">📁 Drive</a>` : ''}
+              <button class="btn btn-primary" onclick="imprimerBadge('${s.id}','STAG')" title="Générer et ouvrir le PDF du badge pour impression immédiate">🖨️ Imprimer Badge</button>
+              <button class="btn btn-outline" onclick="actionAdmin('admin_renvoyer_badge','${s.id}','STAG','Renvoyer le badge par email à ${s.email} ?')" title="Renvoyer le badge par email">📧 Renvoyer</button>
+              <button class="btn btn-success" onclick="actionAdmin('admin_valider_convention','${s.id}','STAG','Valider la convention et envoyer Facture + Badge ?')">✓ Conv.</button>
+              <button class="btn btn-outline" onclick="actionAdmin('admin_valider_paiement','${s.id}','STAG','Marquer ce dossier comme Payé / Soldé ?')">💶 Payé</button>
+              <button class="btn btn-dark" onclick="actionAdmin('admin_basculer_bureau','${s.id}','STAG','Basculer le statut Membre du Bureau ?')">${s.estBureau ? '− Bureau' : '⭐ Bureau'}</button>
+              <button class="btn btn-danger" onclick="actionAdmin('admin_supprimer_ligne','${s.id}','STAG','⚠️ SUPPRIMER DÉFINITIVEMENT la ligne ${s.id} (${s.nom}) du tableau ?')" title="Supprimer cette ligne">🗑️</button>
+            </div>
+          </td>
+        </tr>`;
       }).join("");
 
+      // Rendu Exposants / Invités / VIP
       const tbP = document.getElementById("tbody-pro");
       tbP.innerHTML = data.pros.map(function(p) {
-        let cls = "c-orange";
-        if (p.profil.indexOf("LinkedIn") !== -1) cls = "c-vert";
-        else if (p.profil.indexOf("VIP") !== -1) cls = "c-violet";
-        return '<tr class="' + cls + '">' +
-          '<td><strong>' + p.id + '</strong></td>' +
-          '<td>' + p.profil + '</td>' +
-          '<td><strong>' + p.nom + '</strong><br><small>' + p.email + '</small></td>' +
-          '<td>' + p.organisme + '</td>' +
-          '<td>' + p.typePass + '</td>' +
-          '<td>' + p.repas + '</td>' +
-          '<td>' + p.statut + '</td>' +
-          '<td><button class="btn btn-badge" onclick="actionAdmin(\'admin_envoyer_badge_pro\',\'' + p.id + '\')">🎟️ Envoyer Badge</button></td>' +
-        '</tr>';
+        let cls = "row-expo"; let catTag = "EXPO";
+        if (p.profil.indexOf("LinkedIn") !== -1) { cls = "row-stands"; catTag = "VIP"; }
+        else if (p.profil.indexOf("VIP") !== -1) { cls = "row-vip"; catTag = "VIP"; }
+        const avecRepas = String(p.repas).indexOf("OUI") !== -1;
+
+        return `<tr class="${cls}" data-cat="${catTag}">
+          <td><strong>${p.id}</strong></td>
+          <td><strong>${p.profil}</strong><br><span style="font-size:0.78rem; color:#475569;">${p.typePass}</span></td>
+          <td><strong>${p.nom}</strong><br><span style="font-size:0.8rem; color:#475569;">${p.email}</span></td>
+          <td>${p.organisme}</td>
+          <td><span class="badge ${avecRepas ? 'b-repas-oui' : 'b-repas-non'}">${avecRepas ? '🍽️ 3 repas' : '✕ Sans repas'}</span></td>
+          <td>${formaterBadgeStatut(p.statut)}</td>
+          <td>
+            ${p.present
+              ? '<span class="badge b-step4">✅ Présent</span>'
+              : `<button class="btn btn-outline" onclick="actionAdmin('admin_emarger_manuel','${p.id}','PRO','Valider manuellement la présence à l\'accueil ?')">☑️ Émarger</button>`}
+          </td>
+          <td>
+            <div class="actions-grid">
+              ${p.dossierUrl ? `<a href="${p.dossierUrl}" target="_blank" class="btn btn-outline">📁 Drive</a>` : ''}
+              <button class="btn btn-primary" onclick="imprimerBadge('${p.id}','PRO')">🖨️ Imprimer Badge</button>
+              <button class="btn btn-warning" onclick="actionAdmin('admin_renvoyer_badge','${p.id}','PRO','Envoyer / Renvoyer le badge par email à ${p.email} ?')">📧 Envoyer Badge</button>
+              <button class="btn btn-danger" onclick="actionAdmin('admin_supprimer_ligne','${p.id}','PRO','⚠️ SUPPRIMER DÉFINITIVEMENT ${p.id} (${p.nom}) ?')">🗑️</button>
+            </div>
+          </td>
+        </tr>`;
       }).join("");
+
+      filtrerTables();
     } catch (e) {
       errBox.textContent = "❌ Erreur de connexion : " + e.message;
-      btn.disabled = false;
-      btn.textContent = "Accéder au tableau de bord";
+      btn.disabled = false; btn.textContent = "Accéder au Cockpit";
     }
   }
 
-  async function actionAdmin(action, id) {
-    if (!confirm("Confirmer cette action pour " + id + " ?")) return;
-    const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: action, pin: pinActuel, id: id }) });
-    const json = await res.json();
-    if (json.succes) { alert("✅ Action exécutée !"); chargerCockpit(); }
-    else alert("Erreur : " + json.message);
+  async function imprimerBadge(id, type) {
+    setLoader(true, "Génération du badge PDF haute définition pour impression...");
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "admin_imprimer_badge", pin: pinActuel, id: id, type: type })
+      });
+      const json = await res.json();
+      setLoader(false);
+      if (json.succes && json.pdfUrl) {
+        window.open(json.pdfUrl, "_blank");
+      } else {
+        alert("Erreur : " + (json.message || "Impossible de générer le badge"));
+      }
+    } catch (e) {
+      setLoader(false);
+      alert("Erreur : " + e.message);
+    }
+  }
+
+  async function actionAdmin(action, id, type, messageConfirm) {
+    if (!confirm(messageConfirm)) return;
+    setLoader(true, "Exécution de l'action sur " + id + "...");
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: action, pin: pinActuel, id: id, type: type })
+      });
+      const json = await res.json();
+      setLoader(false);
+      if (json.succes) {
+        chargerCockpit();
+      } else {
+        alert("Erreur : " + json.message);
+      }
+    } catch (e) {
+      setLoader(false);
+      alert("Erreur : " + e.message);
+    }
   }
 
   function ouvrirModalVIP() { document.getElementById("modal-vip").style.display = "flex"; }
 
   async function creerVIP() {
+    setLoader(true, "Création de l'invitation VIP...");
     const payload = {
       action: "admin_creer_vip",
       pin: pinActuel,
@@ -214,17 +396,27 @@
     };
     const res = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
     const json = await res.json();
+    setLoader(false);
     if (json.succes) {
       document.getElementById("modal-vip").style.display = "none";
-      alert("✅ Invitation VIP créée (" + json.id + ") !");
       chargerCockpit();
     } else alert("Erreur : " + json.message);
+  }
+
+  function appliquerFiltreCategorie(cat, btnEl) {
+    filtreCatActif = cat;
+    document.querySelectorAll(".pill").forEach(p => p.classList.remove("active"));
+    btnEl.classList.add("active");
+    filtrerTables();
   }
 
   function filtrerTables() {
     const q = document.getElementById("filtre").value.toLowerCase();
     document.querySelectorAll("tbody tr").forEach(function(tr) {
-      tr.style.display = tr.textContent.toLowerCase().includes(q) ? "" : "none";
+      const texteOk = tr.textContent.toLowerCase().indexOf(q) !== -1;
+      const cats = tr.getAttribute("data-cat") || "";
+      const catOk = (filtreCatActif === "TOUS") || (cats.indexOf(filtreCatActif) !== -1);
+      tr.style.display = (texteOk && catOk) ? "" : "none";
     });
   }
 </script>
