@@ -120,7 +120,7 @@
 </div>
 
 <script>
-  const API_URL = "https://script.google.com/macros/s/AKfycbz8t24mM38r5oJ_G2y0m8sI6yG97k_pA0o9B1o5E7_rN51m63c84n/exec";
+  const API_URL = "https://script.google.com/macros/s/AKfycbwxg1EBEA5RBxH56fCz_tQhRMR1dCyqFh8nr9tcQzHiNrrSzfA08RYZlrm0Y53suO4OQw/exec";
   let pinActuel = "";
 
   async function chargerCockpit() {
@@ -224,7 +224,7 @@
   function filtrerTables() {
     const q = document.getElementById("filtre").value.toLowerCase();
     document.querySelectorAll("tbody tr").forEach(function(tr) {
-      tr.style.display = tr.textContent.toLowerCase().indexOf(q) !== -1 ? "" : "none";
+      tr.style.display = tr.textContent.toLowerCase().includes(q) ? "" : "none";
     });
   }
 </script>
