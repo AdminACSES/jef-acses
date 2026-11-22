@@ -2,78 +2,95 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>ACSES JEF — Scanner Accueil</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scanner Accueil & Émargement Qualiopi — JEF ACSES 2027</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0F172A; color: #FFF; margin: 0; padding: 16px; text-align: center; }
-    h2 { font-size: 19px; margin: 0 0 6px; color: #38BDF8; }
-    p.sub { font-size: 13px; color: #94A3B8; margin: 0 0 14px; }
-    #reader { width: 100%; max-width: 420px; margin: 0 auto; border-radius: 14px; overflow: hidden; border: 3px solid #0066B3; background: #1E293B; }
-    #reader button { background: #0066B3; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 14px; margin: 8px 4px; cursor: pointer; }
-    #reader select { padding: 8px; border-radius: 8px; margin: 6px; max-width: 90%; }
-    #resultat { max-width: 420px; margin: 16px auto 0; padding: 18px; border-radius: 14px; display: none; text-align: left; }
-    .ok { background: #065F46; border: 2px solid #10B981; }
-    .warn { background: #78350F; border: 2px solid #F59E0B; }
-    .err { background: #7F1D1D; border: 2px solid #EF4444; }
-    .pill { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; background: rgba(255,255,255,0.2); margin-top: 6px; margin-right: 4px; }
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { margin: 0; background: #0F172A; color: #fff; padding: 16px; text-align: center; }
+    .container { max-width: 520px; margin: 0 auto; }
+    .header { background: #fff; color: #0F172A; padding: 16px; border-radius: 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: center; gap: 14px; }
+    .header img { height: 54px; }
+    #reader { width: 100%; border-radius: 14px; overflow: hidden; border: 3px solid #38BDF8; background: #1E293B; }
+    .carte-resultat { margin-top: 18px; padding: 20px; border-radius: 14px; display: none; text-align: left; }
+    .ok { background: #065F46; border: 2px solid #34D399; }
+    .deja { background: #92400E; border: 2px solid #FBBF24; }
+    .err { background: #991B1B; border: 2px solid #F87171; }
+    .badge-repas { display: inline-block; padding: 6px 12px; border-radius: 8px; font-weight: 800; margin-top: 10px; background: #fff; color: #0F172A; }
+    button { margin-top: 14px; width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 700; background: #38BDF8; color: #0F172A; cursor: pointer; }
   </style>
 </head>
 <body>
-  <h2>📷 Accueil & Émargement ACSES JEF</h2>
-  <p class="sub">Scannez le QR Code du badge (Stagiaires, Bureau, Exposants & Invités)</p>
+<div class="container">
+  <div class="header">
+    <img src="logo-acses.png" alt="Logo ACSES">
+    <div style="text-align:left;">
+      <strong style="font-size:1.1rem; color:#0B3B60;">Scanner Accueil JEF 2027</strong><br>
+      <span style="font-size:0.82rem; color:#475569;">Contrôle Badge & Émargement Qualiopi</span>
+    </div>
+  </div>
+
   <div id="reader"></div>
-  <div id="resultat"></div>
 
-  <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwxg1EBEA5RBxH56fCz_tQhRMR1dCyqFh8nr9tcQzHiNrrSzfA08RYZlrm0Y53suO4OQw/exec";
-    let pauseScan = false;
+  <div id="resultat" class="carte-resultat"></div>
+  <button id="btn-relancer" style="display:none;" onclick="relancerScan()">📷 Scanner le badge suivant</button>
+</div>
 
-    async function envoyerScan(qrText) {
-      const url = `${SCRIPT_URL}?action=scan&qr=${encodeURIComponent(qrText)}`;
-      const response = await fetch(url, {
-        method: "GET",
-        credentials: "omit",
-        redirect: "follow"
-      });
-      if (!response.ok) throw new Error("HTTP " + response.status);
-      return await response.json();
-    }
+<script>
+  const API_URL = "https://script.google.com/macros/s/AKfycbz8t24mM38r5oJ_G2y0m8sI6yG97k_pA0o9B1o5E7_rN51m63c84n/exec";
+  let html5QrCode;
+  let enCours = false;
 
-    async function onScanSuccess(decodedText) {
-      if (pauseScan) return;
-      pauseScan = true;
-      const box = document.getElementById('resultat');
-      box.style.display = 'block';
-      box.className = 'ok';
-      box.innerHTML = '⏳ Vérification du badge...';
+  async function onScanSuccess(decodedText) {
+    if (enCours) return;
+    enCours = true;
+    await html5QrCode.stop();
 
-      try {
-        const res = await envoyerScan(decodedText);
-        if (res.succes) {
-          box.className = res.dejaScanne ? 'warn' : 'ok';
-          const badgeStatut = res.dejaScanne
-            ? '⚠️ Déjà enregistré présent'
-            : (res.attestationEnvoyee ? '✅ Présence validée & Attestation Qualiopi envoyée !' : '✅ Présence validée');
-          box.innerHTML = `
-            <div style="font-size:18px; font-weight:800;">${res.nom}</div>
-            <div style="font-size:13px; color:#E2E8F0;">${res.etablissement}</div>
-            <div class="pill">${res.categorie}</div>
-            <div class="pill" style="background:#F59E0B; color:#000;">🍽️ Repas : ${res.repas}</div>
-            <div style="font-size:13px; margin-top:10px; font-weight:bold;">${badgeStatut} (${res.id})</div>
-          `;
-        } else {
-          box.className = 'err';
-          box.innerHTML = `<strong>❌ Erreur :</strong> ${res.message}`;
-        }
-      } catch (err) {
-        box.className = 'err';
-        box.innerHTML = `<strong>❌ Erreur connexion :</strong> ${err.message}`;
+    const box = document.getElementById("resultat");
+    box.style.display = "block";
+    box.className = "carte-resultat";
+    box.innerHTML = "⏳ Vérification du badge en cours...";
+
+    try {
+      const res = await fetch(API_URL + "?action=scan&qr=" + encodeURIComponent(decodedText));
+      const data = await res.json();
+
+      if (data.succes) {
+        box.classList.add(data.dejaScanne ? "deja" : "ok");
+        box.innerHTML = `
+          <div style="font-size:1.15rem; font-weight:800;">
+            ${data.dejaScanne ? "⚠️ BADGE DÉJÀ POINTÉ" : "✅ ACCÈS VALIDÉ"}
+          </div>
+          <div style="font-size:1.3rem; font-weight:700; margin:6px 0;">${data.nom}</div>
+          <div>🏢 ${data.etablissement}</div>
+          <div>🏷️ Profil : <strong>${data.categorie}</strong> (${data.id})</div>
+          <div class="badge-repas">🍽️ Repas : ${data.repas}</div>
+          ${data.attestationEnvoyee ? '<div style="margin-top:10px; font-size:0.88rem;">📄 Attestation Qualiopi envoyée automatiquement par email !</div>' : ''}
+        `;
+      } else {
+        box.classList.add("err");
+        box.innerHTML = `<strong>❌ ${data.message}</strong>`;
       }
-      setTimeout(() => { pauseScan = false; }, 2500);
+    } catch (e) {
+      box.classList.add("err");
+      box.innerHTML = `<strong>❌ Erreur réseau : ${e.message}</strong>`;
     }
+    document.getElementById("btn-relancer").style.display = "block";
+  }
 
-    new Html5QrcodeScanner("reader", { fps: 10, qrbox: { width: 240, height: 240 } }, false).render(onScanSuccess);
-  </script>
+  function relancerScan() {
+    document.getElementById("resultat").style.display = "none";
+    document.getElementById("btn-relancer").style.display = "none";
+    enCours = false;
+    demarrerCamera();
+  }
+
+  function demarrerCamera() {
+    html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScanSuccess);
+  }
+
+  demarrerCamera();
+</script>
 </body>
 </html>
