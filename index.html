@@ -24,7 +24,6 @@
     input:focus, select:focus, textarea:focus { outline: none; border-color: var(--bleu); }
     .check-card { background: #F8FAFC; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 14px 16px; margin: 14px 0; display: flex; align-items: flex-start; gap: 12px; cursor: pointer; }
     .check-card input[type="checkbox"] { width: 20px; height: 20px; margin-top: 2px; cursor: pointer; }
-    .check-card.bureau { border-color: #94A3B8; background: #F1F5F9; }
     .tarif-box { background: #0B3B60; color: #fff; padding: 18px 22px; border-radius: 10px; margin: 22px 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
     .tarif-box .prix { font-size: 1.65rem; font-weight: 800; color: #FBBF24; }
     button[type="submit"] { width: 100%; background: var(--bleu); color: #fff; border: none; padding: 15px; font-size: 1.05rem; font-weight: 700; border-radius: 10px; cursor: pointer; transition: 0.2s; }
@@ -77,14 +76,6 @@
         </select>
       </div>
     </div>
-
-    <label class="check-card bureau">
-      <input type="checkbox" id="membreBureau">
-      <div>
-        <strong>Je suis Membre du Bureau de l'ACSES</strong><br>
-        <span style="font-size:0.83rem; color:#475569;">Le parcours administratif reste identique, seul votre badge d'accès portera la couleur distinctive du Bureau.</span>
-      </div>
-    </label>
 
     <h2>2. Identité du participant</h2>
     <div class="grid">
@@ -185,7 +176,7 @@
       data: {
         typologie: document.getElementById("typologie").value,
         optionRepas: document.getElementById("optionRepas").value,
-        membreBureau: document.getElementById("membreBureau").checked,
+        membreBureau: false,
         civilite: document.getElementById("civilite").value,
         fonction: document.getElementById("fonction").value,
         nom: document.getElementById("nom").value,
