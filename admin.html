@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cockpit Gestion JEF ACSES 2027</title>
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { margin: 0; background: #F1F5F9; color: #0F172A; }
+    .topbar { background: #fff; padding: 14px 24px; border-bottom: 3px solid #0066B3; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .topbar-left { display: flex; align-items: center; gap: 14px; }
+    .topbar img { height: 52px; }
+    .legende { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 24px; background: #fff; border-bottom: 1px solid #E2E8F0; font-size: 0.82rem; font-weight: 600; }
+    .tag { padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); }
+    .c-bleu { background: #DBEAFE; color: #1E3A8A; }
+    .c-bureau { background: #E2E8F0; color: #0F172A; border-color: #64748B; }
+    .c-orange { background: #FEF3C7; color: #92400E; }
+    .c-vert { background: #DCFCE7; color: #065F46; }
+    .c-violet { background: #EDE9FE; color: #5B21B6; }
+    .main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+    input.search { padding: 9px 14px; border: 1.5px solid #CBD5E1; border-radius: 8px; width: 300px; }
+    .btn { padding: 9px 14px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; font-size: 0.85rem; }
+    .btn-vip { background: #7C3AED; color: #fff; }
+    .btn-valider { background: #059669; color: #fff; }
+    .btn-paye { background: #0284C7; color: #fff; }
+    .btn-badge { background: #D97706; color: #fff; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 28px; }
+    th { background: #0F172A; color: #fff; text-align: left; padding: 11px 12px; font-size: 0.82rem; }
+    td { padding: 10px 12px; border-bottom: 1px solid #E2E8F0; font-size: 0.88rem; }
+    #login-box { max-width: 380px; margin: 90px auto; background: #fff; padding: 30px; border-radius: 14px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    #modal-vip { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.75); align-items: center; justify-content: center; z-index: 999; padding: 16px; }
+    .modal-card { background: #fff; max-width: 520px; width: 100%; padding: 24px; border-radius: 14px; }
+    .modal-card input, .modal-card select { width: 100%; padding: 9px; margin: 5px 0 12px; border: 1px solid #CBD5E1; border-radius: 7px; }
+  </style>
+</head>
+<body>
+
+<div id="login-box">
+  <img src="logo-acses.png" alt="Logo ACSES" style="height:70px; margin-bottom:12px;">
+  <h2 style="margin:0 0 8px;">Cockpit Bureau ACSES</h2>
+  <p style="color:#64748B; font-size:0.9rem;">Entrez le code PIN administrateur</p>
+  <input type="password" id="pin-input" placeholder="Code PIN (ex: 2027)" style="width:100%; padding:11px; border:1.5px solid #CBD5E1; border-radius:8px; text-align:center; font-size:1.1rem; margin-bottom:12px;">
+  <button class="btn btn-paye" style="width:100%; padding:12px;" onclick="chargerCockpit()">Accéder au tableau de bord</button>
+</div>
+
+<div id="app" style="display:none;">
+  <div class="topbar">
+    <div class="topbar-left">
+      <img src="logo-acses.png" alt="Logo ACSES">
+      <div>
+        <strong style="font-size:1.15rem;">Cockpit de Gestion — 33èmes JEF ACSES 2027 (Biarritz)</strong><br>
+        <span style="font-size:0.83rem; color:#475569;" id="compteurs">Chargement...</span>
+      </div>
+    </div>
+    <div>
+      <button class="btn btn-vip" onclick="ouvrirModalVIP()">+ Créer une Invitation VIP Bureau</button>
+      <button class="btn" style="background:#E2E8F0;" onclick="chargerCockpit()">↻ Actualiser</button>
+    </div>
+  </div>
+
+  <div class="legende">
+    <span class="tag c-bleu">🔵 Stagiaire Formation</span>
+    <span class="tag c-bureau">⚫ Stagiaire — Membre du Bureau</span>
+    <span class="tag c-orange">🟠 Exposant (Repas inclus)</span>
+    <span class="tag c-vert">🟢 Invité Stands LinkedIn (Sans repas)</span>
+    <span class="tag c-violet">🟣 Invité VIP Bureau</span>
+  </div>
+
+  <div class="main">
+    <div class="toolbar">
+      <h2 style="margin:0; font-size:1.1rem;">1. Parcours Formation Qualiopi (Stagiaires & Membres du Bureau)</h2>
+      <input type="text" class="search" id="filtre" placeholder="Rechercher un nom, établissement, ID..." onkeyup="filtrerTables()">
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>Profil</th><th>Participant</th><th>Établissement</th><th>Total</th><th>Statut</th><th>Présent</th><th>Actions rapides</th>
+        </tr>
+      </thead>
+      <tbody id="tbody-stag"></tbody>
+    </table>
+
+    <h2 style="margin:0 0 12px; font-size:1.1rem;">2. Exposants, Invités Stands (LinkedIn) & VIP Bureau</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>Catégorie</th><th>Nom</th><th>Organisme</th><th>Pass / Formule</th><th>Repas</th><th>Statut</th><th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="tbody-pro"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="modal-vip">
+  <div class="modal-card">
+    <h3 style="margin-top:0; color:#5B21B6;">🟣 Créer une Invitation VIP Bureau</h3>
+    <label>Civilité</label>
+    <select id="vip-civ"><option value="M.">M.</option><option value="Mme">Mme</option></select>
+    <label>Nom *</label><input type="text" id="vip-nom">
+    <label>Prénom *</label><input type="text" id="vip-prenom">
+    <label>Organisme / Titre</label><input type="text" id="vip-org" placeholder="Ex: Intervenant / Partenaire institutionnel">
+    <label>Email *</label><input type="email" id="vip-email">
+    <label>Option Repas</label>
+    <select id="vip-repas">
+      <option value="OUI">OUI — 3 repas inclus (Offert Bureau)</option>
+      <option value="NON">NON — Sans repas</option>
+    </select>
+    <label><input type="checkbox" id="vip-badge-direct" checked style="width:auto;"> Générer et envoyer immédiatement son badge par email</label>
+    <div style="display:flex; gap:10px; margin-top:14px;">
+      <button class="btn btn-vip" style="flex:1;" onclick="creerVIP()">Créer l'invitation VIP</button>
+      <button class="btn" style="background:#E2E8F0;" onclick="document.getElementById('modal-vip').style.display='none'">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_URL = "https://script.google.com/macros/s/AKfycbz8t24mM38r5oJ_G2y0m8sI6yG97k_pA0o9B1o5E7_rN51m63c84n/exec";
+  let pinActuel = "";
+
+  async function chargerCockpit() {
+    pinActuel = document.getElementById("pin-input").value || pinActuel;
+    const res = await fetch(API_URL + "?action=admin_liste&pin=" + encodeURIComponent(pinActuel));
+    const data = await res.json();
+    if (!data.succes) { alert(data.message); return; }
+
+    document.getElementById("login-box").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    document.getElementById("compteurs").textContent = `${data.stagiaires.length} Stagiaire(s) Formation • ${data.pros.length} Exposant(s) / Invité(s)`;
+
+    const tbS = document.getElementById("tbody-stag");
+    tbS.innerHTML = data.stagiaires.map(s => `
+      <tr class="${s.estBureau ? 'c-bureau' : 'c-bleu'}">
+        <td><strong>${s.id}</strong></td>
+        <td>${s.estBureau ? '⭐ Membre Bureau' : s.profil}</td>
+        <td><strong>${s.nom}</strong><br><small>${s.email}</small></td>
+        <td>${s.etablissement}</td>
+        <td><strong>${s.total} €</strong></td>
+        <td>${s.statut}</td>
+        <td>${s.present ? '✅ OUI' : '—'}</td>
+        <td>
+          <button class="btn btn-valider" onclick="actionAdmin('admin_valider_convention','${s.id}')">✓ Valider Conv. (Badge+Fact.)</button>
+          <button class="btn btn-paye" onclick="actionAdmin('admin_valider_paiement','${s.id}')">💶 Payé</button>
+        </td>
+      </tr>
+    `).join("");
+
+    const tbP = document.getElementById("tbody-pro");
+    tbP.innerHTML = data.pros.map(p => {
+      let cls = "c-orange";
+      if (p.profil.includes("LinkedIn")) cls = "c-vert";
+      else if (p.profil.includes("VIP")) cls = "c-violet";
+      return `
+        <tr class="${cls}">
+          <td><strong>${p.id}</strong></td>
+          <td>${p.profil}</td>
+          <td><strong>${p.nom}</strong><br><small>${p.email}</small></td>
+          <td>${p.organisme}</td>
+          <td>${p.typePass}</td>
+          <td>${p.repas}</td>
+          <td>${p.statut}</td>
+          <td><button class="btn btn-badge" onclick="actionAdmin('admin_envoyer_badge_pro','${p.id}')">🎟️ Envoyer Badge</button></td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  async function actionAdmin(action, id) {
+    if (!confirm("Confirmer cette action et l'envoi des emails associés pour " + id + " ?")) return;
+    const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: action, pin: pinActuel, id: id }) });
+    const json = await res.json();
+    if (json.succes) { alert("✅ Action exécutée avec succès !"); chargerCockpit(); }
+    else alert("Erreur : " + json.message);
+  }
+
+  function ouvrirModalVIP() { document.getElementById("modal-vip").style.display = "flex"; }
+
+  async function creerVIP() {
+    const payload = {
+      action: "admin_creer_vip",
+      pin: pinActuel,
+      data: {
+        civilite: document.getElementById("vip-civ").value,
+        nom: document.getElementById("vip-nom").value,
+        prenom: document.getElementById("vip-prenom").value,
+        organisme: document.getElementById("vip-org").value,
+        email: document.getElementById("vip-email").value,
+        optionRepas: document.getElementById("vip-repas").value,
+        envoyerBadgeImmediat: document.getElementById("vip-badge-direct").checked
+      }
+    };
+    const res = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+    const json = await res.json();
+    if (json.succes) {
+      document.getElementById("modal-vip").style.display = "none";
+      alert("✅ Invitation VIP créée (" + json.id + ") !");
+      chargerCockpit();
+    } else alert("Erreur : " + json.message);
+  }
+
+  function filtrerTables() {
+    const q = document.getElementById("filtre").value.toLowerCase();
+    document.querySelectorAll("tbody tr").forEach(tr => {
+      tr.style.display = tr.textContent.toLowerCase().includes(q) ? "" : "none";
+    });
+  }
+</script>
+</body>
+</html>
