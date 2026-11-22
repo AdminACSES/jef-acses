@@ -40,9 +40,12 @@
 <div id="login-box">
   <img src="logo-acses.png" alt="Logo ACSES" style="height:70px; margin-bottom:12px;">
   <h2 style="margin:0 0 8px;">Cockpit Bureau ACSES</h2>
-  <p style="color:#64748B; font-size:0.9rem;">Entrez le code PIN administrateur</p>
-  <input type="password" id="pin-input" placeholder="Code PIN (ex: 2027)" style="width:100%; padding:11px; border:1.5px solid #CBD5E1; border-radius:8px; text-align:center; font-size:1.1rem; margin-bottom:12px;">
-  <button class="btn btn-paye" style="width:100%; padding:12px;" onclick="chargerCockpit()">Accéder au tableau de bord</button>
+  <p style="color:#64748B; font-size:0.9rem;">Accès réservé aux membres du Bureau</p>
+  <form onsubmit="event.preventDefault(); chargerCockpit();">
+    <input type="password" id="pin-input" placeholder="Code d'accès" autocomplete="off" required style="width:100%; padding:11px; border:1.5px solid #CBD5E1; border-radius:8px; text-align:center; font-size:1.1rem; margin-bottom:12px;">
+    <button type="submit" id="btn-login" class="btn btn-paye" style="width:100%; padding:12px;">Accéder au tableau de bord</button>
+  </form>
+  <div id="login-err" style="color:#DC2626; font-size:0.86rem; margin-top:10px; font-weight:600;"></div>
 </div>
 
 <div id="app" style="display:none;">
@@ -121,51 +124,68 @@
   let pinActuel = "";
 
   async function chargerCockpit() {
+    const btn = document.getElementById("btn-login");
+    const errBox = document.getElementById("login-err");
     pinActuel = document.getElementById("pin-input").value || pinActuel;
-    const res = await fetch(API_URL + "?action=admin_liste&pin=" + encodeURIComponent(pinActuel));
-    const data = await res.json();
-    if (!data.succes) { alert(data.message); return; }
+    if (!pinActuel) return;
 
-    document.getElementById("login-box").style.display = "none";
-    document.getElementById("app").style.display = "block";
-    document.getElementById("compteurs").textContent = `${data.stagiaires.length} Stagiaire(s) Formation • ${data.pros.length} Exposant(s) / Invité(s)`;
+    btn.disabled = true;
+    btn.textContent = "Connexion en cours...";
+    errBox.textContent = "";
 
-    const tbS = document.getElementById("tbody-stag");
-    tbS.innerHTML = data.stagiaires.map(s => `
-      <tr class="${s.estBureau ? 'c-bureau' : 'c-bleu'}">
-        <td><strong>${s.id}</strong></td>
-        <td>${s.estBureau ? '⭐ Membre Bureau' : s.profil}</td>
-        <td><strong>${s.nom}</strong><br><small>${s.email}</small></td>
-        <td>${s.etablissement}</td>
-        <td><strong>${s.total} €</strong></td>
-        <td>${s.statut}</td>
-        <td>${s.present ? '✅ OUI' : '—'}</td>
-        <td>
-          <button class="btn btn-bureau" onclick="actionAdmin('admin_basculer_bureau','${s.id}')">${s.estBureau ? 'Retirer Bureau' : '⭐ Passer Bureau'}</button>
-          <button class="btn btn-valider" onclick="actionAdmin('admin_valider_convention','${s.id}')">✓ Valider Conv.</button>
-          <button class="btn btn-paye" onclick="actionAdmin('admin_valider_paiement','${s.id}')">💶 Payé</button>
-        </td>
-      </tr>
-    `).join("");
+    try {
+      const res = await fetch(API_URL + "?action=admin_liste&pin=" + encodeURIComponent(pinActuel));
+      const data = await res.json();
+      if (!data.succes) {
+        errBox.textContent = "❌ " + (data.message || "Code d'accès incorrect");
+        btn.disabled = false;
+        btn.textContent = "Accéder au tableau de bord";
+        return;
+      }
 
-    const tbP = document.getElementById("tbody-pro");
-    tbP.innerHTML = data.pros.map(p => {
-      let cls = "c-orange";
-      if (p.profil.includes("LinkedIn")) cls = "c-vert";
-      else if (p.profil.includes("VIP")) cls = "c-violet";
-      return `
-        <tr class="${cls}">
-          <td><strong>${p.id}</strong></td>
-          <td>${p.profil}</td>
-          <td><strong>${p.nom}</strong><br><small>${p.email}</small></td>
-          <td>${p.organisme}</td>
-          <td>${p.typePass}</td>
-          <td>${p.repas}</td>
-          <td>${p.statut}</td>
-          <td><button class="btn btn-badge" onclick="actionAdmin('admin_envoyer_badge_pro','${p.id}')">🎟️ Envoyer Badge</button></td>
-        </tr>
-      `;
-    }).join("");
+      document.getElementById("login-box").style.display = "none";
+      document.getElementById("app").style.display = "block";
+      document.getElementById("compteurs").textContent = data.stagiaires.length + " Stagiaire(s) Formation • " + data.pros.length + " Exposant(s) / Invité(s)";
+
+      const tbS = document.getElementById("tbody-stag");
+      tbS.innerHTML = data.stagiaires.map(function(s) {
+        return '<tr class="' + (s.estBureau ? 'c-bureau' : 'c-bleu') + '">' +
+          '<td><strong>' + s.id + '</strong></td>' +
+          '<td>' + (s.estBureau ? '⭐ Membre Bureau' : s.profil) + '</td>' +
+          '<td><strong>' + s.nom + '</strong><br><small>' + s.email + '</small></td>' +
+          '<td>' + s.etablissement + '</td>' +
+          '<td><strong>' + s.total + ' €</strong></td>' +
+          '<td>' + s.statut + '</td>' +
+          '<td>' + (s.present ? '✅ OUI' : '—') + '</td>' +
+          '<td>' +
+            '<button class="btn btn-bureau" onclick="actionAdmin(\'admin_basculer_bureau\',\'' + s.id + '\')">' + (s.estBureau ? 'Retirer Bureau' : '⭐ Passer Bureau') + '</button>' +
+            '<button class="btn btn-valider" onclick="actionAdmin(\'admin_valider_convention\',\'' + s.id + '\')">✓ Valider Conv.</button>' +
+            '<button class="btn btn-paye" onclick="actionAdmin(\'admin_valider_paiement\',\'' + s.id + '\')">💶 Payé</button>' +
+          '</td>' +
+        '</tr>';
+      }).join("");
+
+      const tbP = document.getElementById("tbody-pro");
+      tbP.innerHTML = data.pros.map(function(p) {
+        let cls = "c-orange";
+        if (p.profil.indexOf("LinkedIn") !== -1) cls = "c-vert";
+        else if (p.profil.indexOf("VIP") !== -1) cls = "c-violet";
+        return '<tr class="' + cls + '">' +
+          '<td><strong>' + p.id + '</strong></td>' +
+          '<td>' + p.profil + '</td>' +
+          '<td><strong>' + p.nom + '</strong><br><small>' + p.email + '</small></td>' +
+          '<td>' + p.organisme + '</td>' +
+          '<td>' + p.typePass + '</td>' +
+          '<td>' + p.repas + '</td>' +
+          '<td>' + p.statut + '</td>' +
+          '<td><button class="btn btn-badge" onclick="actionAdmin(\'admin_envoyer_badge_pro\',\'' + p.id + '\')">🎟️ Envoyer Badge</button></td>' +
+        '</tr>';
+      }).join("");
+    } catch (e) {
+      errBox.textContent = "❌ Erreur de connexion : " + e.message;
+      btn.disabled = false;
+      btn.textContent = "Accéder au tableau de bord";
+    }
   }
 
   async function actionAdmin(action, id) {
@@ -203,8 +223,8 @@
 
   function filtrerTables() {
     const q = document.getElementById("filtre").value.toLowerCase();
-    document.querySelectorAll("tbody tr").forEach(tr => {
-      tr.style.display = tr.textContent.toLowerCase().includes(q) ? "" : "none";
+    document.querySelectorAll("tbody tr").forEach(function(tr) {
+      tr.style.display = tr.textContent.toLowerCase().indexOf(q) !== -1 ? "" : "none";
     });
   }
 </script>
