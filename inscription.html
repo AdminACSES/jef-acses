@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>Inscription à la formation - JEF ACSES</title>
+  <link rel="icon" href="logo-acses.png">
+  <link rel="stylesheet" href="assets/jef.css">
+</head>
+<body>
+  <header class="entete">
+    <div class="interieur">
+      <a href="./"><img src="logo-acses.png" alt="ACSES - accueil" width="69" height="40"></a>
+      <div class="titre">Inscription à la formation<small><span data-cfg="dates">10 et 11 juin 2027</span> - <span data-cfg="ville">Biarritz</span></small></div>
+      <nav aria-label="Navigation principale"><a href="./">Accueil</a><a href="inscription.html" aria-current="page">Formation</a><a href="visiteur.html">Visiteurs</a></nav>
+    </div>
+  </header>
+
+  <main class="conteneur">
+    <div id="ferme" class="alerte a-attention" hidden style="margin-bottom:18px;"></div>
+
+    <div class="disposition" id="zone-formulaire">
+      <form id="form" class="carte" novalidate>
+        <ol class="stepper" aria-label="Étapes">
+          <li class="actif"><span>Formule</span></li><li><span>Vos coordonnées</span></li><li><span>Positionnement</span></li><li><span>Service formation</span></li>
+        </ol>
+
+        <!-- Étape 1 -->
+        <section data-etape="1">
+          <h2>Votre formule</h2>
+          <fieldset class="champ">
+            <legend class="legende obligatoire">Statut d'adhésion</legend>
+            <div class="choix c2">
+              <label class="option"><input type="radio" name="typologie" value="ADHERENT" checked required>
+                <span><span class="titre">Adhérent ACSES</span><small>Établissement à jour de cotisation</small></span><span class="prix" id="prix-adh">250 €</span></label>
+              <label class="option"><input type="radio" name="typologie" value="NON_ADHERENT">
+                <span><span class="titre">Non-adhérent</span><small>Tarif public</small></span><span class="prix" id="prix-nonadh">350 €</span></label>
+            </div>
+          </fieldset>
+          <fieldset class="champ" style="margin-top:20px;">
+            <legend class="legende">Repas (facultatifs, à la carte)</legend>
+            <div class="choix c3" id="repas"></div>
+            <span class="aide">Vous pourrez préciser un régime alimentaire à l'étape 3.</span>
+          </fieldset>
+        </section>
+
+        <!-- Étape 2 -->
+        <section data-etape="2" hidden>
+          <h2>Vos coordonnées</h2>
+          <div class="grille g2">
+            <div class="champ"><label class="obligatoire" for="civilite">Civilité</label>
+              <select id="civilite" name="civilite" required><option value="Mme">Madame</option><option value="M.">Monsieur</option></select></div>
+            <div class="champ"><label class="obligatoire" for="fonction">Fonction</label><input id="fonction" name="fonction" type="text" maxlength="120" required autocomplete="organization-title" placeholder="Responsable sécurité incendie"></div>
+            <div class="champ"><label class="obligatoire" for="prenom">Prénom</label><input id="prenom" name="prenom" type="text" maxlength="80" required autocomplete="given-name"></div>
+            <div class="champ"><label class="obligatoire" for="nom">Nom</label><input id="nom" name="nom" type="text" maxlength="80" required autocomplete="family-name"></div>
+            <div class="champ"><label class="obligatoire" for="email">Email professionnel</label><input id="email" name="email" type="email" maxlength="120" required autocomplete="email"></div>
+            <div class="champ"><label class="obligatoire" for="telephone">Téléphone portable</label><input id="telephone" name="telephone" type="tel" maxlength="25" required autocomplete="tel"></div>
+            <div class="champ"><label class="obligatoire" for="etablissement">Établissement</label><input id="etablissement" name="etablissement" type="text" maxlength="150" required autocomplete="organization" placeholder="Centre hospitalier de..."></div>
+            <div class="champ"><label for="ville">Ville de l'établissement</label><input id="ville" name="ville" type="text" maxlength="80" autocomplete="address-level2"></div>
+          </div>
+        </section>
+
+        <!-- Étape 3 -->
+        <section data-etape="3" hidden>
+          <h2>Votre positionnement</h2>
+          <p class="petit">Ces informations permettent d'adapter la formation à votre profil (exigence Qualiopi).</p>
+          <fieldset class="champ">
+            <legend class="legende obligatoire">Votre niveau actuel sur les thèmes de l'édition</legend>
+            <div class="choix c4">
+              <label class="option puce"><input type="radio" name="niveau" value="Découverte" required><span class="titre">Découverte</span></label>
+              <label class="option puce"><input type="radio" name="niveau" value="Intermédiaire"><span class="titre">Intermédiaire</span></label>
+              <label class="option puce"><input type="radio" name="niveau" value="Confirmé"><span class="titre">Confirmé</span></label>
+              <label class="option puce"><input type="radio" name="niveau" value="Expert"><span class="titre">Expert</span></label>
+            </div>
+          </fieldset>
+          <div class="grille" style="margin-top:16px;">
+            <div class="champ"><label class="obligatoire" for="objectifs">Ce que vous souhaitez retirer de la formation</label>
+              <textarea id="objectifs" name="objectifs" maxlength="800" required placeholder="Ex. mettre à jour mes connaissances sur la coordination SSI"></textarea></div>
+            <div class="champ"><label for="attentes">Questions ou situations que vous aimeriez voir traitées</label>
+              <textarea id="attentes" name="attentes" maxlength="800"></textarea></div>
+            <div class="champ"><label for="handicap">Besoin d'aménagement lié à une situation de handicap</label>
+              <input id="handicap" name="handicap" type="text" maxlength="400" placeholder="Aucun">
+              <span class="aide">Confidentiel : seul le référent handicap de l'ACSES y a accès.</span></div>
+            <div class="champ" id="bloc-regime"><label for="regime">Régime alimentaire ou allergie</label>
+              <input id="regime" name="regime" type="text" maxlength="120" placeholder="Standard, végétarien, sans porc, allergie...">
+              <span class="aide">Transmis au traiteur sous forme de nombre de couverts, sans votre nom.</span></div>
+          </div>
+        </section>
+
+        <!-- Étape 4 -->
+        <section data-etape="4" hidden>
+          <h2>Votre service formation</h2>
+          <p class="petit">Votre service formation complétera les informations administratives (SIRET, financement, signataire) et déposera la convention signée grâce à un lien personnel.</p>
+          <div class="champ"><label for="emailFormation">Email de votre service formation</label>
+            <input id="emailFormation" name="emailFormation" type="email" maxlength="120" placeholder="formation@etablissement.fr"></div>
+          <label class="option" style="margin-top:12px;"><input type="checkbox" name="envoiDirect" id="envoiDirect">
+            <span><span class="titre">Envoyer directement le dossier à mon service formation</span>
+            <small>Sinon, vous recevez le dossier et le lien pour le leur transmettre.</small></span></label>
+          <div class="grille" style="margin-top:18px;gap:12px;">
+            <label class="case"><input type="checkbox" name="partage"> <span>J'accepte que le QR Code de mon badge contienne mon email et mon téléphone professionnels, pour échanger mes coordonnées avec les exposants que je choisis de rencontrer.</span></label>
+            <label class="case champ" style="flex-direction:row;"><input type="checkbox" name="consentement" required> <span>J'ai lu les <span data-lien="cgv">conditions générales de vente</span> et la <a href="confidentialite.html" target="_blank" rel="noopener">politique de confidentialité</a>, transmises avec le dossier. <span class="obligatoire"></span></span></label>
+          </div>
+        </section>
+
+        <div class="actions-etape">
+          <button type="button" class="btn" id="precedent" hidden>← Retour</button>
+          <span></span>
+          <button type="button" class="btn btn-primaire btn-l" id="suivant">Continuer →</button>
+          <button type="submit" class="btn btn-orange btn-l" id="envoyer" hidden>Réserver ma place</button>
+        </div>
+      </form>
+
+      <aside class="carte recap" aria-live="polite">
+        <h3>Récapitulatif</h3>
+        <dl id="recap-lignes"></dl>
+        <div class="total"><span>Total</span><b id="recap-total">-</b></div>
+        <p class="petit" style="margin:10px 0 0;" data-cfg="mentionTVA">TVA non applicable</p>
+        <div id="places" class="petit" style="margin-top:8px;"></div>
+      </aside>
+    </div>
+
+    <div id="resultat" class="carte succes" hidden></div>
+  </main>
+
+  <footer class="pied"><div class="interieur"><span>ACSES - Organisme certifié Qualiopi</span><a href="confidentialite.html">Confidentialité</a><span>Une question : <span data-cfg="contact.email">inscription@acses-asso.com</span></span></div></footer>
+
+  <script src="assets/config.js"></script>
+  <script src="assets/jef.js"></script>
+  <script src="assets/pages/inscription.js"></script>
+</body>
+</html>

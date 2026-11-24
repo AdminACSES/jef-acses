@@ -2,95 +2,61 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scanner Accueil & Émargement Qualiopi — JEF ACSES 2027</title>
-  <script src="https://unpkg.com/html5-qrcode"></script>
-  <style>
-    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
-    body { margin: 0; background: #0F172A; color: #fff; padding: 16px; text-align: center; }
-    .container { max-width: 520px; margin: 0 auto; }
-    .header { background: #fff; color: #0F172A; padding: 16px; border-radius: 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: center; gap: 14px; }
-    .header img { height: 54px; }
-    #reader { width: 100%; border-radius: 14px; overflow: hidden; border: 3px solid #38BDF8; background: #1E293B; }
-    .carte-resultat { margin-top: 18px; padding: 20px; border-radius: 14px; display: none; text-align: left; }
-    .ok { background: #065F46; border: 2px solid #34D399; }
-    .deja { background: #92400E; border: 2px solid #FBBF24; }
-    .err { background: #991B1B; border: 2px solid #F87171; }
-    .badge-repas { display: inline-block; padding: 6px 12px; border-radius: 8px; font-weight: 800; margin-top: 10px; background: #fff; color: #0F172A; }
-    button { margin-top: 14px; width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 700; background: #38BDF8; color: #0F172A; cursor: pointer; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#0B1220">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; frame-src https://accounts.google.com/gsi/; connect-src https://script.google.com https://script.googleusercontent.com https://accounts.google.com/gsi/; img-src 'self' data: blob: https://*.googleusercontent.com; media-src 'self' blob: mediastream:; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>Scanner accueil - JEF ACSES</title>
+  <link rel="icon" href="logo-acses.png">
+  <link rel="stylesheet" href="assets/jef.css">
 </head>
 <body>
-<div class="container">
-  <div class="header">
-    <img src="logo-acses.png" alt="Logo ACSES">
-    <div style="text-align:left;">
-      <strong style="font-size:1.1rem; color:#0B3B60;">Scanner Accueil JEF 2027</strong><br>
-      <span style="font-size:0.82rem; color:#475569;">Contrôle Badge & Émargement Qualiopi</span>
+  <div id="connexion" class="connexion">
+    <div class="carte">
+      <img class="logo" src="logo-acses.png" alt="ACSES">
+      <h1 style="font-size:1.4rem;">Scanner de l'accueil</h1>
+      <p class="petit" style="margin:0;">Connexion avec votre compte <b>@acses-asso.com</b> autorisé pour l'accueil.</p>
+      <div id="bouton-google"></div>
+      <div id="message-connexion" class="erreur-champ" role="alert" style="min-height:1.2em;"></div>
     </div>
   </div>
 
-  <div id="reader"></div>
+  <div id="app" class="scanner-app" hidden>
+    <div class="barre">
+      <img src="logo-acses.png" alt="" style="height:28px;background:#fff;border-radius:6px;padding:2px 4px;">
+      <label class="sr" for="creneau">Demi-journée</label>
+      <select id="creneau"></select>
+      <span class="etat" id="etat"><i></i><span>En ligne</span></span>
+    </div>
+    <div class="scanner-corps">
+      <div class="stats-accueil">
+        <div><b id="st-presents">0</b><small>présents sur ce créneau</small></div>
+        <div><b id="st-session">0</b><small>scans sur cet appareil</small></div>
+        <div><b id="st-file">0</b><small>en attente d'envoi</small></div>
+      </div>
+      <div id="lecteur"></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primaire" id="camera" style="flex:1;">📷 Démarrer la caméra</button>
+        <button class="btn" id="synchro" hidden>⇅ Envoyer la file</button>
+      </div>
+      <form class="saisie" id="form-saisie" autocomplete="off">
+        <label class="sr" for="saisie">Code du badge</label>
+        <input id="saisie" type="text" placeholder="Douchette ou saisie : JEF2027-012" autocapitalize="characters" spellcheck="false">
+        <button class="btn" type="submit">Valider</button>
+      </form>
+      <div id="resultat" class="resultat" role="status" aria-live="assertive"></div>
+      <ul class="historique" id="historique"></ul>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:.8rem;color:#94A3B8;">
+        <span id="utilisateur"></span><button class="btn btn-s btn-fantome" id="deconnexion" style="color:#94A3B8;">Se déconnecter</button>
+      </div>
+    </div>
+  </div>
 
-  <div id="resultat" class="carte-resultat"></div>
-  <button id="btn-relancer" style="display:none;" onclick="relancerScan()">📷 Scanner le badge suivant</button>
-</div>
-
-<script>
-  const API_URL = "https://script.google.com/macros/s/AKfycbwxg1EBEA5RBxH56fCz_tQhRMR1dCyqFh8nr9tcQzHiNrrSzfA08RYZlrm0Y53suO4OQw/exec";
-  let html5QrCode;
-  let enCours = false;
-
-  async function onScanSuccess(decodedText) {
-    if (enCours) return;
-    enCours = true;
-    await html5QrCode.stop();
-
-    const box = document.getElementById("resultat");
-    box.style.display = "block";
-    box.className = "carte-resultat";
-    box.innerHTML = "⏳ Vérification du badge en cours...";
-
-    try {
-      const res = await fetch(API_URL + "?action=scan&qr=" + encodeURIComponent(decodedText));
-      const data = await res.json();
-
-      if (data.succes) {
-        box.classList.add(data.dejaScanne ? "deja" : "ok");
-        box.innerHTML = `
-          <div style="font-size:1.15rem; font-weight:800;">
-            ${data.dejaScanne ? "⚠️ BADGE DÉJÀ POINTÉ" : "✅ ACCÈS VALIDÉ"}
-          </div>
-          <div style="font-size:1.3rem; font-weight:700; margin:6px 0;">${data.nom}</div>
-          <div>🏢 ${data.etablissement}</div>
-          <div>🏷️ Profil : <strong>${data.categorie}</strong> (${data.id})</div>
-          <div class="badge-repas">🍽️ Repas : ${data.repas}</div>
-          ${data.attestationEnvoyee ? '<div style="margin-top:10px; font-size:0.88rem;">📄 Attestation Qualiopi envoyée automatiquement par email !</div>' : ''}
-        `;
-      } else {
-        box.classList.add("err");
-        box.innerHTML = `<strong>❌ ${data.message}</strong>`;
-      }
-    } catch (e) {
-      box.classList.add("err");
-      box.innerHTML = `<strong>❌ Erreur réseau : ${e.message}</strong>`;
-    }
-    document.getElementById("btn-relancer").style.display = "block";
-  }
-
-  function relancerScan() {
-    document.getElementById("resultat").style.display = "none";
-    document.getElementById("btn-relancer").style.display = "none";
-    enCours = false;
-    demarrerCamera();
-  }
-
-  function demarrerCamera() {
-    html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScanSuccess);
-  }
-
-  demarrerCamera();
-</script>
+  <script src="assets/config.js"></script>
+  <script src="assets/jef.js"></script>
+  <script src="assets/html5-qrcode.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="assets/pages/scanner.js"></script>
 </body>
 </html>

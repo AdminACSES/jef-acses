@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>Invitation visiteur des stands - JEF ACSES</title>
+  <link rel="icon" href="logo-acses.png">
+  <link rel="stylesheet" href="assets/jef.css">
+</head>
+<body>
+  <header class="entete">
+    <div class="interieur">
+      <a href="./"><img src="logo-acses.png" alt="ACSES - accueil" width="69" height="40"></a>
+      <div class="titre">Invitation visiteur<small><span data-cfg="dates">10 et 11 juin 2027</span> - <span data-cfg="ville">Biarritz</span></small></div>
+      <nav aria-label="Navigation principale"><a href="./">Accueil</a><a href="inscription.html">Formation</a><a href="visiteur.html" aria-current="page">Visiteurs</a></nav>
+    </div>
+  </header>
+
+  <main class="conteneur etroit">
+    <section class="carte" style="background:linear-gradient(135deg,#ECFDF5,#fff);">
+      <h1>Visitez l'espace exposants</h1>
+      <p style="margin:0;">Invitation <b>gratuite</b> pour une demi-journée : rencontrez les entreprises partenaires de la sécurité hospitalière, découvrez leurs démonstrations. L'invitation ne donne accès ni aux conférences de formation ni aux repas.</p>
+    </section>
+    <div id="ferme" class="alerte a-attention" hidden style="margin-top:18px;"></div>
+
+    <form id="form" class="carte" novalidate>
+      <fieldset class="champ">
+        <legend class="legende obligatoire">Demi-journée de votre visite</legend>
+        <div class="choix c3" id="creneaux"></div>
+      </fieldset>
+      <div class="grille g2" style="margin-top:18px;">
+        <div class="champ"><label class="obligatoire" for="civilite">Civilité</label><select id="civilite" name="civilite"><option value="Mme">Madame</option><option value="M.">Monsieur</option></select></div>
+        <div class="champ"><label class="obligatoire" for="fonction">Fonction</label><input id="fonction" name="fonction" type="text" maxlength="120" required></div>
+        <div class="champ"><label class="obligatoire" for="prenom">Prénom</label><input id="prenom" name="prenom" type="text" maxlength="80" required></div>
+        <div class="champ"><label class="obligatoire" for="nom">Nom</label><input id="nom" name="nom" type="text" maxlength="80" required></div>
+        <div class="champ"><label class="obligatoire" for="email">Email professionnel</label><input id="email" name="email" type="email" maxlength="120" required></div>
+        <div class="champ"><label for="telephone">Téléphone</label><input id="telephone" name="telephone" type="tel" maxlength="25"></div>
+        <div class="champ span2"><label class="obligatoire" for="organisme">Établissement ou société</label><input id="organisme" name="organisme" type="text" maxlength="150" required></div>
+      </div>
+      <div class="grille" style="margin-top:18px;gap:12px;">
+        <label class="case"><input type="checkbox" name="partage"> <span>J'accepte que le QR Code de mon badge contienne mon email et mon téléphone, pour échanger mes coordonnées avec les exposants.</span></label>
+        <label class="case champ" style="flex-direction:row;"><input type="checkbox" name="consentement" required> <span>J'ai lu la <a href="confidentialite.html" target="_blank" rel="noopener">politique de confidentialité</a>. <span class="obligatoire"></span></span></label>
+      </div>
+      <div class="actions-etape"><span></span><button type="submit" class="btn btn-vert btn-l" id="envoyer">Recevoir mon badge visiteur</button></div>
+    </form>
+    <section id="resultat" class="carte succes" hidden></section>
+  </main>
+
+  <footer class="pied"><div class="interieur"><span>ACSES</span><a href="confidentialite.html">Confidentialité</a><span>Une question : <span data-cfg="contact.email">inscription@acses-asso.com</span></span></div></footer>
+
+  <script src="assets/config.js"></script>
+  <script src="assets/jef.js"></script>
+  <script src="assets/pages/visiteur.js"></script>
+</body>
+</html>

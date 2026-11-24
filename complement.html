@@ -2,171 +2,81 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Complément Administratif Service Formation — 33èmes JEF ACSES 2027</title>
-  <style>
-    :root { --bleu: #0066B3; --bleu-fonce: #0B3B60; --texte: #1E293B; }
-    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
-    body { margin: 0; background: #F1F5F9; color: var(--texte); padding: 20px 12px; }
-    .container { max-width: 780px; margin: 0 auto; background: #fff; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); overflow: hidden; }
-    .header { background: #fff; padding: 22px 28px; border-bottom: 4px solid var(--bleu); display: flex; align-items: center; gap: 20px; }
-    .header img { height: 70px; }
-    form { padding: 28px; }
-    .recap { background: #EFF6FF; border: 1px solid #BFDBFE; padding: 14px 18px; border-radius: 10px; margin-bottom: 20px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
-    @media(max-width: 640px) { .grid { grid-template-columns: 1fr; } }
-    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; }
-    input, select, textarea { width: 100%; padding: 10px; border: 1.5px solid #CBD5E1; border-radius: 8px; font-size: 0.95rem; }
-    button { width: 100%; background: #059669; color: #fff; border: none; padding: 15px; font-size: 1.05rem; font-weight: 700; border-radius: 10px; cursor: pointer; margin-top: 10px; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>Dossier service formation - JEF ACSES</title>
+  <link rel="icon" href="logo-acses.png">
+  <link rel="stylesheet" href="assets/jef.css">
 </head>
 <body>
-<div class="container">
-  <div class="header">
-    <img src="logo-acses.png" alt="Logo ACSES">
-    <div>
-      <h1 style="margin:0; font-size:1.35rem; color:var(--bleu-fonce);">Complément Administratif Service Formation / RH</h1>
-      <p style="margin:4px 0 0; color:#475569;">33èmes JEF ACSES • 10 et 11 juin 2027 — BIARRITZ</p>
+  <header class="entete">
+    <div class="interieur">
+      <a href="./"><img src="logo-acses.png" alt="ACSES - accueil" width="69" height="40"></a>
+      <div class="titre">Espace service formation<small><span data-cfg="intitule">Journées d'Études et de Formation ACSES</span></small></div>
     </div>
-  </div>
+  </header>
 
-  <div id="chargement" style="padding:40px; text-align:center;">⏳ Chargement du dossier de pré-inscription...</div>
+  <main class="conteneur etroit">
+    <div id="chargement" class="chargement"><span class="rotation"></span>Chargement du dossier...</div>
+    <div id="erreur" class="alerte a-erreur" hidden></div>
 
-  <form id="form-rh" style="display:none;">
-    <div class="recap" id="bloc-recap"></div>
+    <div id="contenu" hidden>
+      <section class="carte" id="dossier"></section>
 
-    <div class="grid">
-      <div>
-        <label>Nom de l'établissement *</label>
-        <input type="text" id="etablissement" required>
-      </div>
-      <div>
-        <label>N° SIRET (14 chiffres) *</label>
-        <input type="text" id="siretClient" maxlength="14" required>
-      </div>
-      <div>
-        <label>Code NAF / APE</label>
-        <input type="text" id="codeNaf" placeholder="Ex: 8610Z">
-      </div>
-      <div>
-        <label>Effectif salarié</label>
-        <input type="text" id="nbSalaries">
-      </div>
+      <ol class="stepper" style="margin-top:22px;" aria-label="Étapes">
+        <li id="s1"><span>1. Informations administratives</span></li><li id="s2"><span>2. Convention signée</span></li><li id="s3"><span>3. Validation par l'ACSES</span></li>
+      </ol>
+
+      <form id="form-admin" class="carte" novalidate hidden>
+        <h2>Informations administratives de l'établissement</h2>
+        <p class="petit">Elles servent à établir la convention de formation définitive, envoyée par email dès validation.</p>
+        <div class="grille g2">
+          <div class="champ span2"><label class="obligatoire" for="raisonSociale">Raison sociale de l'établissement</label><input id="raisonSociale" name="raisonSociale" type="text" maxlength="150" required></div>
+          <div class="champ"><label class="obligatoire" for="siret">SIRET (14 chiffres)</label><input id="siret" name="siret" type="text" inputmode="numeric" pattern="[0-9 ]{14,17}" maxlength="17" required></div>
+          <div class="champ"><label for="codeNaf">Code NAF / APE</label><input id="codeNaf" name="codeNaf" type="text" maxlength="10" placeholder="8610Z"></div>
+          <div class="champ span2"><label class="obligatoire" for="adresseFacturation">Adresse de facturation</label><input id="adresseFacturation" name="adresseFacturation" type="text" maxlength="300" required></div>
+          <div class="champ"><label for="effectif">Effectif salarié</label><input id="effectif" name="effectif" type="text" maxlength="20"></div>
+          <div class="champ"><label class="obligatoire" for="signataire">Signataire de la convention (nom et fonction)</label><input id="signataire" name="signataire" type="text" maxlength="150" required placeholder="Directeur des ressources humaines"></div>
+          <div class="champ"><label class="obligatoire" for="contactFormation">Contact au service formation (nom et téléphone)</label><input id="contactFormation" name="contactFormation" type="text" maxlength="150" required></div>
+          <div class="champ"><label class="obligatoire" for="emailFormation">Email du service formation</label><input id="emailFormation" name="emailFormation" type="email" maxlength="120" required></div>
+          <div class="champ"><label class="obligatoire" for="modeFinancement">Mode de prise en charge</label>
+            <select id="modeFinancement" name="modeFinancement" required>
+              <option value="ANFH">ANFH</option><option value="OPCO">OPCO</option>
+              <option value="Plan de développement des compétences">Plan de développement des compétences</option>
+              <option value="Financement personnel">Financement personnel</option><option value="Autre">Autre</option>
+            </select></div>
+          <div class="champ"><label for="nomOpco">Délégation ANFH ou nom de l'OPCO</label><input id="nomOpco" name="nomOpco" type="text" maxlength="120"></div>
+          <div class="champ span2"><label for="bonCommande">N° de bon de commande ou d'engagement (Chorus Pro)</label><input id="bonCommande" name="bonCommande" type="text" maxlength="60"></div>
+        </div>
+        <div class="actions-etape"><span></span><button type="submit" class="btn btn-primaire btn-l" id="btn-admin">Valider et recevoir la convention</button></div>
+      </form>
+
+      <section class="carte" id="bloc-depot" hidden>
+        <h2>Déposer la convention signée</h2>
+        <p>La convention définitive a été envoyée par email. Une fois signée et tamponnée, déposez-la ici : elle est archivée automatiquement dans le dossier du stagiaire et vous recevez un accusé de réception.</p>
+        <label class="depot" id="zone-depot" for="fichier">
+          <div class="grand">📄</div>
+          <b>Glissez le fichier ici ou cliquez pour le choisir</b>
+          <div class="petit">PDF, JPG ou PNG - 8 Mo maximum. Une photo nette prise au téléphone convient.</div>
+          <div id="nom-fichier" style="margin-top:10px;font-weight:700;"></div>
+        </label>
+        <input type="file" id="fichier" accept="application/pdf,image/jpeg,image/png" class="sr">
+        <div class="actions-etape">
+          <button type="button" class="btn btn-fantome" id="modifier-admin">Modifier les informations administratives</button>
+          <button type="button" class="btn btn-orange btn-l" id="btn-depot" disabled>Déposer la convention</button>
+        </div>
+      </section>
+
+      <section class="carte succes" id="bloc-fin" hidden></section>
     </div>
+  </main>
 
-    <div style="margin-bottom:14px;">
-      <label>Adresse complète de facturation de l'établissement *</label>
-      <input type="text" id="adresseEtablissement" required>
-    </div>
+  <footer class="pied"><div class="interieur"><span>ACSES - Organisme certifié Qualiopi</span><a href="confidentialite.html">Confidentialité</a><span>Une question : <span data-cfg="contact.email">inscription@acses-asso.com</span></span></div></footer>
 
-    <div class="grid">
-      <div>
-        <label>Nom du Signataire de la Convention *</label>
-        <input type="text" id="responsableEtablissement" placeholder="Directeur / DRH" required>
-      </div>
-      <div>
-        <label>Contact Service Formation (Nom & Tél) *</label>
-        <input type="text" id="contactAdmin" required>
-      </div>
-      <div>
-        <label>Email Service Formation (réception convention & facture) *</label>
-        <input type="email" id="emailServiceFormation" required>
-      </div>
-      <div>
-        <label>Mode de prise en charge *</label>
-        <select id="modeFinancement">
-          <option value="ANFH">ANFH</option>
-          <option value="OPCO">OPCO</option>
-          <option value="Plan de développement des compétences (Établissement)">Plan de formation Établissement</option>
-          <option value="Financement personnel">Financement personnel</option>
-        </select>
-      </div>
-      <div>
-        <label>Nom de l'OPCO / Délégation ANFH</label>
-        <input type="text" id="nomOpco">
-      </div>
-      <div>
-        <label>Numéro de Bon de Commande / Chorus</label>
-        <input type="text" id="numeroBonCommande">
-      </div>
-    </div>
-
-    <button type="submit" id="btn-valider">Valider & Régénérer la Convention et les Fiches Qualiopi</button>
-  </form>
-
-  <div id="resultat" style="display:none; padding:30px; text-align:center;"></div>
-</div>
-
-<script>
-  const API_URL = "https://script.google.com/macros/s/AKfycbwxg1EBEA5RBxH56fCz_tQhRMR1dCyqFh8nr9tcQzHiNrrSzfA08RYZlrm0Y53suO4OQw/exec";
-  const params = new URLSearchParams(window.location.search);
-  const idDossier = params.get("id") || "";
-
-  async function init() {
-    if (!idDossier) {
-      document.getElementById("chargement").innerHTML = "❌ Lien invalide : identifiant de dossier manquant.";
-      return;
-    }
-    const res = await fetch(API_URL + "?action=get_dossier&id=" + encodeURIComponent(idDossier));
-    const d = await res.json();
-    if (!d.succes) {
-      document.getElementById("chargement").innerHTML = "❌ " + d.message;
-      return;
-    }
-    document.getElementById("chargement").style.display = "none";
-    document.getElementById("form-rh").style.display = "block";
-    document.getElementById("bloc-recap").innerHTML = `
-      <strong>Dossier ${d.id}</strong> — Stagiaire : <strong>${d.civilite} ${d.prenom} ${d.nom}</strong> (${d.fonction})<br>
-      Formule : ${d.typologie} • Montant total : <strong>${d.totalTTC} € TTC</strong>
-    `;
-    document.getElementById("etablissement").value = d.etablissement || "";
-    document.getElementById("siretClient").value = d.siretClient || "";
-    document.getElementById("codeNaf").value = d.codeNaf || "";
-    document.getElementById("nbSalaries").value = d.nbSalaries || "";
-    document.getElementById("adresseEtablissement").value = d.adresseEtablissement || "";
-    document.getElementById("responsableEtablissement").value = d.responsableEtablissement || "";
-    document.getElementById("contactAdmin").value = d.contactAdmin || "";
-    document.getElementById("emailServiceFormation").value = d.emailServiceFormation || "";
-    if (d.modeFinancement) document.getElementById("modeFinancement").value = d.modeFinancement;
-    document.getElementById("nomOpco").value = d.nomOpco || "";
-    document.getElementById("numeroBonCommande").value = d.numeroBonCommande || "";
-  }
-
-  document.getElementById("form-rh").addEventListener("submit", async function(e) {
-    e.preventDefault();
-    const btn = document.getElementById("btn-valider");
-    btn.disabled = true; btn.textContent = "Régénération des documents en cours...";
-    const payload = {
-      action: "completer_dossier",
-      data: {
-        id: idDossier,
-        etablissement: document.getElementById("etablissement").value,
-        siretClient: document.getElementById("siretClient").value,
-        codeNaf: document.getElementById("codeNaf").value,
-        nbSalaries: document.getElementById("nbSalaries").value,
-        adresseEtablissement: document.getElementById("adresseEtablissement").value,
-        responsableEtablissement: document.getElementById("responsableEtablissement").value,
-        contactAdmin: document.getElementById("contactAdmin").value,
-        emailServiceFormation: document.getElementById("emailServiceFormation").value,
-        modeFinancement: document.getElementById("modeFinancement").value,
-        nomOpco: document.getElementById("nomOpco").value,
-        numeroBonCommande: document.getElementById("numeroBonCommande").value
-      }
-    };
-    const res = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
-    const json = await res.json();
-    if (json.succes) {
-      document.getElementById("form-rh").style.display = "none";
-      const r = document.getElementById("resultat");
-      r.style.display = "block";
-      r.innerHTML = `<h2 style="color:#059669;">✅ Dossier administratif complété (${idDossier})</h2><p>La Convention de formation et les Fiches Qualiopi définitives viennent d'être envoyées par email.</p>`;
-    } else {
-      alert("Erreur : " + json.message);
-      btn.disabled = false;
-    }
-  });
-
-  init();
-</script>
+  <script src="assets/config.js"></script>
+  <script src="assets/jef.js"></script>
+  <script src="assets/pages/complement.js"></script>
 </body>
 </html>

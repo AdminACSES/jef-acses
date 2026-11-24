@@ -2,218 +2,112 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inscription Formation — 33èmes JEF ACSES 2027</title>
-  <style>
-    :root { --bleu: #0066B3; --bleu-fonce: #0B3B60; --orange: #F59E0B; --gris: #F8FAFC; --texte: #1E293B; }
-    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
-    body { margin: 0; background: #EFF6FF; color: var(--texte); padding: 20px 12px; }
-    .container { max-width: 780px; margin: 0 auto; background: #fff; border-radius: 14px; box-shadow: 0 10px 30px rgba(11,59,96,0.12); overflow: hidden; }
-    .header { background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%); padding: 24px 30px; border-bottom: 4px solid var(--bleu); display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
-    .header img { height: 78px; width: auto; object-fit: contain; }
-    .header-text h1 { margin: 0 0 6px; font-size: 1.45rem; color: var(--bleu-fonce); }
-    .header-text p { margin: 0; color: #475569; font-size: 0.95rem; font-weight: 500; }
-    .badge-qualiopi { display: inline-block; margin-top: 8px; background: #E0F2FE; color: var(--bleu-fonce); font-size: 0.78rem; font-weight: 700; padding: 4px 10px; border-radius: 6px; }
-    form { padding: 28px 30px; }
-    h2 { font-size: 1.1rem; color: var(--bleu); border-bottom: 2px solid #E2E8F0; padding-bottom: 6px; margin: 24px 0 16px; }
-    h2:first-of-type { margin-top: 0; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    @media(max-width: 640px) { .grid { grid-template-columns: 1fr; } }
-    label { display: block; font-size: 0.86rem; font-weight: 600; margin-bottom: 5px; color: #334155; }
-    input, select, textarea { width: 100%; padding: 10px 12px; border: 1.5px solid #CBD5E1; border-radius: 8px; font-size: 0.95rem; }
-    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--bleu); }
-    .check-card { background: #F8FAFC; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 14px 16px; margin: 14px 0; display: flex; align-items: flex-start; gap: 12px; cursor: pointer; }
-    .check-card input[type="checkbox"] { width: 20px; height: 20px; margin-top: 2px; cursor: pointer; }
-    .tarif-box { background: #0B3B60; color: #fff; padding: 18px 22px; border-radius: 10px; margin: 22px 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-    .tarif-box .prix { font-size: 1.65rem; font-weight: 800; color: #FBBF24; }
-    button[type="submit"] { width: 100%; background: var(--bleu); color: #fff; border: none; padding: 15px; font-size: 1.05rem; font-weight: 700; border-radius: 10px; cursor: pointer; transition: 0.2s; }
-    button[type="submit"]:hover { background: var(--bleu-fonce); }
-    .note-info { background: #FEF3C7; border-left: 4px solid #D97706; padding: 12px 15px; border-radius: 6px; font-size: 0.88rem; color: #78350F; margin-bottom: 18px; }
-    #overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.82); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; color: #fff; text-align: center; padding: 20px; }
-    .spinner { width: 52px; height: 52px; border: 5px solid rgba(255,255,255,0.25); border-top-color: #FBBF24; border-radius: 50%; animation: spin 0.9s linear infinite; margin-bottom: 16px; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    #resultat { display: none; padding: 30px; text-align: center; }
-    .link-box { background: #F1F5F9; padding: 12px; border-radius: 8px; word-break: break-all; font-family: monospace; font-size: 0.88rem; border: 1px dashed #64748B; margin: 12px 0; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <meta name="description" content="Journées d'Études et de Formation de l'ACSES : inscriptions stagiaires, exposants et visiteurs.">
+  <title>Journées d'Études et de Formation ACSES</title>
+  <link rel="icon" href="logo-acses.png">
+  <link rel="stylesheet" href="assets/jef.css">
 </head>
 <body>
-
-<div id="overlay">
-  <div class="spinner"></div>
-  <h3 style="margin:0 0 8px;">Enregistrement de votre pré-inscription...</h3>
-  <p style="margin:0; opacity:0.85;">Génération de votre dossier Qualiopi et de votre lien Service Formation en cours.</p>
-</div>
-
-<div class="container">
-  <div class="header">
-    <img src="logo-acses.png" alt="Logo ACSES">
-    <div class="header-text">
-      <h1 id="titre-event">33èmes Journées d'Études et de Formation ACSES</h1>
-      <p id="sous-titre">10 et 11 juin 2027 • Palais des Congrès LE BELLEVUE — BIARRITZ</p>
-      <span class="badge-qualiopi">Organisme certifié Qualiopi • Action de formation (10h00)</span>
+  <header class="entete">
+    <div class="interieur">
+      <a href="./"><img src="logo-acses.png" alt="ACSES" width="69" height="40"></a>
+      <div class="titre">JEF <span data-cfg="annee">2027</span><small data-cfg="ville">Biarritz</small></div>
+      <nav aria-label="Navigation principale">
+        <a href="./" aria-current="page">Accueil</a>
+        <a href="inscription.html">Formation</a>
+        <a href="visiteur.html">Visiteurs</a>
+      </nav>
     </div>
-  </div>
+  </header>
 
-  <form id="form-stagiaire">
-    <div class="note-info">
-      <strong>Étape 1 — Pré-inscription rapide :</strong> Renseignez vos coordonnées ci-dessous. Les informations administratives de votre établissement (SIRET, OPCO, financement) pourront être complétées ensuite par votre Service Formation via un lien dédié.
+  <section class="heros">
+    <div class="interieur">
+      <div>
+        <div class="surtitre">Organisme certifié Qualiopi - action de formation de <span data-cfg="duree">10</span>&nbsp;h</div>
+        <h1><span data-cfg="edition">33èmes</span> Journées d'Études et de Formation</h1>
+        <div class="meta">
+          <span>📅 <b data-cfg="dates">10 et 11 juin 2027</b></span>
+          <span>📍 <span data-cfg="lieu">Palais des congrès Le Bellevue, Biarritz</span></span>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <a class="btn btn-orange btn-l" href="inscription.html">Je m'inscris à la formation</a>
+          <a class="btn btn-blanc btn-l" href="visiteur.html">Visiter les stands</a>
+        </div>
+      </div>
+      <aside class="compte-rebours" aria-live="polite">
+        <div id="etat-inscriptions" style="font-weight:700;">Chargement...</div>
+        <div class="chiffres" id="compte">
+          <div><b>--</b><small>jours</small></div><div><b>--</b><small>heures</small></div>
+          <div><b>--</b><small>min</small></div><div><b>--</b><small>s</small></div>
+        </div>
+        <div id="compte-legende" style="font-size:.85rem;opacity:.85;"></div>
+      </aside>
     </div>
+    <div class="vague"></div>
+  </section>
 
-    <h2>1. Formule & Statut</h2>
-    <div class="grid">
-      <div>
-        <label>Statut d'adhésion ACSES *</label>
-        <select id="typologie" required onchange="calculerTotal()">
-          <option value="Stagiaire Adhérent">Adhérent ACSES (250 € formation)</option>
-          <option value="Stagiaire Non-Adhérent">Non-Adhérent ACSES (350 € formation)</option>
-        </select>
-      </div>
-      <div>
-        <label>Option Restauration (3 repas : jeudi midi, gala jeudi soir, vendredi midi) *</label>
-        <select id="optionRepas" required onchange="calculerTotal()">
-          <option value="OUI">OUI — Avec les 3 repas (+60 € TTC)</option>
-          <option value="NON">NON — Formation seule sans repas (0 €)</option>
-        </select>
-      </div>
-    </div>
-
-    <h2>2. Identité du participant</h2>
-    <div class="grid">
-      <div>
-        <label>Civilité *</label>
-        <select id="civilite" required>
-          <option value="M.">M.</option>
-          <option value="Mme">Mme</option>
-        </select>
-      </div>
-      <div>
-        <label>Fonction dans l'établissement *</label>
-        <input type="text" id="fonction" placeholder="Ex: Responsable Sécurité / SSIAP 3" required>
-      </div>
-      <div>
-        <label>Nom *</label>
-        <input type="text" id="nom" required>
-      </div>
-      <div>
-        <label>Prénom *</label>
-        <input type="text" id="prenom" required>
-      </div>
-      <div>
-        <label>Email personnel / professionnel du participant *</label>
-        <input type="email" id="emailParticipant" required>
-      </div>
-      <div>
-        <label>Téléphone portable *</label>
-        <input type="tel" id="telephoneParticipant" required>
-      </div>
-    </div>
-    <div style="margin-top:14px;">
-      <label>Établissement / Structure *</label>
-      <input type="text" id="etablissement" placeholder="Ex: Centre Hospitalier de..." required>
-    </div>
-    <div class="grid" style="margin-top:14px;">
-      <div>
-        <label>Régime alimentaire (si repas inclus)</label>
-        <input type="text" id="regimeAlimentaire" value="Standard" placeholder="Standard, Sans porc, Végétarien, Allergies...">
-      </div>
-      <div>
-        <label>Besoin spécifique lié à une situation de handicap</label>
-        <input type="text" id="situationHandicap" value="Aucun">
-      </div>
+  <main class="conteneur">
+    <div class="parcours">
+      <a class="carte" href="inscription.html">
+        <div class="icone" style="background:#E0EEFA;">🎓</div>
+        <h3>Stagiaires de la formation</h3>
+        <p class="petit">Agents des établissements de santé, adhérents ou non. Conférences, ateliers et attestation de formation.</p>
+        <span class="lien">S'inscrire →</span>
+      </a>
+      <a class="carte" href="exposant.html">
+        <div class="icone" style="background:var(--orange-clair);">🏢</div>
+        <h3>Exposants et partenaires</h3>
+        <p class="petit">Chaque société exposante reçoit un lien personnel pour inscrire ses représentants et obtenir leurs badges.</p>
+        <span class="lien">Espace exposants →</span>
+      </a>
+      <a class="carte" href="visiteur.html">
+        <div class="icone" style="background:var(--vert-clair);">🤝</div>
+        <h3>Visiteurs des stands</h3>
+        <p class="petit">Accès gratuit à l'espace exposants pendant une demi-journée, sans conférences ni repas.</p>
+        <span class="lien">Demander une invitation →</span>
+      </a>
     </div>
 
-    <h2>3. Transmission à votre Service Formation / RH</h2>
-    <div style="margin-bottom:10px;">
-      <label>Email de votre Service Formation / RH (facultatif à cette étape)</label>
-      <input type="email" id="emailServiceFormation" placeholder="formation@etablissement.fr">
+    <section class="carte" style="margin-top:28px;">
+      <h2>Comment se passe l'inscription à la formation</h2>
+      <ol class="etapes-ligne">
+        <li><b>Vous réservez votre place</b><br><span class="petit">En 3 minutes, sans les informations comptables.</span></li>
+        <li><b>Votre service formation complète</b><br><span class="petit">Il reçoit un lien sécurisé : SIRET, financement, signataire.</span></li>
+        <li><b>Il dépose la convention signée</b><br><span class="petit">En PDF ou en photo, archivée automatiquement.</span></li>
+        <li><b>Vous recevez votre badge</b><br><span class="petit">À imprimer, il enregistre votre présence à chaque demi-journée.</span></li>
+      </ol>
+    </section>
+
+    <div class="grille g2" style="margin-top:18px;">
+      <section class="carte">
+        <h2>Thèmes de l'édition</h2>
+        <ul id="themes" style="margin:0;padding-left:20px;"></ul>
+      </section>
+      <section class="carte">
+        <h2>Infos pratiques</h2>
+        <dl class="infos">
+          <dt>Lieu</dt><dd data-cfg="lieu">-</dd>
+          <dt>Durée</dt><dd><span data-cfg="duree">10</span> heures de formation</dd>
+          <dt>Contact</dt><dd><span data-cfg="contact.email">inscription@acses-asso.com</span></dd>
+          <dt>Téléphone</dt><dd data-cfg="contact.telephone">-</dd>
+        </dl>
+      </section>
     </div>
+  </main>
 
-    <label class="check-card">
-      <input type="checkbox" id="envoiDirectRH" onchange="toggleRHRequired()">
-      <div>
-        <strong>Envoyer directement la convention et le lien de complément à mon Service Formation</strong><br>
-        <span style="font-size:0.83rem; color:#475569;">Si décoché, vous recevrez vous-même les documents par email afin de les transmettre à votre service formation.</span>
-      </div>
-    </label>
-
-    <div class="tarif-box">
-      <div>
-        <div style="font-size:0.85rem; opacity:0.85;">Montant total de la prise en charge (Non assujetti à la TVA)</div>
-        <div style="font-size:0.95rem;" id="detail-tarif">Formation Adhérent (250 €) + 3 repas (60 €)</div>
-      </div>
-      <div class="prix" id="affichage-total">310 € TTC</div>
+  <footer class="pied">
+    <div class="interieur">
+      <span>ACSES - Association des Chargés de Sécurité des Établissements de Soins</span>
+      <span>Organisme de formation certifié Qualiopi - NDA <span data-cfg="nda">11754982075</span></span>
+      <a href="confidentialite.html">Confidentialité</a>
+      <a href="admin.html">Espace Bureau</a>
     </div>
+  </footer>
 
-    <button type="submit">Valider ma pré-inscription</button>
-  </form>
-
-  <div id="resultat"></div>
-</div>
-
-<script>
-  const API_URL = "https://script.google.com/macros/s/AKfycbwxg1EBEA5RBxH56fCz_tQhRMR1dCyqFh8nr9tcQzHiNrrSzfA08RYZlrm0Y53suO4OQw/exec";
-  let tarifs = { adhF: 250, adhR: 60, nonAdhF: 350, nonAdhR: 60 };
-
-  function calculerTotal() {
-    const typo = document.getElementById("typologie").value;
-    const repas = document.getElementById("optionRepas").value === "OUI";
-    const f = (typo === "Stagiaire Non-Adhérent") ? tarifs.nonAdhF : tarifs.adhF;
-    const r = repas ? tarifs.adhR : 0;
-    document.getElementById("affichage-total").textContent = (f + r) + " € TTC";
-    document.getElementById("detail-tarif").textContent = (typo === "Stagiaire Non-Adhérent" ? "Non-Adhérent" : "Adhérent") + " (" + f + " €) + " + (repas ? "3 repas (" + r + " €)" : "Sans repas (0 €)");
-  }
-
-  function toggleRHRequired() {
-    const direct = document.getElementById("envoiDirectRH").checked;
-    document.getElementById("emailServiceFormation").required = direct;
-  }
-
-  document.getElementById("form-stagiaire").addEventListener("submit", async function(e) {
-    e.preventDefault();
-    document.getElementById("overlay").style.display = "flex";
-    const payload = {
-      action: "preinscrire_stagiaire",
-      data: {
-        typologie: document.getElementById("typologie").value,
-        optionRepas: document.getElementById("optionRepas").value,
-        membreBureau: false,
-        civilite: document.getElementById("civilite").value,
-        fonction: document.getElementById("fonction").value,
-        nom: document.getElementById("nom").value,
-        prenom: document.getElementById("prenom").value,
-        emailParticipant: document.getElementById("emailParticipant").value,
-        telephoneParticipant: document.getElementById("telephoneParticipant").value,
-        etablissement: document.getElementById("etablissement").value,
-        regimeAlimentaire: document.getElementById("regimeAlimentaire").value,
-        situationHandicap: document.getElementById("situationHandicap").value,
-        emailServiceFormation: document.getElementById("emailServiceFormation").value,
-        envoiDirectRH: document.getElementById("envoiDirectRH").checked
-      }
-    };
-    try {
-      const res = await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
-      const json = await res.json();
-      document.getElementById("overlay").style.display = "none";
-      if (json.succes) {
-        document.getElementById("form-stagiaire").style.display = "none";
-        const box = document.getElementById("resultat");
-        box.style.display = "block";
-        box.innerHTML = `
-          <h2 style="color:#059669; border:none;">✅ Pré-inscription enregistrée (${json.id})</h2>
-          <p>${json.envoiDirectRH
-            ? "Le dossier Qualiopi provisoire et le lien de complément ont été envoyés directement à votre <strong>Service Formation</strong> (avec vous en copie)."
-            : "Vous venez de recevoir vos documents par email. <strong>Pensez à transférer cet email à votre Service Formation</strong> pour validation et signature de la convention."}</p>
-          <p style="font-size:0.9rem; color:#475569;">Lien direct de complément administratif pour votre Service Formation :</p>
-          <div class="link-box">${json.lienComplement}</div>
-        `;
-      } else {
-        alert("Erreur : " + json.message);
-      }
-    } catch (err) {
-      document.getElementById("overlay").style.display = "none";
-      alert("Erreur réseau : " + err.message);
-    }
-  });
-</script>
+  <script src="assets/config.js"></script>
+  <script src="assets/jef.js"></script>
+  <script src="assets/pages/accueil.js"></script>
 </body>
 </html>
