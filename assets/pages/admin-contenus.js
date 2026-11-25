@@ -3,14 +3,14 @@
    Modifiable sans toucher à la logique (admin.js).
    ========================================================================== */
 window.JEF_COCKPIT = {
-  version: '2.2.0',
+  version: '2.3.0',
 
   menu: [
     { titre: 'Pilotage', couleur: '#2F6BFF', pages: [['tableau', 'Tableau de bord']] },
-    { titre: 'Formation', couleur: '#6D28D9', pages: [['stagiaires', 'Stagiaires'], ['qualiopi', 'Présences et Qualiopi']] },
+    { titre: 'Formation', couleur: '#6D28D9', pages: [['stagiaires', 'Stagiaires'], ['presences', 'Présences et attestations'], ['qualiopi', 'Qualiopi']] },
     { titre: 'Entreprises et badges', couleur: '#EB7E0C', pages: [['entreprises', 'Entreprises partenaires'], ['badges', 'Visiteurs et invités']] },
     { titre: 'Logistique', couleur: '#1E7B45', pages: [['restauration', 'Restauration'], ['jourj', 'Accueil jour J']] },
-    { titre: 'Administration', couleur: '#94A3B8', pages: [['reglages', 'Réglages'], ['journal', 'Journal'], ['aide', 'Mode d\'emploi'], ['nouveautes', 'Quoi de neuf']] }
+    { titre: 'Administration', couleur: '#94A3B8', pages: [['reglages', 'Réglages'], ['acces', 'Accès'], ['journal', 'Journal'], ['aide', 'Mode d\'emploi'], ['nouveautes', 'Quoi de neuf']] }
   ],
 
   legendes: {
@@ -23,7 +23,7 @@ window.JEF_COCKPIT = {
   aides: {
     tableau: {
       texte: 'Vue d\'ensemble de l\'édition. Les cartes orange signalent ce qui attend une action du bureau : un clic ouvre directement la bonne liste.',
-      points: ['Les chiffres se mettent à jour à chaque actualisation, et seuls toutes les deux minutes.', 'Le tableau des repas donne les couverts par jour, à transmettre au traiteur.']
+      points: ['« Personnaliser le tableau de bord », en haut, permet de masquer des widgets et de changer leur ordre. Le réglage suit votre compte.','Les chiffres se mettent à jour à chaque actualisation, et seuls toutes les deux minutes.', 'Le tableau des repas donne les couverts par jour, à transmettre au traiteur.']
     },
     stagiaires: {
       texte: 'Tous les dossiers de formation. Cliquez sur un nom pour ouvrir la fiche complète.',
@@ -33,8 +33,21 @@ window.JEF_COCKPIT = {
       legende: 'dossier'
     },
     qualiopi: {
-      texte: 'Présences par demi-journée, attestations et feuille de présence unique.',
-      points: ['Le scanner remplit les présences automatiquement : un seul scan à l\'arrivée vaut pour les 2 jours (réglable). Ici, vous pouvez forcer une présence oubliée d\'un clic.',
+      texte: 'Préparation des audits Qualiopi : les 33 indicateurs du référentiel, l\'état de chaque justificatif et les fichiers du Drive qui le prouvent.',
+      points: ['Cliquez sur un indicateur pour changer son état, rattacher des fichiers du Drive Qualiopi ou un lien, et noter ce qu\'il faut dire à l\'auditeur.',
+        'Les indicateurs propres à l\'alternance, à l\'apprentissage ou aux formations certifiantes sont marqués non applicables. Vous pouvez changer ce choix.',
+        'Les lignes « Plateforme » sont calculées automatiquement à partir des inscriptions : positionnements, convocations, présences, attestations.',
+        'Les exemples de justificatifs sont des propositions, à valider par le bureau avec le guide de lecture officiel.']
+    },
+    acces: {
+      texte: 'Les comptes du bureau qui peuvent se connecter au cockpit et au scanner. Réservé aux administrateurs.',
+      points: ['Tous les comptes sont utilisateurs. Cochez Administrateur pour donner aussi l\'accès aux Réglages et à cet onglet.',
+        'La croix au bout de la ligne retire l\'accès. La personne est déconnectée aussitôt.',
+        'Vous ne pouvez pas retirer votre propre accès administrateur : demandez à un autre administrateur.']
+    },
+    presences: {
+      texte: 'Présent ou absent, attestations et feuille de présence unique.',
+      points: ['Le scanner enregistre la présence à l\'arrivée. Ici, un clic sur « Marquer présent » rattrape un oubli, un second clic retire la présence.',
         'Les attestations partent seules à la date prévue dans les réglages, avec les heures réellement suivies.'],
       legende: 'presence'
     },
@@ -101,10 +114,26 @@ window.JEF_COCKPIT = {
       ['p', 'Les invités de l\'ACSES et les intervenants se créent avec « Nouveau badge », avec ou sans repas.']
     ] },
     { titre: 'Jour J et Qualiopi', blocs: [
-      ['p', 'Ouvrez scanner.html sur un téléphone ou un PC. Chaque personne est scannée une seule fois, à son arrivée : la présence vaut pour les 2 jours (un visiteur, pour sa demi-journée). Le scan affiche aussi ses repas.'],
+      ['p', 'Ouvrez scanner.html sur un téléphone ou un PC. En mode Accueil, chaque personne est scannée une seule fois, à son arrivée : elle est présente pour toute la formation (un visiteur, pour sa demi-journée). Le scan affiche aussi ses repas.'],
+      ['p', 'En mode Vérifier, le scan ouvre la fiche de la personne : présence, repas, badge envoyé, attestation, avec des boutons pour corriger ou renvoyer.'],
       ['p', 'Si un financeur exige un émargement par demi-journée, passez le réglage « Un seul scan à l\'arrivée » sur Non.'],
       ['p', 'Sans réseau, le scanner continue : les scans sont gardés sur l\'appareil puis envoyés au retour de la connexion.'],
       ['p', 'Le vendredi à 14 h (réglable), la feuille de présence unique et les attestations partent seules. Une personne non scannée peut être marquée présente depuis le cockpit avant cet envoi.']
+    ] },
+    { titre: 'Inscription sur place', blocs: [
+      ['p', 'Le bouton orange « + Inscription sur place », en haut à droite, sert le jour J pour une personne arrivée sans inscription. Choisissez le profil : il détermine le modèle du badge.'],
+      ['ul', ['Aucun repas n\'est coché par défaut. Cochez ceux que la personne prend.',
+        'Le badge s\'ouvre aussitôt pour l\'impression. Avec un email, il peut aussi être envoyé.',
+        'Un stagiaire inscrit sur place a un vrai dossier, validé d\'office et compté pour l\'attestation. La convention et la facture se régularisent ensuite depuis sa fiche.']]
+    ] },
+    { titre: 'Qualiopi et audits', blocs: [
+      ['p', 'L\'onglet Qualiopi liste les 33 indicateurs du référentiel. Pour chacun, indiquez l\'état du justificatif et rattachez les fichiers du Drive Qualiopi. Le jour de l\'audit, tout est au même endroit.'],
+      ['p', 'Le dossier Drive doit être partagé avec le compte qui fait tourner la plateforme, sinon la liste des fichiers ne s\'affiche pas.']
+    ] },
+    { titre: 'Profils et accès', blocs: [
+      ['ul', ['Utilisateur : tout le cockpit et le scanner, sans les Réglages ni les Accès. C\'est le profil de tous les membres du bureau.',
+        'Administrateur : utilisateur, plus les Réglages et l\'onglet Accès.',
+        'Un administrateur ajoute ou retire un compte dans l\'onglet Accès. L\'effet est immédiat.']]
     ] },
     { titre: 'Couleurs des étiquettes', blocs: [
       ['legende', [['t-vert', 'Terminé ou OK'], ['t-orange', 'À faire ou bientôt'], ['t-rouge', 'Annulé, refusé ou en retard'], ['t-violet', 'En attente d\'un tiers ou mode spécial'], ['t-bleu', 'Prévu']]]
@@ -123,6 +152,15 @@ window.JEF_COCKPIT = {
   ],
 
   nouveautes: [
+    { version: '2.3.0', date: '25 novembre 2026', points: [
+      'Inscription sur place depuis le cockpit (bouton en haut à droite et sur le tableau de bord) : stagiaire, exposant, invité, intervenant ou visiteur, badge imprimé tout de suite avec le modèle du profil, sans repas par défaut.',
+      'Tableau de bord personnalisable : afficher ou masquer chaque widget, changer l\'ordre. Le réglage suit votre compte.',
+      'Présence : présent ou absent, un seul bouton.',
+      'Nouvel onglet Qualiopi pour préparer les audits : 33 indicateurs, état des justificatifs, fichiers du Drive rattachés.',
+      'Profils utilisateur et administrateur, et nouvel onglet Accès pour ajouter ou retirer un membre du bureau.',
+      'Scanner : mode Vérifier, qui ouvre la fiche de la personne pour marquer la présence, renvoyer le badge ou l\'attestation.',
+      'Réglages des présences et de Qualiopi modifiables directement depuis ces pages, pour les administrateurs.'
+    ] },
     { version: '2.2.0', date: '25 novembre 2026', points: [
       'Inscription : la première question « Qui remplit ce formulaire ? » adapte la suite. Stagiaire, service formation ou secrétariat, ou stagiaire qui paie lui-même.',
       'Un service formation peut inscrire un stagiaire en une fois et déposer la convention aussitôt. Le stagiaire reçoit un lien pour son positionnement.',

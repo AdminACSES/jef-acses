@@ -256,3 +256,54 @@ body.cockpit .tiroir section.bloc-convention h4 { margin-bottom: 4px; }
 .apercu-doc object { width: 100%; height: 100%; display: block; border: 0; }
 .apercu-doc img { max-width: 100%; height: auto; display: block; margin: auto; }
 .apercu-doc .indice { padding: 16px; text-align: center; }
+
+/* v2.3 : tableau de bord en widgets */
+.widgets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.widgets .widget { min-width: 0; }
+.widgets .widget.large { grid-column: 1 / -1; }
+.widgets .widget > .panneau, .widgets .widget > .chiffres { margin: 0; height: 100%; }
+@media (max-width: 1100px) { .widgets { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .widgets { grid-template-columns: 1fr; } }
+.liste-widgets { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.liste-widgets li { display: flex; align-items: center; gap: 8px; border: 1px solid var(--trait); border-radius: 10px; padding: 6px 8px; background: #fff; cursor: grab; }
+.liste-widgets li.masque { background: #F7F9FC; color: var(--texte-2); }
+.liste-widgets li.glisse { opacity: .5; }
+.liste-widgets li.cible { border-color: var(--bleu); box-shadow: 0 0 0 2px rgba(21, 82, 143, .15); }
+.liste-widgets .poignee { color: var(--texte-2); font-weight: 800; letter-spacing: -2px; padding: 0 4px; }
+
+/* Inscription sur place */
+.choix-profils { display: flex; flex-wrap: wrap; gap: 6px; }
+.choix-profils .option { flex: 1 1 140px; }
+.apercu-bandeau { margin-top: 8px; display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--texte-2); }
+.apercu-bandeau b { color: #fff; padding: 3px 10px; border-radius: 6px; font-size: 11px; letter-spacing: .04em; }
+
+/* Accès */
+.table-acces td { vertical-align: middle; }
+.table-acces .avatar { width: 26px; height: 26px; font-size: 11px; vertical-align: middle; }
+body.cockpit .btn.croix { padding: 3px 9px; font-weight: 800; line-height: 1.2; }
+.ajout-acces { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--trait); }
+.ajout-acces .case { margin-bottom: 9px; }
+
+/* Qualiopi */
+.titre-critere { margin: 16px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--violet); }
+.liste-indicateurs { display: grid; gap: 6px; }
+.indicateur { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: 38px 1fr auto; gap: 10px; align-items: start; border: 1px solid var(--trait); border-radius: 10px; padding: 10px 12px; background: #fff; }
+.indicateur:hover { border-color: var(--bleu); background: #F5F9FD; }
+.indicateur:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.indicateur.na { background: #F7F9FC; color: var(--texte-2); }
+.indicateur .num { width: 30px; height: 30px; border-radius: 50%; background: var(--fond); display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--encre); }
+.indicateur .corps-ind { display: grid; gap: 3px; min-width: 0; }
+.indicateur .corps-ind small { color: var(--texte-2); }
+.indicateur .corps-ind small.auto { color: var(--bleu); font-weight: 600; }
+.indicateur .corps-ind small.note { font-style: italic; }
+.indicateur .liens { display: flex; flex-wrap: wrap; gap: 4px; }
+.indicateur .lien-pj { font-size: 11px; background: #EEF4F9; color: var(--bleu); padding: 2px 7px; border-radius: 6px; }
+.indicateur .etat-ind { display: grid; justify-items: end; gap: 3px; }
+.indicateur .etat-ind small { color: var(--texte-2); font-size: 11px; }
+.liste-liens { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.liste-liens li { display: flex; justify-content: space-between; align-items: center; gap: 8px; border: 1px solid var(--trait); border-radius: 8px; padding: 4px 8px; }
+.fichiers-drive { max-height: 200px; overflow: auto; display: grid; gap: 4px; margin-top: 6px; }
+.fichier-drive { all: unset; cursor: pointer; display: grid; padding: 6px 8px; border: 1px solid var(--trait); border-radius: 8px; }
+.fichier-drive:hover { border-color: var(--bleu); background: #F5F9FD; }
+.fichier-drive small { color: var(--texte-2); }
+@media (max-width: 720px) { .indicateur { grid-template-columns: 30px 1fr; } .indicateur .etat-ind { grid-column: 2; justify-items: start; } }

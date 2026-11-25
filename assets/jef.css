@@ -361,3 +361,23 @@ input::placeholder, textarea::placeholder { color: #9AA6B8; font-style: italic; 
 .ferme-bloc h1 { margin: 8px 0 10px; }
 .ferme-bloc .coche { width: 58px; height: 58px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px; font-size: 26px; }
 .ferme-bloc h1 { font-size: clamp(1.4rem, 3vw, 1.9rem); }
+
+/* v2.3 : scanner, modes Accueil et Vérifier */
+.scanner-app .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.scanner-app .modes button { all: unset; cursor: pointer; text-align: center; padding: 10px; border-radius: 12px; border: 1px solid #334155; background: #111A2E; font-weight: 800; color: #CBD5E1; }
+.scanner-app .modes button small { display: block; font-weight: 500; font-size: .75rem; color: #94A3B8; }
+.scanner-app .modes button[aria-selected="true"] { background: #EB7E0C; border-color: #EB7E0C; color: #fff; }
+.scanner-app .modes button[aria-selected="true"] small { color: #FFF3E6; }
+.scanner-app .modes button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.fiche-verif { background: #F8FAFC; color: #0B2540; border-radius: 18px; padding: 18px; display: grid; gap: 12px; }
+.fiche-verif .entete-fiche { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.fiche-verif .qui { font-size: 1.5rem; font-weight: 850; line-height: 1.15; }
+.fiche-verif .profil { display: inline-block; padding: 4px 10px; border-radius: 8px; font-weight: 800; font-size: .8rem; }
+.fiche-verif dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: .92rem; }
+.fiche-verif dt { color: #5D6B82; }
+.fiche-verif dd { margin: 0; font-weight: 700; }
+.fiche-verif .actions-fiche { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.fiche-verif .actions-fiche .btn { justify-content: center; }
+.fiche-verif .alerte-fiche { background: #FFF6EC; border: 1px solid #F5C58F; border-radius: 10px; padding: 8px 10px; font-weight: 700; color: #8A4B00; }
+.fiche-verif .ko { background: #FDECEE; border-color: #F1B5BF; color: #8F0B20; }
+.scanner-app { overflow-x: hidden; }

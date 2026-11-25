@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Scanner de l'accueil : caméra ou douchette, présence par demi-journée,
+   Scanner de l'accueil : caméra ou douchette, présence, mode Vérifier (fiche et actions),
    fonctionnement hors connexion avec file d'attente synchronisée.
    ========================================================================== */
 (function () {
@@ -7,7 +7,8 @@
   var h = JEF.h, $ = JEF.$;
   var CLE_FILE = 'jef_file_scans', CLE_LISTE = 'jef_liste_accueil';
   var personnes = {}, creneaux = [], file = [], scansSession = 0, enCours = false, dernier = { code: '', t: 0 };
-  var camera = null, cameraActive = false, minuteurEffacement = null, horsLigne = false;
+  var camera = null, cameraActive = false, minuteurEffacement = null, horsLigne = false, mode = 'accueil';
+  var REPAS_LIB = { JM: 'Jeudi midi', GALA: 'Gala', VM: 'Vendredi midi' };
 
   // ----- Persistance locale -------------------------------------------------
   function lireLocal(cle, defaut) { try { return JSON.parse(localStorage.getItem(cle) || 'null') || defaut; } catch (e) { return defaut; } }
@@ -96,11 +97,86 @@
     afficher({ resultat: 'HORS_LIGNE', personne: p, id: id, alertes: p ? ['Signature vérifiée à la reconnexion'] : ['Badge absent de la liste locale : vérifier l\'identité'] });
   }
 
+  // ----- Mode Vérifier : fiche de la personne et actions -------------------
+  function verifier(texte) {
+    enCours = true;
+    var z = $('#fiche');
+    z.hidden = false;
+    JEF.rendre(z, h`<div class="chargement" style="color:#0B2540;"><span class="rotation"></span>Recherche de la fiche</div>`);
+    JEF.post('verifier', { data: { qr: texte } }, { delai: 20000 }).then(function (r) {
+      etat(true);
+      if (!r.trouve) { bip('ko'); JEF.rendre(z, h`<div class="alerte-fiche ko">${r.message}</div>`); return; }
+      bip('ok');
+      afficherFiche(r.fiche);
+    }).catch(function (e) {
+      if (e.reseau) etat(false);
+      JEF.rendre(z, h`<div class="alerte-fiche ko">${e.reseau ? 'Pas de réseau : la vérification demande une connexion.' : e.message}</div>`);
+    }).finally(function () { enCours = false; });
+  }
+
+  function afficherFiche(f) {
+    var z = $('#fiche');
+    JEF.rendre(z, h`<div class="entete-fiche"><div><div class="qui">${f.prenom} ${f.nom}</div><div>${f.fonction}${f.fonction && f.organisme ? ' - ' : ''}${f.organisme}</div></div>
+        <span class="profil" style="background:${f.couleur};color:${f.texte || '#fff'};">${f.profil}</span></div>
+      ${f.annule ? h`<div class="alerte-fiche ko">Inscription annulée</div>` : ''}
+      ${f.aRegulariser ? h`<div class="alerte-fiche">Inscrit sur place : convention et facture à régulariser</div>` : ''}
+      <dl><dt>Badge</dt><dd>${f.id}</dd><dt>Dossier</dt><dd>${f.statut}</dd>
+        <dt>Présence</dt><dd>${f.present ? 'Présent, arrivé le ' + f.arrivee : 'Pas encore enregistré'}</dd>
+        ${f.visite ? h`<dt>Visite</dt><dd>${f.visite}, sans repas</dd>` : h`<dt>Repas</dt><dd>${Object.keys(f.repas).filter(function (c) { return f.repas[c]; }).map(function (c) { return REPAS_LIB[c]; }).join(', ') || 'Aucun'}</dd>`}
+        ${f.regime ? h`<dt>Régime</dt><dd>${f.regime}</dd>` : ''}
+        <dt>Badge envoyé</dt><dd>${f.badgeEnvoye || (f.email ? 'Non' : 'Pas d\'email')}</dd>
+        ${f.attestation !== null ? h`<dt>Attestation</dt><dd>${f.attestation ? 'Envoyée le ' + f.attestation : 'Pas encore envoyée'}</dd>` : ''}</dl>
+      <div class="actions-fiche">
+        <button class="btn ${f.present ? '' : 'btn-orange'}" data-a="presence">${f.present ? 'Retirer la présence' : 'Marquer présent'}</button>
+        <button class="btn" data-a="badge_pdf">Badge PDF</button>
+        ${f.email ? h`<button class="btn" data-a="badge_envoyer">Renvoyer le badge</button>` : ''}
+        ${f.type === 'STAG' && f.present ? h`<button class="btn" data-a="attestation">Envoyer l'attestation</button>` : ''}
+        <a class="btn" href="admin.html#fiche=${encodeURIComponent(f.id)}" target="_blank" rel="noopener">Ouvrir dans le cockpit</a>
+      </div>`);
+    JEF.$$('[data-a]', z).forEach(function (b) {
+      b.addEventListener('click', function () { action(f, b.getAttribute('data-a'), b); });
+    });
+  }
+
+  function action(f, op, b) {
+    var fenetre = null;
+    if (op === 'badge_pdf') { try { fenetre = window.open('', '_blank'); } catch (e) { fenetre = null; } }
+    var retablir = JEF.attente(b, 'En cours');
+    var data = { type: f.type, id: f.id, op: op };
+    if (op === 'presence') { data.creneau = 'tous'; data.retirer = f.present; }
+    JEF.post('admin_action', { data: data }, { delai: 120000 }).then(function (r) {
+      retablir();
+      if (op === 'badge_pdf') {
+        var o = atob(r.pdf), t = new Uint8Array(o.length);
+        for (var i = 0; i < o.length; i++) t[i] = o.charCodeAt(i);
+        var url = URL.createObjectURL(new Blob([t], { type: 'application/pdf' }));
+        if (fenetre && !fenetre.closed) fenetre.location.href = url; else window.location.href = url;
+        return;
+      }
+      JEF.toast({ presence: f.present ? 'Présence retirée' : 'Présence enregistrée', badge_envoyer: 'Badge renvoyé', attestation: 'Attestation envoyée' }[op] || 'Fait', 'ok');
+      if (op === 'presence') { f.present = !f.present; f.arrivee = f.present ? new Date().toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(' ', ' à ') : ''; if (personnes[f.id]) creneaux.forEach(function (c) { personnes[f.id]['p' + c.n] = f.present; }); majStats(); }
+      if (op === 'badge_envoyer') f.badgeEnvoye = new Date().toLocaleDateString('fr-FR');
+      if (op === 'attestation') f.attestation = new Date().toLocaleDateString('fr-FR');
+      afficherFiche(f);
+    }).catch(function (e) { retablir(); if (fenetre) fenetre.close(); JEF.toast(e.message, 'erreur'); });
+  }
+
+  function changerMode(m) {
+    mode = m;
+    JEF.$$('[data-mode]').forEach(function (b) { b.setAttribute('aria-selected', String(b.getAttribute('data-mode') === m)); });
+    $('#stats').hidden = m === 'verifier';
+    $('#fiche').hidden = true;
+    $('#resultat').className = 'resultat';
+    $('#saisie').placeholder = m === 'verifier' ? 'Scanner ou saisir le badge à vérifier' : 'Douchette ou saisie : JEF2027-012';
+    $('#saisie').focus();
+  }
+
   function traiter(texte) {
     texte = String(texte || '').trim();
     if (!texte || enCours) return;
     if (texte === dernier.code && Date.now() - dernier.t < 4000) return;
     dernier = { code: texte, t: Date.now() };
+    if (mode === 'verifier') { verifier(texte); return; }
     enCours = true;
     scansSession++;
     var n = Number($('#creneau').value);
@@ -173,12 +249,13 @@
   function ouvrirApp(s) {
     $('#connexion').hidden = true;
     $('#app').hidden = false;
-    $('#utilisateur').textContent = s.email + ' (' + s.role + ')';
+    $('#utilisateur').textContent = s.email + ' (' + (s.role === 'admin' ? 'administrateur' : 'utilisateur') + ')';
     file = lireLocal(CLE_FILE, []);
     chargerListe().then(function () { if (file.length) synchroniser(); });
     $('#saisie').focus();
   }
 
+  JEF.$$('[data-mode]').forEach(function (b) { b.addEventListener('click', function () { changerMode(b.getAttribute('data-mode')); }); });
   $('#camera').addEventListener('click', function () { if (cameraActive) arreterCamera(); else demarrerCamera(); });
   $('#synchro').addEventListener('click', synchroniser);
   $('#creneau').addEventListener('change', majStats);

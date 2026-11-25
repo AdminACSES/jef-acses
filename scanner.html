@@ -16,7 +16,7 @@
     <div class="carte">
       <img class="logo" src="logo-acses.png" alt="ACSES">
       <h1 style="font-size:1.4rem;">Scanner de l'accueil</h1>
-      <p class="petit" style="margin:0;">Connexion avec votre compte <b>@acses-asso.com</b> autorisé pour l'accueil.</p>
+      <p class="petit" style="margin:0;">Connexion avec votre compte <b>@acses-asso.com</b> du bureau.</p>
       <div id="bouton-google"></div>
       <div id="message-connexion" class="erreur-champ" role="alert" style="min-height:1.2em;"></div>
     </div>
@@ -30,7 +30,11 @@
       <span class="etat" id="etat"><i></i><span>En ligne</span></span>
     </div>
     <div class="scanner-corps">
-      <div class="stats-accueil">
+      <div class="modes" role="tablist" aria-label="Mode du scanner">
+        <button type="button" role="tab" data-mode="accueil" aria-selected="true">Accueil<small>valide la présence</small></button>
+        <button type="button" role="tab" data-mode="verifier" aria-selected="false">Vérifier<small>ouvre la fiche</small></button>
+      </div>
+      <div class="stats-accueil" id="stats">
         <div><b id="st-presents">0</b><small>présents sur ce créneau</small></div>
         <div><b id="st-session">0</b><small>scans sur cet appareil</small></div>
         <div><b id="st-file">0</b><small>en attente d'envoi</small></div>
@@ -46,6 +50,7 @@
         <button class="btn" type="submit">Valider</button>
       </form>
       <div id="resultat" class="resultat" role="status" aria-live="assertive"></div>
+      <div id="fiche" class="fiche-verif" hidden></div>
       <ul class="historique" id="historique"></ul>
       <div style="display:flex;justify-content:space-between;align-items:center;font-size:.8rem;color:#94A3B8;">
         <span id="utilisateur"></span><button class="btn btn-s btn-fantome" id="deconnexion" style="color:#94A3B8;">Se déconnecter</button>

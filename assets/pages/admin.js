@@ -7,7 +7,8 @@
   'use strict';
   var h = JEF.h, $ = JEF.$, $$ = JEF.$$, brut = JEF.brut;
   var C = window.JEF_COCKPIT;
-  var D = null, session = null, vue = 'tableau', fiche = null, journal = null;
+  var D = null, session = null, vue = 'tableau', fiche = null, journal = null, prefs = {};
+  var PAGES_ADMIN = ['reglages', 'acces'];
   var reglages = null, reglagesInitial = '', reglagesModifies = false;
   var connectes = [], tableCourante = null, filtresPages = {}, etatsTables = {};
   var COURT = { JM: 'J', GALA: 'G', VM: 'V' };
@@ -56,16 +57,13 @@
   function repas3(l) {
     return h`<span class="repas3" title="Jeudi midi, gala, vendredi midi">${['JM', 'GALA', 'VM'].map(function (c) { return h`<span class="${JEF.oui(l['Repas_' + c]) ? 'on' : ''}">${COURT[c]}</span>`; })}</span>`;
   }
+  function estPresent(l) { return D.creneaux.some(function (c) { return !!l['Presence_' + c.n]; }); }
+  function estAdmin() { return session && session.role === 'admin'; }
+  /** Présent ou non, point. Un clic marque présent sur toute la formation, un second retire. */
   function boutonsPresence(l) {
-    if (D.reglages.scanUnique) {
-      var tous = D.creneaux.every(function (c) { return l['Presence_' + c.n]; });
-      var une = D.creneaux.filter(function (c) { return l['Presence_' + c.n]; })[0];
-      return h`<span class="pres-groupe"><button class="pres ${tous ? 'on' : ''}" data-op="presence" data-n="tous" title="${tous ? 'Présent, arrivé à ' + JEF.heure(l['Presence_' + une.n]) + '. Cliquer pour retirer' : 'Cliquer pour marquer présent sur les 2 jours'}">${tous ? 'Présent' : (une ? 'Partiel' : 'Marquer présent')}</button></span>`;
-    }
-    return h`<span class="pres-groupe">${D.creneaux.map(function (c) {
-      var on = l['Presence_' + c.n];
-      return h`<button class="pres ${on ? 'on' : ''}" data-op="presence" data-n="${c.n}" title="${c.libelle}${on ? ' - présent à ' + JEF.heure(on) + ', cliquer pour retirer' : ' - cliquer pour valider la présence'}">${courtCreneau(c.libelle)}</button>`;
-    })}</span>`;
+    var on = estPresent(l);
+    var arrivee = on ? D.creneaux.map(function (c) { return l['Presence_' + c.n]; }).filter(Boolean)[0] : null;
+    return h`<span class="pres-groupe"><button class="pres ${on ? 'on' : ''}" data-op="presence" data-n="tous" title="${on ? 'Présent, arrivé le ' + JEF.date(arrivee, true) + '. Cliquer pour retirer' : 'Cliquer pour marquer présent'}">${on ? 'Présent' : 'Marquer présent'}</button></span>`;
   }
   function legende(nom) {
     var l = C.legendes[nom];
@@ -171,23 +169,27 @@
   }
 
   function ouvrirApp(s) {
-    if (s.role !== 'admin') { JEF.rendre('#message-connexion', h`Votre compte a un accès accueil uniquement. <a href="scanner.html">Ouvrir le scanner</a>`); return; }
+    if (s.role !== 'admin' && s.role !== 'utilisateur') { JEF.oublierSession(); JEF.rendre('#message-connexion', h`Votre session a changé, reconnectez-vous.`); setTimeout(function () { location.reload(); }, 1500); return; }
     session = s;
+    prefs = lireLocal('jef_prefs', {});
+    JEF.post('preferences', { data: {} }).then(function (r) { prefs = r.preferences || {}; ecrireLocal('jef_prefs', prefs); if (vue === 'tableau' && D) afficher(); }).catch(function () { /* préférences locales */ });
     $('#connexion').hidden = true;
     $('#app').hidden = false;
     construireMenu();
     construireCompte();
     var depart = (location.hash || '').replace('#', '');
     var ficheDemandee = depart.indexOf('fiche=') === 0 ? decodeURIComponent(depart.slice(6)) : '';
-    vue = ficheDemandee ? 'stagiaires' : (C.aides[depart] ? depart : lireLocal('jef_vue', 'tableau'));
-    if (ficheDemandee) filtresPages.stagiaires = 'valider';
+    var typeDemande = /^JEF/.test(ficheDemandee) ? 'STAG' : (/^ENT/.test(ficheDemandee) ? 'ENT' : 'PRO');
+    vue = ficheDemandee ? (typeDemande === 'STAG' ? 'stagiaires' : (typeDemande === 'ENT' || /^EXP/.test(ficheDemandee) ? 'entreprises' : 'badges')) : (C.aides[depart] ? depart : lireLocal('jef_vue', 'tableau'));
+    if (PAGES_ADMIN.indexOf(vue) !== -1 && !estAdmin()) vue = 'tableau';
+    if (ficheDemandee && typeDemande === 'STAG') filtresPages.stagiaires = 'tous';
     charger().then(function () {
       signalerPresence();
-      if (ficheDemandee && trouver('STAG', ficheDemandee)) {
-        history.replaceState(null, '', '#stagiaires');
-        ouvrirFiche('STAG', ficheDemandee);
-        var l = trouver('STAG', ficheDemandee);
-        if (l.Convention_Fichier) apercuConvention(l);
+      if (ficheDemandee && trouver(typeDemande, ficheDemandee)) {
+        history.replaceState(null, '', '#' + vue);
+        ouvrirFiche(typeDemande, ficheDemandee);
+        var l = trouver(typeDemande, ficheDemandee);
+        if (typeDemande === 'STAG' && prefixe(l) === '3' && l.Convention_Fichier) apercuConvention(l);
       } else afficherNouveautesUneFois();
     });
     setInterval(signalerPresence, 30000);
@@ -197,7 +199,7 @@
   function construireMenu() {
     JEF.rendre('#nav', C.menu.map(function (g) {
       return h`<div class="menu-groupe"><div class="menu-groupe-titre"><i style="background:${g.couleur};"></i>${g.titre}</div>
-        ${g.pages.map(function (p) { return h`<button class="menu-btn" data-vue="${p[0]}">${p[1]}<span class="compteur" id="c-${p[0]}" hidden></span></button>`; })}</div>`;
+        ${g.pages.filter(function (p) { return estAdmin() || PAGES_ADMIN.indexOf(p[0]) === -1; }).map(function (p) { return h`<button class="menu-btn" data-vue="${p[0]}">${p[1]}<span class="compteur" id="c-${p[0]}" hidden></span></button>`; })}</div>`;
     }));
     $('#menu-bas').textContent = 'Version ' + C.version;
     $$('#nav [data-vue]').forEach(function (b) { b.addEventListener('click', function () { aller(b.getAttribute('data-vue')); $('#menu').classList.remove('ouvert'); }); });
@@ -206,7 +208,7 @@
   function construireCompte() {
     var b = $('#b-compte');
     JEF.rendre(b, h`<span class="avatar" style="background:${couleurDe(session.email)};">${initiales(session.nom || session.email)}</span><span>${String(session.nom && session.nom.indexOf('@') === -1 ? session.nom : session.email.split('@')[0]).split(' ')[0]}</span>`);
-    JEF.rendre('#menu-compte', h`<div class="entete-menu"><b>${session.nom || ''}</b><br>${session.email}<br>Administrateur</div>
+    JEF.rendre('#menu-compte', h`<div class="entete-menu"><b>${session.nom || ''}</b><br>${session.email}<br>${estAdmin() ? 'Administrateur' : 'Utilisateur'}</div>
       <a href="scanner.html" target="_blank" rel="noopener">Ouvrir le scanner</a>
       <button data-compte="aide">Mode d'emploi</button><button data-compte="sortir">Se déconnecter</button>`);
   }
@@ -294,11 +296,13 @@
     return t;
   }
   function aller(v) {
+    if (PAGES_ADMIN.indexOf(v) !== -1 && !estAdmin()) { JEF.toast('Page réservée aux administrateurs.', 'erreur'); return; }
     if (vue === 'reglages' && reglagesModifies && v !== 'reglages') {
       confirmer('Modifications non enregistrées', 'Vous avez modifié des réglages sans les enregistrer. Quitter la page les annule.', 'Quitter sans enregistrer', true)
         .then(function (ok) { if (ok) { reglagesModifies = false; aller(v); } });
       return;
     }
+    if (!reglagesModifies) reglages = null; // réglages relus à chaque page : jamais de valeur périmée
     vue = v; ecrireLocal('jef_vue', v);
     history.replaceState(null, '', '#' + v);
     fermerFiche(); afficher(); window.scrollTo(0, 0); signalerPresence();
@@ -310,10 +314,11 @@
     tableCourante = null;
     JEF.rendre('#actions-contexte', '');
     if (!D) return;
-    var f = { tableau: vueTableau, stagiaires: vueStagiaires, qualiopi: vueQualiopi, entreprises: vueEntreprises, badges: vueBadges,
+    var f = { tableau: vueTableau, stagiaires: vueStagiaires, presences: vuePresences, qualiopi: vueQualiopi, acces: vueAcces, entreprises: vueEntreprises, badges: vueBadges,
       restauration: vueRestauration, jourj: vueJourJ, reglages: vueReglages, journal: vueJournal, aide: vueAide, nouveautes: vueNouveautes }[vue] || vueTableau;
     f();
     brancherAide();
+    $$('#vue [data-sur-place]').forEach(function (b) { b.addEventListener('click', function () { modaleSurPlace(); }); });
   }
 
   // ======================================================================
@@ -333,7 +338,7 @@
       { n: exposants.filter(function (b) { return b.Email && !b.Badge_Envoye; }).length, t: 'Badges exposants à envoyer', s: 'Représentants ajoutés, badge pas encore parti', go: function () { filtresPages.entreprises = 'envoyer'; aller('entreprises'); } },
       { n: exposants.filter(function (b) { return Number(b.Montant) > 0; }).length, t: 'Pass exposants supplémentaires', s: 'À facturer aux entreprises', go: function () { filtresPages.entreprises = 'supp'; aller('entreprises'); } },
       { n: badges.filter(function (b) { return b.Profil !== 'EXPOSANT' && b.Email && !b.Badge_Envoye; }).length, t: 'Badges visiteurs ou invités à envoyer', s: 'Pas encore partis', go: function () { filtresPages.badges = 'envoyer'; aller('badges'); } },
-      { n: actifs.filter(function (l) { return Number(l.Heures) > 0 && !l.Attestation_Envoyee; }).length, t: 'Attestations à envoyer', s: 'Stagiaires présents sans attestation', go: function () { aller('qualiopi'); } }
+      { n: actifs.filter(function (l) { return Number(l.Heures) > 0 && !l.Attestation_Envoyee; }).length, t: 'Attestations à envoyer', s: 'Stagiaires présents sans attestation', go: function () { aller('presences'); } }
     ].filter(function (x) { return x.n > 0; });
 
     var cap = r.capacite;
@@ -371,13 +376,13 @@
       semaines.push(st.filter(function (l) { var t = new Date(l.Date_Inscription).getTime(); return t > debS && t <= finS; }).length);
     }
     var maxS = Math.max.apply(null, semaines.concat([1]));
-    var presentsJ = D.creneaux.map(function (c) { return { lib: c.libelle, n: actifs.concat(badges).filter(function (l) { return l['Presence_' + c.n]; }).length }; });
 
-    JEF.rendre('#vue', h`${aidePage('tableau')}
-      ${panneau('Actions à faire', 'Un clic ouvre la liste concernée.', aFaire.length
+    var presentsJ = actifs.concat(badges).filter(estPresent).length;
+    var W = {
+      afaire: { titre: 'Actions à faire', large: true, html: panneau('Actions à faire', 'Un clic ouvre la liste concernée.', aFaire.length
         ? h`<div class="a-faire">${aFaire.map(function (x, i) { return h`<button class="carte-faire" data-faire="${i}"><b>${x.n}</b><span>${x.t}<small>${x.s}</small></span></button>`; })}</div>`
-        : h`<div class="a-faire"><div class="carte-faire ok"><b>✓</b><span>Rien à faire pour le moment<small>Tous les dossiers sont à jour</small></span></div></div>`)}
-      <div class="chiffres">
+        : h`<div class="a-faire"><div class="carte-faire ok"><b>✓</b><span>Rien à faire pour le moment<small>Tous les dossiers sont à jour</small></span></div></div>`) },
+      chiffres: { titre: 'Chiffres clés', large: true, html: h`<div class="chiffres" style="margin:0;">
         <div class="chiffre"><div class="lib">Stagiaires inscrits</div><div class="val">${actifs.length}${cap ? brut('<small style="font-size:14px;color:var(--texte-2)"> / ' + cap + '</small>') : ''}</div>
           ${cap ? h`<div class="jauge2"><i style="width:${Math.min(100, Math.round(actifs.length / cap * 100))}%"></i></div><div class="det">${Math.max(0, cap - actifs.length)} places restantes</div>` : h`<div class="det">Places non limitées</div>`}</div>
         <div class="chiffre"><div class="lib">Chiffre d'affaires prévu</div><div class="val">${JEF.euros(ca)}</div><div class="det">${JEF.euros(facture)} facturés, ${JEF.euros(encaisse)} encaissés</div></div>
@@ -385,38 +390,89 @@
         <div class="chiffre"><div class="lib">Visiteurs de l'espace exposants</div><div class="val">${visiteurs}</div><div class="det">Invitations gratuites</div></div>
         <div class="chiffre"><div class="lib">Invités et intervenants</div><div class="val">${invites}</div><div class="det">Créés par le bureau</div></div>
         <div class="chiffre"><div class="lib">Participants attendus</div><div class="val">${actifs.length + badges.length}</div><div class="det">Tous badges confondus</div></div>
-      </div>
-      ${panneau('Repas par jour', 'Couverts à commander, par profil. Les régimes particuliers sont détaillés dans Restauration.', h`<div class="table-defile" style="max-height:none;"><table class="tab">
+      </div>` },
+      surplace: { titre: 'Inscription sur place', html: panneau('Inscription sur place', 'Une personne arrive sans inscription : stagiaire, exposant, invité, intervenant ou visiteur.',
+        h`<button class="btn btn-l btn-action" style="width:100%;justify-content:center;" data-sur-place>+ Inscrire et imprimer le badge</button>
+          <p class="indice" style="margin:8px 0 0;">Sans repas par défaut. Le badge prend le modèle du profil choisi.</p>`) },
+      repas: { titre: 'Repas par jour', large: true, html: panneau('Repas par jour', 'Couverts à commander, par profil. Les régimes particuliers sont détaillés dans Restauration.', h`<div class="table-defile" style="max-height:none;"><table class="tab">
         <thead><tr><th>Repas</th>${groupes.map(function (g) { return h`<th>${g[0]}</th>`; })}<th>Total</th><th>Dont régimes particuliers</th></tr></thead>
         <tbody>${lignesRepas.map(function (x) { return h`<tr style="cursor:default;"><td><b>${x.lib}</b></td>${x.par.map(function (n) { return h`<td>${n}</td>`; })}<td><b>${x.total}</b></td><td>${x.regimes}</td></tr>`; })}</tbody></table></div>`,
-        h`<button class="btn btn-s" data-aller="restauration">Détail des régimes</button>`)}
-      <div class="grille3">
-        ${panneau('Avancement des dossiers', 'Nombre de dossiers à chaque étape.', h`<div class="barres">${etapes.map(function (e) {
+        h`<button class="btn btn-s" data-aller="restauration">Détail des régimes</button>`) },
+      avancement: { titre: 'Avancement des dossiers', html: panneau('Avancement des dossiers', 'Nombre de dossiers à chaque étape.', h`<div class="barres">${etapes.map(function (e) {
           var n = st.filter(function (l) { return prefixe(l) === e[0]; }).length;
           return h`<div class="l"><span>${e[1]}</span><div class="b"><i style="width:${Math.round(n / maxE * 100)}%;background:${e[2]};"></i></div><b>${n}</b></div>`;
-        })}</div>`)}
-        ${panneau('Financement', 'Mode de prise en charge indiqué par le service formation.', h`<div class="barres">${Object.keys(fin).sort().map(function (k) {
+        })}</div>`) },
+      financement: { titre: 'Financement', html: panneau('Financement', 'Mode de prise en charge des stagiaires.', h`<div class="barres">${Object.keys(fin).sort().map(function (k) {
           return h`<div class="l"><span>${k}</span><div class="b"><i style="width:${Math.round(fin[k] / maxF * 100)}%;background:var(--bleu-2);"></i></div><b>${fin[k]}</b></div>`;
-        })}${Object.keys(fin).length ? '' : h`<p class="indice">Aucun stagiaire pour le moment.</p>`}</div>`)}
-        ${panneau('Adhésion', 'Répartition des stagiaires inscrits.', h`<div class="barres">
+        })}${Object.keys(fin).length ? '' : h`<p class="indice">Aucun stagiaire pour le moment.</p>`}</div>`) },
+      adhesion: { titre: 'Adhésion', html: panneau('Adhésion', 'Répartition des stagiaires inscrits.', h`<div class="barres">
           <div class="l"><span>Adhérents</span><div class="b"><i style="width:${actifs.length ? Math.round(adh / actifs.length * 100) : 0}%;background:var(--vert);"></i></div><b>${adh}</b></div>
-          <div class="l"><span>Non-adhérents</span><div class="b"><i style="width:${actifs.length ? Math.round((actifs.length - adh) / actifs.length * 100) : 0}%;background:var(--orange-acses);"></i></div><b>${actifs.length - adh}</b></div></div>`)}
-        ${panneau('Établissements représentés', Object.keys(etab).length + ' établissements différents.', h`<div class="barres">${topEtab.map(function (k) {
+          <div class="l"><span>Non-adhérents</span><div class="b"><i style="width:${actifs.length ? Math.round((actifs.length - adh) / actifs.length * 100) : 0}%;background:var(--orange-acses);"></i></div><b>${actifs.length - adh}</b></div></div>`) },
+      etablissements: { titre: 'Établissements représentés', html: panneau('Établissements représentés', Object.keys(etab).length + ' établissements différents.', h`<div class="barres">${topEtab.map(function (k) {
           return h`<div class="l"><span title="${k}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${k}</span><div class="b"><i style="width:${Math.round(etab[k] / (etab[topEtab[0]] || 1) * 100)}%;background:var(--bleu);"></i></div><b>${etab[k]}</b></div>`;
-        })}</div>`)}
-        ${panneau('Besoins d\'aménagement', 'Données de santé, à ne pas diffuser. Cliquez sur un nom pour ouvrir la fiche.', amenagements.length
+        })}</div>`) },
+      amenagements: { titre: 'Besoins d\'aménagement', html: panneau('Besoins d\'aménagement', 'Données de santé, à ne pas diffuser. Cliquez sur un nom pour ouvrir la fiche.', amenagements.length
           ? h`<ul style="margin:0;padding-left:18px;display:grid;gap:4px;">${amenagements.map(function (l) { return h`<li><button class="lien-nom" data-fiche="${l.ID}">${nomComplet(l)}</button> - ${l.Handicap}</li>`; })}</ul>`
-          : h`<p class="indice" style="margin:0;">Aucun besoin signalé.</p>`)}
-        ${panneau('Présences jour J', 'Personnes enregistrées par demi-journée, tous profils.', h`<div class="barres">${presentsJ.map(function (p) {
-          return h`<div class="l"><span>${courtCreneau(p.lib)}</span><div class="b"><i style="width:${Math.round(p.n / Math.max(1, actifs.length + badges.length) * 100)}%;background:var(--vert);"></i></div><b>${p.n}</b></div>`;
-        })}</div>`)}
-      </div>
-      ${panneau('Rythme des inscriptions', 'Nouvelles pré-inscriptions par semaine, sur les 10 dernières semaines.', h`<div style="display:flex;align-items:flex-end;gap:8px;height:110px;">${semaines.map(function (n, i) {
-        return h`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;"><small>${n || ''}</small><div style="width:100%;background:${i === 9 ? 'var(--orange-acses)' : 'var(--bleu-2)'};border-radius:6px 6px 0 0;height:${Math.max(3, Math.round(n / maxS * 80))}px;"></div></div>`;
-      })}</div><div class="indice" style="display:flex;justify-content:space-between;"><span>Il y a 10 semaines</span><span>Cette semaine</span></div>`)}`);
+          : h`<p class="indice" style="margin:0;">Aucun besoin signalé.</p>`) },
+      presences: { titre: 'Présences', html: panneau('Présences', 'Personnes enregistrées présentes, tous profils.', h`<div class="chiffre" style="border:0;padding:0;"><div class="val">${presentsJ}<small style="font-size:14px;color:var(--texte-2)"> / ${actifs.length + badges.length}</small></div>
+          <div class="jauge2"><i style="width:${Math.round(presentsJ / Math.max(1, actifs.length + badges.length) * 100)}%"></i></div><div class="det">personnes arrivées</div></div>`,
+          h`<button class="btn btn-s" data-aller="presences">Voir</button>`) },
+      rythme: { titre: 'Rythme des inscriptions', large: true, html: panneau('Rythme des inscriptions', 'Nouvelles inscriptions par semaine, sur les 10 dernières semaines.', h`<div style="display:flex;align-items:flex-end;gap:8px;height:110px;">${semaines.map(function (n, i) {
+          return h`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;"><small>${n || ''}</small><div style="width:100%;background:${i === 9 ? 'var(--orange-acses)' : 'var(--bleu-2)'};border-radius:6px 6px 0 0;height:${Math.max(3, Math.round(n / maxS * 80))}px;"></div></div>`;
+        })}</div><div class="indice" style="display:flex;justify-content:space-between;"><span>Il y a 10 semaines</span><span>Cette semaine</span></div>`) }
+    };
+    var ordre = ordreWidgets(Object.keys(W));
+    JEF.rendre('#actions-contexte', h`<button class="btn btn-s" id="b-personnaliser">Personnaliser le tableau de bord</button>`);
+    JEF.rendre('#vue', h`${aidePage('tableau')}
+      <div class="widgets">${ordre.filter(function (w) { return w.visible; }).map(function (w) {
+        return h`<div class="widget ${W[w.id].large ? 'large' : ''}" data-widget="${w.id}">${W[w.id].html}</div>`;
+      })}</div>
+      ${ordre.every(function (w) { return !w.visible; }) ? h`<p class="indice">Tous les widgets sont masqués. Cliquez sur « Personnaliser le tableau de bord ».</p>` : ''}`);
     $$('[data-faire]').forEach(function (b) { b.addEventListener('click', function () { aFaire[Number(b.getAttribute('data-faire'))].go(); }); });
     $$('[data-fiche]').forEach(function (b) { b.addEventListener('click', function () { ouvrirFiche('STAG', b.getAttribute('data-fiche')); }); });
     $$('[data-aller]').forEach(function (b) { b.addEventListener('click', function () { aller(b.getAttribute('data-aller')); }); });
+    $('#b-personnaliser').addEventListener('click', function () { modaleWidgets(W); });
+  }
+
+  // ----- Widgets : affichage et ordre, enregistrés pour chaque compte ------------
+  function ordreWidgets(ids) {
+    var p = (prefs.widgets || []).filter(function (w) { return ids.indexOf(w.id) !== -1; });
+    var vus = p.map(function (w) { return w.id; });
+    return p.concat(ids.filter(function (id) { return vus.indexOf(id) === -1; }).map(function (id) { return { id: id, visible: true }; }));
+  }
+  function modaleWidgets(W) {
+    var liste = ordreWidgets(Object.keys(W)).map(function (w) { return { id: w.id, visible: w.visible }; });
+    function rendre() {
+      JEF.rendre('#liste-widgets', liste.map(function (w, i) {
+        return h`<li draggable="true" data-i="${i}" class="${w.visible ? '' : 'masque'}"><span class="poignee" aria-hidden="true">⋮⋮</span>
+          <label class="case" style="flex:1;"><input type="checkbox" data-vis="${i}" ${brut(w.visible ? 'checked' : '')}> <span>${W[w.id].titre}</span></label>
+          <button type="button" class="btn btn-s" data-monter="${i}" aria-label="Monter" ${brut(i === 0 ? 'disabled' : '')}>▲</button>
+          <button type="button" class="btn btn-s" data-descendre="${i}" aria-label="Descendre" ${brut(i === liste.length - 1 ? 'disabled' : '')}>▼</button></li>`;
+      }));
+      $$('[data-vis]').forEach(function (c) { c.addEventListener('change', function () { liste[Number(c.getAttribute('data-vis'))].visible = c.checked; rendre(); }); });
+      $$('[data-monter]').forEach(function (b) { b.addEventListener('click', function () { var i = Number(b.getAttribute('data-monter')); liste.splice(i - 1, 0, liste.splice(i, 1)[0]); rendre(); }); });
+      $$('[data-descendre]').forEach(function (b) { b.addEventListener('click', function () { var i = Number(b.getAttribute('data-descendre')); liste.splice(i + 1, 0, liste.splice(i, 1)[0]); rendre(); }); });
+      var depart = null;
+      $$('#liste-widgets li').forEach(function (li) {
+        li.addEventListener('dragstart', function (e) { depart = Number(li.getAttribute('data-i')); li.classList.add('glisse'); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(depart)); } catch (x) { /* rien */ } });
+        li.addEventListener('dragend', function () { li.classList.remove('glisse'); });
+        li.addEventListener('dragover', function (e) { e.preventDefault(); li.classList.add('cible'); });
+        li.addEventListener('dragleave', function () { li.classList.remove('cible'); });
+        li.addEventListener('drop', function (e) { e.preventDefault(); var arrivee = Number(li.getAttribute('data-i')); if (depart !== null && depart !== arrivee) { liste.splice(arrivee, 0, liste.splice(depart, 1)[0]); rendre(); } });
+      });
+    }
+    ouvrirModale('Personnaliser le tableau de bord', h`<p class="indice" style="margin:0;">Cochez les widgets à afficher. Glissez une ligne, ou utilisez les flèches, pour changer l'ordre. Le réglage suit votre compte, sur tous vos appareils.</p>
+      <ul class="liste-widgets" id="liste-widgets"></ul>`,
+    [{ texte: 'Annuler' },
+      { texte: 'Tout réafficher', action: function () { liste = Object.keys(W).map(function (id) { return { id: id, visible: true }; }); rendre(); } },
+      { texte: 'Enregistrer', classe: 'btn-primaire', action: function (z, b) {
+        prefs.widgets = liste;
+        ecrireLocal('jef_prefs', prefs);
+        var retablir = JEF.attente(b, 'Enregistrement');
+        JEF.post('preferences', { data: { op: 'enregistrer', preferences: prefs } }).then(function () { retablir(); fermerModale(); JEF.toast('Tableau de bord enregistré', 'ok'); afficher(); })
+          .catch(function (e) { retablir(); fermerModale(); afficher(); JEF.toast('Enregistré sur cet appareil seulement : ' + e.message, 'erreur'); });
+      } }]);
+    rendre();
   }
 
   // ======================================================================
@@ -486,15 +542,15 @@
   // ======================================================================
   // Présences et Qualiopi
   // ======================================================================
-  function vueQualiopi() {
+  function vuePresences() {
     var st = D.stagiaires.filter(function (l) { return /[3458]/.test(prefixe(l)) || Number(l.Heures) > 0; });
     var valides = D.stagiaires.filter(function (l) { return /[45]/.test(prefixe(l)); });
-    var t = tableau('qualiopi', {
+    var t = tableau('presences', {
       lignes: st, triDefaut: 'nom',
       colonnes: [
         { cle: 'nom', titre: 'Stagiaire', val: nomComplet, tri: function (l) { return normal(l.Nom); }, rendu: function (l) { return h`<button class="lien-nom" data-op="fiche">${nomComplet(l)}</button><div class="sous">${l.Etablissement}</div>`; } },
         { cle: 'statut', titre: 'Dossier', val: function (l) { return String(l.Statut).slice(3); }, rendu: tagStatutStagiaire },
-        { cle: 'presence', titre: 'Présences (cliquer pour valider)', val: function (l) { return String(l.Heures || 0); }, rendu: boutonsPresence, filtre: false, trier: false },
+        { cle: 'presence', titre: 'Présent', val: function (l) { return estPresent(l) ? 'Présent' : 'Absent'; }, rendu: boutonsPresence, filtre: false },
         { cle: 'heures', titre: 'Heures', val: function (l) { return Number(l.Heures) || 0; }, rendu: function (l) { return h`<b>${l.Heures || 0} h</b>`; }, filtre: false },
         { cle: 'attestation', titre: 'Attestation', val: function (l) { return l.Attestation_Envoyee ? 'envoyée' : 'non'; },
           rendu: function (l) { return l.Attestation_Envoyee ? tag('t-vert', 'Envoyée le ' + JEF.date(l.Attestation_Envoyee)) : (Number(l.Heures) > 0 ? h`<button class="btn btn-s" data-op="attestation">Envoyer</button>` : tag('t-gris', 'Pas de présence')); } }
@@ -504,17 +560,67 @@
       vide: 'Aucun stagiaire validé pour le moment.'
     });
     var r = D.reglages;
-    JEF.rendre('#vue', h`${aidePage('qualiopi')}
-      <div class="chiffres">${D.creneaux.map(function (c) {
-        var n = valides.filter(function (l) { return l['Presence_' + c.n]; }).length;
-        return h`<div class="chiffre"><div class="lib">${c.libelle} (${c.heures} h)</div><div class="val">${n}<small style="font-size:14px;color:var(--texte-2)"> / ${valides.length}</small></div>
-          <div class="jauge2"><i style="width:${valides.length ? Math.round(n / valides.length * 100) : 0}%"></i></div><div class="det">stagiaires validés présents</div></div>`;
-      })}
+    JEF.rendre('#vue', h`${aidePage('presences')}
+      <div class="chiffres">${(function () { var n = valides.filter(estPresent).length;
+        return h`<div class="chiffre"><div class="lib">Présents</div><div class="val">${n}<small style="font-size:14px;color:var(--texte-2)"> / ${valides.length}</small></div>
+          <div class="jauge2"><i style="width:${valides.length ? Math.round(n / valides.length * 100) : 0}%"></i></div><div class="det">stagiaires validés</div></div>
+          <div class="chiffre"><div class="lib">Absents</div><div class="val">${valides.length - n}</div><div class="det">pas encore arrivés ou non scannés</div></div>`; })()}
         <div class="chiffre"><div class="lib">Attestations envoyées</div><div class="val">${D.stagiaires.filter(function (l) { return l.Attestation_Envoyee; }).length}</div><div class="det">Envoi automatique le ${JEF.date(String(r.dateAttestations).replace(' ', 'T'), true) || '-'}</div></div></div>
       ${panneau('Émargement', 'Corrigez ici une présence oubliée par le scanner. Chaque modification est inscrite au journal.', t.html,
-        h`<button class="btn btn-s" data-lancer="feuille">Générer la feuille de présence</button><button class="btn btn-s btn-action" data-lancer="attestations">Envoyer les attestations maintenant</button>`)}`);
+        h`<button class="btn btn-s" data-lancer="feuille">Générer la feuille de présence</button><button class="btn btn-s btn-action" data-lancer="attestations">Envoyer les attestations maintenant</button>`)}
+      ${panneauReglages('presences', 'Réglages des présences et attestations', 'Réservé aux administrateurs. Enregistré aussitôt, et visible aussi dans l\'onglet Réglages.',
+        ['Scan_Unique', 'Date_Envoi_Attestations', 'URL_Questionnaire_Satisfaction', 'Duree_Formation_Heures', 'Signataire_Attestation'])}`);
     t.monter();
     brancherLancer();
+    monterPanneauxReglages();
+  }
+
+  // ----- Réglages affichés dans une autre page (administrateurs seulement) ---------
+  function panneauReglages(id, titre, indice, cles) {
+    if (!estAdmin()) return '';
+    return h`<section class="panneau" data-reglages-panneau="${id}" data-cles="${cles.join(',')}"><div class="panneau-tete"><div><h3>${titre}</h3><p class="indice">${indice}</p></div></div>
+      <div class="chargement"><span class="rotation"></span>Chargement</div></section>`;
+  }
+  function monterPanneauxReglages() {
+    var zones = $$('[data-reglages-panneau]');
+    if (!zones.length) return;
+    if (!reglages) {
+      JEF.post('admin_reglages').then(function (r) { reglages = r.sections; monterPanneauxReglages(); }).catch(function (e) { JEF.toast(e.message, 'erreur'); });
+      return;
+    }
+    var defs = {};
+    reglages.forEach(function (sec) { sec.reglages.forEach(function (r) { defs[r.cle] = r; }); });
+    zones.forEach(function (z) {
+      var cles = z.getAttribute('data-cles').split(',').filter(function (c) { return defs[c]; });
+      var tete = $('.panneau-tete', z).outerHTML;
+      JEF.rendre(z, h`${brut(tete)}<form novalidate>${cles.map(function (c) { return champReglage(defs[c]); })}
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;"><button type="button" class="btn btn-s" data-pr-annuler disabled>Annuler</button><button type="submit" class="btn btn-s" data-pr-enregistrer disabled>Enregistrer</button></div></form>`);
+      var form = $('form', z), initial = JSON.stringify(lireValeursReglages(form));
+      var maj = function () {
+        var sale = JSON.stringify(lireValeursReglages(form)) !== initial;
+        $('[data-pr-enregistrer]', z).disabled = !sale; $('[data-pr-annuler]', z).disabled = !sale;
+        $('[data-pr-enregistrer]', z).className = 'btn btn-s ' + (sale ? 'btn-action' : '');
+      };
+      form.addEventListener('input', maj);
+      form.addEventListener('change', function (e) { if (e.target.matches('.interrupteur input')) e.target.nextElementSibling.textContent = e.target.checked ? 'Oui' : 'Non'; maj(); });
+      $('[data-pr-annuler]', z).addEventListener('click', function () { monterPanneauxReglages(); });
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var envoyer = function (conf) {
+          var b = $('[data-pr-enregistrer]', z), retablir = JEF.attente(b, 'Enregistrement');
+          JEF.post('admin_reglages_maj', { data: { valeurs: changements(lireValeursReglages(form), JSON.parse(initial)), confirmer: conf } }).then(function (r) {
+            retablir(); JEF.toast(r.modifies.length ? r.modifies.length + ' réglage(s) enregistré(s)' : 'Aucun changement', 'ok');
+            (r.avertissements || []).forEach(function (a) { JEF.toast(a); });
+            reglages = null; charger(true);
+          }).catch(function (err) {
+            retablir(); maj();
+            if (err.code === 'confirmation') confirmer('Réglage sensible', err.message, 'Confirmer', true).then(function (ok) { if (ok) envoyer(true); });
+            else JEF.toast(err.message, 'erreur');
+          });
+        };
+        envoyer(false);
+      });
+    });
   }
 
   function brancherLancer() {
@@ -911,13 +1017,12 @@
     var tous = D.stagiaires.filter(actif).concat(D.badges.filter(actifBadge));
     var r = D.reglages;
     JEF.rendre('#vue', h`${aidePage('jourj')}
-      <div class="chiffres">${D.creneaux.map(function (c) {
-        var n = tous.filter(function (l) { return l['Presence_' + c.n]; }).length;
-        return h`<div class="chiffre"><div class="lib">${c.libelle}</div><div class="val">${n}<small style="font-size:14px;color:var(--texte-2)"> / ${tous.length}</small></div><div class="jauge2"><i style="width:${tous.length ? Math.round(n / tous.length * 100) : 0}%"></i></div><div class="det">personnes enregistrées, tous profils</div></div>`;
-      })}</div>
+      <div class="chiffres">${(function () { var n = tous.filter(estPresent).length;
+        return h`<div class="chiffre"><div class="lib">Personnes présentes</div><div class="val">${n}<small style="font-size:14px;color:var(--texte-2)"> / ${tous.length}</small></div><div class="jauge2"><i style="width:${tous.length ? Math.round(n / tous.length * 100) : 0}%"></i></div><div class="det">tous profils</div></div>
+          <div class="chiffre"><div class="lib">Inscriptions sur place</div><div class="val">${D.stagiaires.filter(function (l) { return l.Parcours === 'SUR_PLACE'; }).length + D.badges.filter(function (b) { return /sur place/i.test(b.Notes || ''); }).length}</div><div class="det"><button class="btn btn-s btn-action" data-sur-place>+ Inscription sur place</button></div></div>`; })()}</div>
       <div class="grille2">
-        ${panneau('Scanner de l\'accueil', 'Téléphone ou PC avec douchette. Connexion avec un compte autorisé (administrateur ou accueil).',
-          h`<ol class="etapes-import"><li>Ouvrez le scanner sur chaque poste d'accueil.</li><li>Vérifiez la demi-journée affichée en haut.</li><li>Scannez le QR code du badge : écran vert, accès validé et repas affichés. Orange, déjà enregistré. Rouge, badge refusé.</li></ol>`,
+        ${panneau('Scanner de l\'accueil', 'Téléphone ou PC avec douchette. Tous les membres du bureau peuvent s\'y connecter.',
+          h`<ol class="etapes-import"><li>Ouvrez le scanner sur chaque poste d'accueil.</li><li>Mode Accueil : scannez le QR code à l'arrivée. Écran vert, présence enregistrée pour toute la formation et repas affichés. Orange, déjà enregistré. Rouge, badge refusé.</li><li>Mode Vérifier : le scan ouvre la fiche de la personne, avec ses repas, et permet de renvoyer le badge ou l'attestation.</li></ol>`,
           h`<a class="btn btn-s btn-primaire" href="scanner.html" target="_blank" rel="noopener">Ouvrir le scanner</a>`)}
         ${panneau('Envois avant et après', 'Programmés aux dates des réglages.', h`<dl class="infos"><dt>Rappel avec badge</dt><dd>${r.dateRappel || '-'}</dd><dt>Attestations</dt><dd>${r.dateAttestations || '-'}</dd><dt>Emails restants aujourd'hui</dt><dd>${r.quotaEmails}</dd></dl>`,
           h`<button class="btn btn-s" data-lancer="planifier">Programmer</button><button class="btn btn-s" data-lancer="rappels">Envoyer les rappels maintenant</button>`)}
@@ -962,9 +1067,9 @@
     }
     return h`<div class="reglage-ligne"><label class="lib" for="${id}">${r.libelle}${r.explication && r.type !== 'creneau' ? h`<div class="exp">${r.explication}</div>` : ''}</label><div>${saisie}</div></div>`;
   }
-  function lireValeursReglages() {
+  function lireValeursReglages(racine) {
     var o = {};
-    $$('#form-reglages [data-cle]').forEach(function (el) {
+    $$('[data-cle]', racine || $('#form-reglages')).forEach(function (el) {
       var cle = el.getAttribute('data-cle'), type = el.getAttribute('data-type');
       if (type === 'ouinon') o[cle] = el.checked ? 'OUI' : 'NON';
       else if (type === 'creneau') { var p = $$('[data-p]', el).map(function (i) { return i.value.trim(); }); o[cle] = p[0] ? p.join('|') : ''; }
@@ -1009,9 +1114,16 @@
     $$('[data-enregistrer]').forEach(function (b) { b.addEventListener('click', function (e) { e.preventDefault(); enregistrerReglages(false); }); });
     form.addEventListener('submit', function (e) { e.preventDefault(); enregistrerReglages(false); });
   }
+  /** Seules les valeurs changées sont envoyées : un compteur avancé entre-temps ne bloque rien. */
+  function changements(valeurs, avant) {
+    var o = {};
+    Object.keys(valeurs).forEach(function (k) { if (valeurs[k] !== avant[k]) o[k] = valeurs[k]; });
+    return o;
+  }
   function enregistrerReglages(confirme) {
-    var valeurs = lireValeursReglages();
     var avant = JSON.parse(reglagesInitial);
+    var toutes = lireValeursReglages();
+    var valeurs = changements(toutes, avant);
     var envoyer = function (conf) {
       var b = $('#form-reglages [data-enregistrer]');
       var retablir = JEF.attente(b, 'Enregistrement');
@@ -1030,7 +1142,7 @@
         else JEF.toast(err.message, 'erreur');
       });
     };
-    if (avant.Mode_Test === 'OUI' && valeurs.Mode_Test === 'NON' && !confirme) {
+    if (avant.Mode_Test === 'OUI' && toutes.Mode_Test === 'NON' && !confirme) {
       confirmer('Passer en production', 'Les emails partiront aux vrais participants et les formulaires suivront les dates d\'ouverture. Les données de démonstration doivent être supprimées avant.', 'Passer en production', true)
         .then(function (ok) { if (ok) envoyer(false); });
     } else envoyer(false);
@@ -1078,6 +1190,226 @@
     JEF.rendre('#vue', h`${aidePage('nouveautes')}${C.nouveautes.map(function (n) {
       return panneau('Version ' + n.version, n.date, h`<ul style="margin:0;padding-left:18px;display:grid;gap:4px;">${n.points.map(function (p) { return h`<li>${p}</li>`; })}</ul>`);
     })}`);
+  }
+
+  // ======================================================================
+  // Inscription sur place : badge immédiat, modèle selon le profil, sans repas par défaut
+  // ======================================================================
+  var BANDEAUX = { INVITE: ['Invité ACSES', '#6D28D9'], STAGIAIRE: ['Stagiaire', '#15528F'], EXPOSANT: ['Exposant', '#C2410C'], INTERVENANT: ['Intervenant', '#0E7490'], VISITEUR: ['Visiteur espace exposants', '#047857'] };
+  function modaleSurPlace() {
+    var ents = D.entreprises.filter(entrepriseActive).sort(function (a, b) { return String(a.Nom).localeCompare(String(b.Nom), 'fr'); });
+    ouvrirModale('Inscription sur place', h`
+      <fieldset class="champ"><legend class="legende">Profil, qui détermine le modèle du badge</legend>
+        <div class="choix-profils">${Object.keys(BANDEAUX).map(function (k, i) {
+          return h`<label class="option puce"><input type="radio" name="profil" value="${k}" ${brut(i === 0 ? 'checked' : '')}><span class="titre">${BANDEAUX[k][0]}</span></label>`;
+        })}</div>
+        <div class="apercu-bandeau" id="sp-bandeau"></div></fieldset>
+      <div class="grille g2">
+        <div class="champ"><label class="obligatoire" for="sp-prenom">Prénom</label><input id="sp-prenom" name="prenom" type="text" required></div>
+        <div class="champ"><label class="obligatoire" for="sp-nom">Nom</label><input id="sp-nom" name="nom" type="text" required></div>
+        <div class="champ"><label for="sp-fonction">Fonction</label><input id="sp-fonction" name="fonction" type="text"></div>
+        <div class="champ"><label for="sp-email">Email</label><input id="sp-email" name="email" type="email"><span class="aide">Facultatif, pour envoyer le badge et les documents.</span></div>
+        <div class="champ span2" id="sp-bloc-org"><label for="sp-org" id="sp-lib-org">Établissement ou organisme</label><input id="sp-org" name="organisme" type="text"></div>
+        <div class="champ span2" id="sp-bloc-ent" hidden><label class="obligatoire" for="sp-ent">Entreprise partenaire</label>
+          <select id="sp-ent" name="entrepriseId">${ents.length ? ents.map(function (e) { return h`<option value="${e.ID}">${e.Nom} (${e.Pass_Inclus}/${e.Quota} pass inclus)</option>`; }) : h`<option value="">Aucune entreprise : créez-la d'abord</option>`}</select></div>
+        <div class="champ" id="sp-bloc-typo" hidden><label for="sp-typo">Formule</label><select id="sp-typo" name="typologie"><option value="ADHERENT">Adhérent</option><option value="NON_ADHERENT">Non-adhérent</option></select></div>
+        <div class="champ" id="sp-bloc-cr" hidden><label for="sp-cr">Demi-journée de visite</label><select id="sp-cr" name="creneauVisite">${D.creneaux.map(function (c) { return h`<option>${c.libelle}</option>`; })}</select></div>
+      </div>
+      <fieldset class="champ" id="sp-bloc-repas"><legend class="legende">Repas (aucun par défaut)</legend>${casesRepas('repas_', null, false)}</fieldset>
+      <div class="champ" id="sp-bloc-regime"><label for="sp-regime">Régime alimentaire</label><input id="sp-regime" name="regime" type="text"></div>
+      <div class="bandeau b-orange" id="sp-info-stag" hidden><span class="texte">Le dossier est validé tout de suite. La convention et la facture sont à régulariser ensuite depuis sa fiche, un email part à inscription@ pour le rappeler.</span></div>
+      <label class="case"><input type="checkbox" name="present" checked> <span>La personne est là : la marquer présente</span></label>
+      <label class="case"><input type="checkbox" name="envoyer"> <span>Envoyer aussi le badge par email</span></label>`,
+    [{ texte: 'Annuler' }, { texte: 'Créer et imprimer le badge', classe: 'btn-action', action: function (zone, btn) {
+      if (!JEF.valider(zone)) return;
+      var d = JEF.lireFormulaire(zone);
+      if (d.profil === 'EXPOSANT' && !d.entrepriseId) { JEF.toast('Choisissez l\'entreprise partenaire.', 'erreur'); return; }
+      d.repas = {}; Object.keys(D.repas).forEach(function (c) { d.repas[c] = d['repas_' + c]; });
+      var fenetre = preparerFenetre('Préparation du badge');
+      var retablir = JEF.attente(btn, 'Création du badge');
+      JEF.post('sur_place', { data: d }, { delai: 120000 }).then(function (r) {
+        fermerModale();
+        JEF.toast(d.prenom + ' ' + d.nom + ' inscrit(e), badge ' + r.id + (r.envoye ? ' envoyé' : '') + (r.typePass === 'Supplémentaire' ? ', pass supplémentaire à facturer' : ''), 'ok');
+        ouvrirPdfBase64(r.pdf, r.nom, fenetre);
+        charger(true);
+      }).catch(function (e) { retablir(); if (fenetre) fenetre.close(); JEF.toast(e.message, 'erreur'); });
+    } }], 'large');
+    function adapter() {
+      var p = ($('#modale input[name=profil]:checked') || {}).value || 'INVITE';
+      $('#sp-bloc-ent').hidden = p !== 'EXPOSANT';
+      $('#sp-bloc-org').hidden = p === 'EXPOSANT';
+      $('#sp-bloc-typo').hidden = p !== 'STAGIAIRE';
+      $('#sp-bloc-cr').hidden = p !== 'VISITEUR';
+      $('#sp-bloc-repas').hidden = p === 'VISITEUR';
+      $('#sp-bloc-regime').hidden = p === 'VISITEUR';
+      $('#sp-info-stag').hidden = p !== 'STAGIAIRE';
+      $('#sp-lib-org').textContent = p === 'STAGIAIRE' ? 'Établissement' : 'Établissement ou organisme';
+      JEF.rendre('#sp-bandeau', h`<span>Badge imprimé avec le bandeau</span> <b style="background:${BANDEAUX[p][1]};">${BANDEAUX[p][0].toUpperCase()}</b>`);
+    }
+    $$('#modale input[name=profil]').forEach(function (r) { r.addEventListener('change', adapter); });
+    adapter();
+    $('#sp-prenom').focus();
+  }
+
+  // ======================================================================
+  // Accès : utilisateurs et administrateurs (administrateurs seulement)
+  // ======================================================================
+  function vueAcces() {
+    if (!estAdmin()) { aller('tableau'); return; }
+    JEF.rendre('#vue', h`${aidePage('acces')}<div class="chargement"><span class="rotation"></span>Chargement des comptes</div>`);
+    JEF.post('acces_lire').then(function (r) { if (vue === 'acces') rendreAcces(r.comptes); }).catch(function (e) { JEF.toast(e.message, 'erreur'); });
+  }
+  function rendreAcces(comptes) {
+    var nbAdmins = comptes.filter(function (c) { return c.admin; }).length;
+    JEF.rendre('#vue', h`${aidePage('acces')}
+      ${panneau('Comptes du bureau', comptes.length + ' compte(s), dont ' + nbAdmins + ' administrateur(s). Seules les adresses @acses-asso.com sont acceptées.', h`
+        <div class="table-defile" style="max-height:none;"><table class="tab table-acces"><thead><tr><th>Compte</th><th>Dernière connexion</th><th>Utilisateur</th><th>Administrateur</th><th></th></tr></thead>
+        <tbody>${comptes.map(function (c) {
+          return h`<tr style="cursor:default;" data-email="${c.email}"><td><span class="avatar" style="background:${couleurDe(c.email)};">${initiales(c.email)}</span> <b>${c.email}</b>${c.moi ? h` ${tag('t-bleu nu', 'Vous')}` : ''}</td>
+            <td class="sous">${c.derniere || 'Jamais connecté'}</td>
+            <td><label class="interrupteur" title="Tous les comptes sont utilisateurs"><input type="checkbox" checked disabled><span>Oui</span></label></td>
+            <td><label class="interrupteur"><input type="checkbox" data-admin ${brut(c.admin ? 'checked' : '')} ${brut(c.moi ? 'disabled title="Vous ne pouvez pas retirer votre propre accès administrateur"' : '')}><span>${c.admin ? 'Oui' : 'Non'}</span></label></td>
+            <td>${c.moi ? '' : h`<button class="btn btn-s btn-danger croix" data-retirer aria-label="Retirer l'accès de ${c.email}" title="Retirer l'accès">✕</button>`}</td></tr>`;
+        })}</tbody></table></div>
+        <form id="form-acces" class="ajout-acces" novalidate>
+          <div class="champ" style="flex:1;"><label for="ac-email">Ajouter un membre du bureau</label><input id="ac-email" name="email" type="email" required placeholder="Ex. prenom.nom@acses-asso.com"></div>
+          <label class="case"><input type="checkbox" name="admin"> <span>Administrateur</span></label>
+          <button type="submit" class="btn btn-primaire">Ajouter</button></form>`)}
+      ${panneau('Ce que chaque profil peut faire', '', h`<dl class="infos"><dt>Utilisateur</dt><dd>Tout le cockpit (dossiers, validation, paiements, badges, entreprises, Qualiopi) et le scanner.</dd>
+        <dt>Administrateur</dt><dd>Comme un utilisateur, plus les Réglages et cet onglet Accès.</dd>
+        <dt>Effet immédiat</dt><dd>Un compte retiré ou dont le profil change est déconnecté aussitôt et doit se reconnecter.</dd></dl>`)}`);
+    brancherAide();
+    var envoyer = function (d, msg) {
+      return JEF.post('acces_maj', { data: d }).then(function (r) { JEF.toast(msg, 'ok'); rendreAcces(r.comptes); }).catch(function (e) { JEF.toast(e.message, 'erreur'); vueAcces(); });
+    };
+    $$('#vue [data-admin]').forEach(function (c) {
+      c.addEventListener('change', function () {
+        var email = c.closest('tr').getAttribute('data-email');
+        envoyer({ op: 'role', email: email, admin: c.checked }, email + (c.checked ? ' est administrateur' : ' est utilisateur'));
+      });
+    });
+    $$('#vue [data-retirer]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var email = b.closest('tr').getAttribute('data-email');
+        confirmer('Retirer l\'accès', email + ' ne pourra plus se connecter au cockpit ni au scanner. Sa session en cours est coupée.', 'Retirer l\'accès', true)
+          .then(function (ok) { if (ok) envoyer({ op: 'retirer', email: email }, 'Accès retiré à ' + email); });
+      });
+    });
+    $('#form-acces').addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!JEF.valider(this)) return;
+      var d = JEF.lireFormulaire(this);
+      envoyer({ op: 'ajouter', email: d.email, admin: d.admin }, d.email + ' ajouté(e)');
+    });
+  }
+
+  // ======================================================================
+  // Qualiopi : préparation des audits, en lien avec le Drive
+  // ======================================================================
+  var qualiopi = null, filtreQualiopi = 'applicables';
+  var COULEURS_STATUT = { 'À fournir': 't-orange', 'En cours': 't-bleu', 'Fourni': 't-vert', 'À mettre à jour': 't-violet', 'Non applicable': 't-gris' };
+  function vueQualiopi() {
+    if (!qualiopi) {
+      JEF.rendre('#vue', h`${aidePage('qualiopi')}<div class="chargement"><span class="rotation"></span>Chargement des indicateurs</div>`);
+      JEF.post('qualiopi_lire').then(function (r) { qualiopi = r; if (vue === 'qualiopi') { vueQualiopi(); brancherAide(); } }).catch(function (e) { JEF.toast(e.message, 'erreur'); });
+      return;
+    }
+    var q = qualiopi, app = q.indicateurs.filter(function (i) { return i.applicable; });
+    var compte = function (st) { return app.filter(function (i) { return i.statut === st; }).length; };
+    var fournis = compte('Fourni');
+    var filtres = { applicables: ['Applicables', function (i) { return i.applicable; }], afournir: ['À fournir', function (i) { return i.applicable && i.statut === 'À fournir'; }],
+      encours: ['En cours', function (i) { return i.statut === 'En cours'; }], fournis: ['Fournis', function (i) { return i.statut === 'Fourni'; }],
+      maj: ['À mettre à jour', function (i) { return i.statut === 'À mettre à jour'; }], tous: ['Tous les 33', function () { return true; }] };
+    var liste = q.indicateurs.filter(filtres[filtreQualiopi][1]);
+    JEF.rendre('#vue', h`${aidePage('qualiopi')}
+      <div class="chiffres">
+        <div class="chiffre"><div class="lib">Indicateurs prêts pour l'audit</div><div class="val">${fournis}<small style="font-size:14px;color:var(--texte-2)"> / ${app.length}</small></div>
+          <div class="jauge2"><i style="width:${app.length ? Math.round(fournis / app.length * 100) : 0}%"></i></div><div class="det">applicables aux JEF</div></div>
+        <div class="chiffre"><div class="lib">À fournir</div><div class="val">${compte('À fournir')}</div><div class="det">justificatif manquant</div></div>
+        <div class="chiffre"><div class="lib">En cours ou à mettre à jour</div><div class="val">${compte('En cours') + compte('À mettre à jour')}</div><div class="det">à finaliser</div></div>
+        <div class="chiffre"><div class="lib">Non applicables</div><div class="val">${q.indicateurs.length - app.length}</div><div class="det">alternance, apprentissage, certifiant...</div></div>
+      </div>
+      ${panneau('Indicateurs du référentiel national qualité', '7 critères, 33 indicateurs depuis le 1er novembre 2026. Cliquez sur un indicateur pour joindre les justificatifs du Drive.', h`
+        <div class="barre-filtres" role="group" aria-label="Filtres">${Object.keys(filtres).map(function (k) {
+          return h`<button class="puce-filtre" data-fq="${k}" aria-pressed="${filtreQualiopi === k ? 'true' : 'false'}">${filtres[k][0]}<span class="n">${q.indicateurs.filter(filtres[k][1]).length}</span></button>`; })}</div>
+        ${q.criteres.map(function (crit, ci) {
+          var inds = liste.filter(function (i) { return i.critere === ci + 1; });
+          if (!inds.length) return '';
+          return h`<h4 class="titre-critere">Critère ${ci + 1} - ${crit}</h4><div class="liste-indicateurs">${inds.map(function (i) {
+            return h`<button class="indicateur ${i.applicable ? '' : 'na'}" data-ind="${i.n}"><span class="num">${i.n}</span>
+              <span class="corps-ind"><b>${i.intitule}</b><small>${i.exemples}</small>
+                ${i.auto ? h`<small class="auto">Plateforme : ${i.auto}</small>` : ''}
+                ${i.liens.length ? h`<span class="liens">${i.liens.map(function (l) { return h`<span class="lien-pj">📄 ${l.nom}</span>`; })}</span>` : ''}
+                ${i.notes ? h`<small class="note">${i.notes}</small>` : ''}</span>
+              <span class="etat-ind">${tag(COULEURS_STATUT[i.statut] || 't-gris', i.statut)}${i.maj ? h`<small>${i.maj}</small>` : ''}</span></button>`;
+          })}</div>`;
+        })}`,
+        h`${q.dossierDrive ? h`<a class="btn btn-s" href="${q.dossierDrive}" target="_blank" rel="noopener">Ouvrir le Drive Qualiopi</a>` : ''}<button class="btn btn-s" id="b-recharger-q">Actualiser</button>`)}
+      ${panneauReglages('qualiopi', 'Réglages Qualiopi', 'Réservé aux administrateurs. Dossier Drive des justificatifs, identité et attestations.',
+        ['ID_Dossier_Audit_Qualiopi', 'NDA', 'Signataire_Attestation', 'Date_Envoi_Attestations', 'URL_Questionnaire_Satisfaction', 'Scan_Unique'])}`);
+    $$('[data-fq]').forEach(function (b) { b.addEventListener('click', function () { filtreQualiopi = b.getAttribute('data-fq'); vueQualiopi(); brancherAide(); }); });
+    $$('[data-ind]').forEach(function (b) { b.addEventListener('click', function () { modaleIndicateur(Number(b.getAttribute('data-ind'))); }); });
+    $('#b-recharger-q').addEventListener('click', function () { qualiopi = null; vueQualiopi(); brancherAide(); });
+    monterPanneauxReglages();
+  }
+
+  var fichiersDrive = null;
+  function modaleIndicateur(n) {
+    var i = qualiopi.indicateurs.filter(function (x) { return x.n === n; })[0];
+    var liens = i.liens.slice();
+    function rendreLiens() {
+      JEF.rendre('#q-liens', liens.length ? liens.map(function (l, k) {
+        return h`<li><a href="${l.url}" target="_blank" rel="noopener">📄 ${l.nom}</a><button type="button" class="btn btn-s croix" data-sup="${k}" aria-label="Retirer ${l.nom}">✕</button></li>`;
+      }) : h`<li class="indice">Aucun justificatif rattaché.</li>`);
+      $$('[data-sup]').forEach(function (b) { b.addEventListener('click', function () { liens.splice(Number(b.getAttribute('data-sup')), 1); rendreLiens(); }); });
+    }
+    function rendreDrive(filtre) {
+      var z = $('#q-drive');
+      if (!fichiersDrive) { JEF.rendre(z, h`<div class="chargement"><span class="rotation"></span>Lecture du Drive</div>`); return; }
+      var f = normal(filtre || '');
+      var res = fichiersDrive.filter(function (x) { return !f || normal(x.nom + ' ' + x.dossier).indexOf(f) !== -1; }).slice(0, 60);
+      JEF.rendre(z, res.length ? res.map(function (x, k) {
+        return h`<button type="button" class="fichier-drive" data-fd="${fichiersDrive.indexOf(x)}"><b>${x.nom}</b><small>${x.dossier || 'Racine'} - modifié le ${x.maj}</small></button>`;
+      }) : h`<p class="indice">Aucun fichier trouvé.</p>`);
+      $$('[data-fd]').forEach(function (b) { b.addEventListener('click', function () {
+        var x = fichiersDrive[Number(b.getAttribute('data-fd'))];
+        if (!liens.some(function (l) { return l.url === x.url; })) liens.push({ nom: x.nom, url: x.url });
+        rendreLiens();
+      }); });
+    }
+    ouvrirModale('Indicateur ' + i.n + ' - ' + i.intitule, h`
+      <p class="indice" style="margin:0;">Critère ${i.critere} - ${qualiopi.criteres[i.critere - 1]}. Exemples de justificatifs pour les JEF : ${i.exemples}.</p>
+      ${i.auto ? h`<div class="bandeau b-gris"><span class="texte"><b>Produit par la plateforme :</b> ${i.auto}</span></div>` : ''}
+      <div class="grille g2">
+        <div class="champ"><label for="q-app">Applicable aux JEF</label><label class="interrupteur"><input type="checkbox" id="q-app" ${brut(i.applicable ? 'checked' : '')}><span>${i.applicable ? 'Oui' : 'Non'}</span></label></div>
+        <div class="champ"><label for="q-statut">État</label><select id="q-statut">${qualiopi.statuts.filter(function (s) { return s !== 'Non applicable'; }).map(function (s) { return h`<option ${brut(s === i.statut ? 'selected' : '')}>${s}</option>`; })}</select></div>
+      </div>
+      <div class="champ"><label>Justificatifs rattachés</label><ul class="liste-liens" id="q-liens"></ul></div>
+      <div class="champ"><label for="q-cherche">Ajouter depuis le Drive Qualiopi</label><input id="q-cherche" type="search" placeholder="Rechercher un fichier"><div class="fichiers-drive" id="q-drive"></div></div>
+      <div class="grille g2">
+        <div class="champ"><label for="q-nom-lien">Ou un lien : nom</label><input id="q-nom-lien" type="text" placeholder="Ex. CV des intervenants"></div>
+        <div class="champ"><label for="q-url">Adresse (https://)</label><div style="display:flex;gap:6px;"><input id="q-url" type="url" placeholder="https://"><button type="button" class="btn btn-s" id="q-ajout-lien">Ajouter</button></div></div>
+      </div>
+      <div class="champ"><label for="q-notes">Notes pour l'audit</label><textarea id="q-notes" style="min-height:70px;">${i.notes}</textarea></div>
+      ${i.maj ? h`<p class="indice" style="margin:0;">Mis à jour le ${i.maj} par ${i.par}.</p>` : ''}`,
+    [{ texte: 'Annuler' }, { texte: 'Enregistrer', classe: 'btn-primaire', action: function (z, b) {
+      var retablir = JEF.attente(b, 'Enregistrement');
+      JEF.post('qualiopi_maj', { data: { indicateur: n, applicable: $('#q-app').checked, statut: $('#q-statut').value, liens: liens, notes: $('#q-notes').value } }).then(function (r) {
+        qualiopi = r; fermerModale(); JEF.toast('Indicateur ' + n + ' enregistré', 'ok'); vueQualiopi(); brancherAide();
+      }).catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+    } }], 'large');
+    rendreLiens();
+    $('#q-app').addEventListener('change', function () { this.nextElementSibling.textContent = this.checked ? 'Oui' : 'Non'; $('#q-statut').disabled = !this.checked; });
+    $('#q-statut').disabled = !i.applicable;
+    $('#q-cherche').addEventListener('input', function () { rendreDrive(this.value); });
+    $('#q-ajout-lien').addEventListener('click', function () {
+      var url = $('#q-url').value.trim(), nom = $('#q-nom-lien').value.trim() || url;
+      if (!/^https:\/\//.test(url)) { JEF.toast('L\'adresse doit commencer par https://', 'erreur'); return; }
+      liens.push({ nom: nom, url: url }); $('#q-url').value = ''; $('#q-nom-lien').value = ''; rendreLiens();
+    });
+    rendreDrive('');
+    if (!fichiersDrive) JEF.post('qualiopi_drive', {}, { delai: 60000 }).then(function (r) { fichiersDrive = r.fichiers; if ($('#q-drive')) rendreDrive($('#q-cherche').value); })
+      .catch(function (e) { if ($('#q-drive')) JEF.rendre('#q-drive', h`<p class="indice">${e.message}</p>`); });
   }
 
   // ======================================================================
@@ -1408,6 +1740,7 @@
     if (!e.target.closest('.recherche')) $('#resultats').hidden = true;
   });
   $('#b-imprimer').addEventListener('click', function () { window.print(); });
+  $('#b-sur-place').addEventListener('click', function () { if (D) modaleSurPlace(); });
   $('#b-actualiser').addEventListener('click', function () { journal = null; if (vue === 'reglages' && !reglagesModifies) reglages = null; charger(); });
   $('#menu-ouvrir').addEventListener('click', function () { $('#menu').classList.add('ouvert'); });
   $('#menu-fermer').addEventListener('click', function () { $('#menu').classList.remove('ouvert'); });
