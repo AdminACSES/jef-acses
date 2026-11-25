@@ -1,18 +1,49 @@
-/* Inscription stagiaire en 4 étapes, prix calculé en direct (recalculé par le serveur). */
+/* Inscription stagiaire en 4 étapes, trois parcours, prix calculé en direct (recalculé par le serveur). */
 (function () {
   'use strict';
   var h = JEF.h, $ = JEF.$, $$ = JEF.$$;
   var form = $('#form');
   var cfg = null, etape = 1, NB = 4;
-  var CLE_BROUILLON = 'jef_brouillon_inscription';
+  var CLE_BROUILLON = 'jef_brouillon_inscription_v2';
+
+  var TEXTES = {
+    STAGIAIRE: { etape2: 'Vos coordonnées', titre2: 'Vos coordonnées', etape4: 'Service formation', aideEmail: 'Pour recevoir votre badge et vos documents.',
+      partage: 'J\'accepte que le QR Code de mon badge contienne mon email et mon téléphone, pour échanger mes coordonnées avec les exposants que je choisis de rencontrer.' },
+    SERVICE: { etape2: 'Le stagiaire', titre2: 'Coordonnées du stagiaire', etape4: 'Établissement', aideEmail: 'Email du stagiaire, pour recevoir son badge et ses documents.',
+      partage: 'Le stagiaire accepte que le QR Code de son badge contienne son email et son téléphone, pour échanger ses coordonnées avec les exposants.' },
+    PERSONNEL: { etape2: 'Vos coordonnées', titre2: 'Vos coordonnées', etape4: 'Règlement', aideEmail: 'Pour recevoir votre contrat, votre badge et vos documents.',
+      partage: 'J\'accepte que le QR Code de mon badge contienne mon email et mon téléphone, pour échanger mes coordonnées avec les exposants que je choisis de rencontrer.' }
+  };
 
   JEF.piege(form);
+
+  function parcours() { var r = $('input[name=parcours]:checked', form); return r ? r.value : 'STAGIAIRE'; }
 
   function valeurs() {
     var v = JEF.lireFormulaire(form);
     v.repas = {};
     $$('input[name^="repas_"]', form).forEach(function (c) { v.repas[c.name.slice(6)] = c.checked; });
+    if (v.parcours === 'SERVICE') { v.emailFormation = v.emailFormationSF; v.envoiDirect = true; }
+    if (v.parcours === 'PERSONNEL') { v.adresseFacturation = v.adressePerso; v.emailFormation = ''; v.envoiDirect = false; }
+    if (v.parcours !== 'PERSONNEL') v.modeReglement = '';
+    if (v.parcours === 'SERVICE') { v.niveau = ''; v.objectifs = ''; v.attentes = ''; v.handicap = ''; }
+    delete v.emailFormationSF; delete v.adressePerso;
     return v;
+  }
+
+  /** Adapte libellés, champs obligatoires et blocs au parcours choisi. */
+  function adapterParcours() {
+    var p = parcours(), t = TEXTES[p];
+    $$('[data-libelle]', form).forEach(function (el) { var k = el.getAttribute('data-libelle'); if (t[k]) el.textContent = t[k]; });
+    $$('[data-pour]', form).forEach(function (el) { el.hidden = el.getAttribute('data-pour') !== p; });
+    $$('[data-pas-pour]', form).forEach(function (el) { el.hidden = el.getAttribute('data-pas-pour') === p; });
+    var requis = { telephone: p !== 'SERVICE', etablissement: p !== 'PERSONNEL' };
+    Object.keys(requis).forEach(function (id) {
+      $('#' + id).required = requis[id];
+      $('[data-requis="' + id + '"]').classList.toggle('obligatoire', requis[id]);
+    });
+    $('#emailFormation').required = p === 'STAGIAIRE' && $('#envoiDirect').checked;
+    $('#envoyer').textContent = p === 'SERVICE' ? 'Inscrire le stagiaire' : 'Réserver ma place';
   }
 
   function majRecap() {
@@ -44,33 +75,31 @@
 
   $('#suivant').addEventListener('click', function () { if (JEF.valider(etapeCourante())) allerA(etape + 1); });
   $('#precedent').addEventListener('click', function () { allerA(etape - 1); });
-  $('#envoiDirect').addEventListener('change', function () { $('#emailFormation').required = this.checked; });
+  $('#envoiDirect').addEventListener('change', adapterParcours);
+  form.addEventListener('change', function (e) { if (e.target.name === 'parcours') adapterParcours(); majRecap(); });
   form.addEventListener('input', function () {
     majRecap();
-    try { var v = valeurs(); delete v.site_web; sessionStorage.setItem(CLE_BROUILLON, JSON.stringify(v)); } catch (e) { /* rien */ }
+    try { var v = JEF.lireFormulaire(form); delete v.site_web; sessionStorage.setItem(CLE_BROUILLON, JSON.stringify(v)); } catch (e) { /* rien */ }
   });
-  form.addEventListener('change', majRecap);
 
   function restaurerBrouillon() {
     try {
       var v = JSON.parse(sessionStorage.getItem(CLE_BROUILLON) || 'null');
       if (!v) return;
       Object.keys(v).forEach(function (k) {
-        if (k === 'repas') { Object.keys(v.repas).forEach(function (c) { var el = form.elements['repas_' + c]; if (el) el.checked = !!v.repas[c]; }); return; }
         var el = form.elements[k];
         if (!el) return;
         if (el instanceof RadioNodeList) { $$('input[name="' + k + '"]', form).forEach(function (r) { r.checked = r.value === v[k]; }); }
         else if (el.type === 'checkbox') el.checked = !!v[k];
         else el.value = v[k];
       });
-      $('#emailFormation').required = $('#envoiDirect').checked;
     } catch (e) { /* rien */ }
   }
 
   form.addEventListener('submit', function (ev) {
     ev.preventDefault();
     if (!JEF.valider(etapeCourante())) return;
-    var retablir = JEF.attente($('#envoyer'), 'Enregistrement et préparation de votre dossier...');
+    var retablir = JEF.attente($('#envoyer'), 'Enregistrement et préparation du dossier...');
     JEF.post('inscrire_stagiaire', { data: valeurs() }).then(function (rep) {
       try { sessionStorage.removeItem(CLE_BROUILLON); } catch (e) { /* rien */ }
       afficherResultat(rep);
@@ -86,8 +115,24 @@
     r.hidden = false;
     if (rep.attente) {
       JEF.rendre(r, h`<div class="coche" style="background:var(--ambre-clair);color:var(--ambre);">⏳</div>
-        <h1>Vous êtes sur liste d'attente</h1>
-        <p>Toutes les places sont réservées pour le moment. Votre demande <b>${rep.id}</b> est enregistrée : nous vous recontactons dès qu'une place se libère.</p>`);
+        <h1>Inscription sur liste d'attente</h1>
+        <p>Toutes les places sont réservées pour le moment. La demande <b>${rep.id}</b> est enregistrée : nous recontactons le stagiaire dès qu'une place se libère.</p>`);
+      return;
+    }
+    if (rep.parcours === 'SERVICE' || rep.parcours === 'PERSONNEL') {
+      var perso = rep.parcours === 'PERSONNEL';
+      JEF.rendre(r, h`<div class="coche">✓</div>
+        <h1>${perso ? 'Votre place est réservée' : 'Le stagiaire est inscrit'}</h1>
+        <p>Dossier <b class="mono">${rep.id}</b> - total ${JEF.euros(rep.total)}</p>
+        <div class="alerte a-info" style="text-align:left;max-width:640px;margin:18px auto;"><div>
+          <b>Prochaine étape : ${perso ? 'signer le contrat de formation' : 'déposer la convention signée'}</b>
+          ${perso ? 'Le contrat vient de vous être envoyé par email. Signez-le, puis déposez-le en PDF ou en photo.'
+            : 'La convention vient d\'être envoyée au service formation. Une fois signée, déposez-la en PDF ou en photo. Le stagiaire a reçu un lien pour remplir son positionnement.'}
+          Vous pouvez le faire maintenant ou plus tard avec le lien reçu par email.</div></div>
+        <a class="btn btn-orange btn-l" href="${rep.lien}">${perso ? 'Déposer le contrat signé' : 'Déposer la convention signée'}</a>
+        <p class="petit" style="margin-top:18px;">Le badge d'accès est envoyé au stagiaire dès la validation par le bureau de l'ACSES.</p>
+        <a class="btn" href="./" style="margin-top:8px;">Retour à l'accueil</a>`);
+      r.scrollIntoView({ behavior: 'smooth' });
       return;
     }
     JEF.rendre(r, h`<div class="coche">✓</div>
@@ -99,15 +144,30 @@
         Il complète les informations administratives puis dépose la convention signée avec ce lien personnel :</div>
       </div>
       <div class="lien-copie"><input type="text" readonly value="${rep.lien}" aria-label="Lien du dossier"><button class="btn" type="button" id="copier">Copier</button></div>
-      <p class="petit" style="margin-top:18px;">Vous recevrez votre badge d'accès dès la validation de la convention par le Bureau de l'ACSES.</p>
+      <p class="petit" style="margin-top:18px;">Vous recevrez votre badge d'accès dès la validation de la convention par le bureau de l'ACSES.</p>
       <a class="btn" href="./" style="margin-top:8px;">Retour à l'accueil</a>`);
     $('#copier').addEventListener('click', function () { JEF.copier(rep.lien); });
     r.scrollIntoView({ behavior: 'smooth' });
   }
 
+  /** Inscriptions fermées : on le dit tout de suite, sans laisser remplir le formulaire. */
+  function afficherFermeture(c) {
+    var o = c.ouverture || {};
+    var f = $('#ferme');
+    JEF.rendre(f, h`<div class="ferme-bloc"><div class="coche" style="background:var(--ambre-clair);color:var(--ambre);">🔒</div>
+      <h1>${o.raison === 'avant' ? 'Les inscriptions ne sont pas encore ouvertes' : 'Les inscriptions sont closes'}</h1>
+      <p>${o.raison === 'avant' && o.date ? 'Elles ouvriront le ' + JEF.date(o.date, true) + '.' : 'Il n\'est plus possible de s\'inscrire en ligne.'}</p>
+      <p>Pour toute question ou une demande particulière, écrivez à <a href="mailto:${c.contact.email}"><b>${c.contact.email}</b></a>.</p>
+      <a class="btn" href="./" style="margin-top:8px;">Retour à l'accueil</a></div>`);
+    f.hidden = false;
+  }
+
   JEF.config().then(function (c) {
     cfg = c;
     JEF.habiller(c);
+    $('#chargement').hidden = true;
+    if (!(c.ouverture || {}).ouvert) { afficherFermeture(c); return; }
+    $('#zone-formulaire').hidden = false;
     $('#prix-adh').textContent = JEF.euros(c.tarifs.adherent);
     $('#prix-nonadh').textContent = JEF.euros(c.tarifs.nonAdherent);
     JEF.rendre('#repas', Object.keys(c.repas).map(function (code) {
@@ -116,19 +176,13 @@
         <span><span class="titre">${r.libelle}</span></span><span class="prix">${JEF.euros(r.tarif)}</span></label>`;
     }));
     restaurerBrouillon();
+    adapterParcours();
     majRecap();
     if (c.capacite) {
       $('#places').textContent = c.capacite.restantes > 0 ? c.capacite.restantes + ' places restantes' : 'Complet : les nouvelles demandes passent en liste d\'attente.';
     }
-    var o = c.ouverture || {};
-    if (!o.ouvert) {
-      var f = $('#ferme');
-      f.hidden = false;
-      f.textContent = o.raison === 'avant' ? 'Les inscriptions ouvriront le ' + JEF.date(o.date, true) + '. Vous pouvez découvrir le formulaire dès maintenant.'
-        : 'Les inscriptions sont closes. Contactez ' + c.contact.email + '.';
-      $('#envoyer').disabled = true;
-    }
   }).catch(function (e) {
+    $('#chargement').hidden = true;
     JEF.toast('Impossible de charger les informations : ' + e.message, 'erreur');
   });
 })();

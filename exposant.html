@@ -6,7 +6,7 @@
   <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'none'; object-src 'none'">
-  <title>Espace exposants - JEF ACSES</title>
+  <title>Entreprises partenaires - JEF ACSES</title>
   <link rel="icon" href="logo-acses.png">
   <link rel="stylesheet" href="assets/jef.css">
 </head>
@@ -14,53 +14,29 @@
   <header class="entete">
     <div class="interieur">
       <a href="./"><img src="logo-acses.png" alt="ACSES - accueil" width="69" height="40"></a>
-      <div class="titre">Espace exposants<small><span data-cfg="dates">10 et 11 juin 2027</span> - <span data-cfg="ville">Biarritz</span></small></div>
+      <div class="titre">Entreprises partenaires<small><span data-cfg="dates">10 et 11 juin 2027</span> - <span data-cfg="ville">Biarritz</span></small></div>
       <nav aria-label="Navigation principale"><a href="./">Accueil</a><a href="inscription.html">Formation</a><a href="visiteur.html">Visiteurs</a></nav>
     </div>
   </header>
 
   <main class="conteneur etroit">
-    <div id="sans-lien" class="carte" hidden>
-      <h1>Exposants et partenaires</h1>
-      <p>Chaque société exposante reçoit de l'ACSES un <b>lien personnel</b> pour inscrire ses représentants. Chaque représentant reçoit ensuite son badge nominatif par email.</p>
-      <p>Vous êtes exposant et n'avez pas reçu votre lien ? Écrivez à <b data-cfg="contact.email">inscription@acses-asso.com</b>.</p>
-      <p class="petit">Vous souhaitez devenir exposant ? Consultez l'offre partenaires sur le site de l'ACSES.</p>
-    </div>
-    <div id="chargement" class="chargement" hidden><span class="rotation"></span>Chargement...</div>
-    <div id="erreur" class="alerte a-erreur" hidden></div>
-
-    <div id="contenu" hidden>
-      <section class="carte" id="societe"></section>
-      <form id="form" class="carte" novalidate>
-        <h2>Inscrire un représentant</h2>
-        <div class="grille g2">
-          <div class="champ"><label class="obligatoire" for="civilite">Civilité</label><select id="civilite" name="civilite"><option value="Mme">Madame</option><option value="M.">Monsieur</option></select></div>
-          <div class="champ"><label class="obligatoire" for="fonction">Fonction</label><input id="fonction" name="fonction" type="text" maxlength="120" required></div>
-          <div class="champ"><label class="obligatoire" for="prenom">Prénom</label><input id="prenom" name="prenom" type="text" maxlength="80" required></div>
-          <div class="champ"><label class="obligatoire" for="nom">Nom</label><input id="nom" name="nom" type="text" maxlength="80" required></div>
-          <div class="champ"><label class="obligatoire" for="email">Email</label><input id="email" name="email" type="email" maxlength="120" required></div>
-          <div class="champ"><label class="obligatoire" for="telephone">Téléphone portable</label><input id="telephone" name="telephone" type="tel" maxlength="25" required></div>
-        </div>
-        <fieldset class="champ" style="margin-top:18px;">
-          <legend class="legende">Repas inclus avec le pass (décochez ceux auxquels vous ne participerez pas)</legend>
-          <div class="choix c3" id="repas"></div>
-        </fieldset>
-        <div class="champ" style="margin-top:14px;"><label for="regime">Régime alimentaire ou allergie</label><input id="regime" name="regime" type="text" maxlength="120" placeholder="Standard"></div>
-        <div class="grille" style="margin-top:18px;gap:12px;">
-          <label class="case"><input type="checkbox" name="partage"> <span>J'accepte que le QR Code de mon badge contienne mon email et mon téléphone professionnels.</span></label>
-          <label class="case champ" style="flex-direction:row;"><input type="checkbox" name="consentement" required> <span>J'ai lu la <a href="confidentialite.html" target="_blank" rel="noopener">politique de confidentialité</a>. <span class="obligatoire"></span></span></label>
-        </div>
-        <div id="info-pass" class="alerte a-info" style="margin-top:16px;"></div>
-        <div class="actions-etape"><span></span><button type="submit" class="btn btn-orange btn-l" id="envoyer">Valider et recevoir le badge</button></div>
-      </form>
-      <section id="resultat" class="carte succes" hidden></section>
-    </div>
+    <section class="carte">
+      <h1>Entreprises partenaires exposantes</h1>
+      <p>Les badges des exposants sont préparés par le bureau de l'ACSES. Il n'y a rien à remplir en ligne.</p>
+      <ol class="etapes-simples">
+        <li>Votre entreprise transmet à l'ACSES le nom, la fonction et l'email de chacun de ses représentants, ainsi que les repas souhaités.</li>
+        <li>Le bureau enregistre vos représentants. Les pass inclus dans votre partenariat sont gratuits, les suivants sont facturés.</li>
+        <li>Chaque représentant reçoit son badge nominatif par email, avec ses repas, à présenter à l'accueil.</li>
+      </ol>
+      <p>Pour transmettre vos noms ou modifier un représentant, écrivez à <b data-cfg="contact.email">inscription@acses-asso.com</b>.</p>
+      <p class="petit">Vous souhaitez devenir entreprise partenaire de l'ACSES ? Écrivez à la même adresse, le bureau vous enverra l'offre partenaires.</p>
+    </section>
   </main>
 
   <footer class="pied"><div class="interieur"><span>ACSES</span><a href="confidentialite.html">Confidentialité</a><span>Une question : <span data-cfg="contact.email">inscription@acses-asso.com</span></span></div></footer>
 
   <script src="assets/config.js"></script>
   <script src="assets/jef.js"></script>
-  <script src="assets/pages/exposant.js"></script>
+  <script src="assets/pages/simple.js" defer></script>
 </body>
 </html>

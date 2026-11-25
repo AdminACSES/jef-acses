@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>Positionnement - JEF ACSES</title>
+  <link rel="icon" href="logo-acses.png">
+  <link rel="stylesheet" href="assets/jef.css">
+</head>
+<body>
+  <header class="entete">
+    <div class="interieur">
+      <a href="./"><img src="logo-acses.png" alt="ACSES - accueil" width="69" height="40"></a>
+      <div class="titre">Votre positionnement<small><span data-cfg="intitule">Journées d'Études et de Formation ACSES</span></small></div>
+    </div>
+  </header>
+
+  <main class="conteneur etroit">
+    <div id="chargement" class="chargement"><span class="rotation"></span>Chargement...</div>
+    <div id="erreur" class="alerte a-erreur" hidden></div>
+    <form id="form" class="carte" novalidate hidden>
+      <h1 id="bonjour" style="margin-top:0;">Votre positionnement</h1>
+      <p>Ces informations permettent aux intervenants d'adapter la formation à votre profil. Tout est facultatif, 2 minutes suffisent.</p>
+      <fieldset class="champ">
+        <legend class="legende">Votre niveau actuel sur les thèmes de l'édition</legend>
+        <div class="choix c4">
+          <label class="option puce"><input type="radio" name="niveau" value="Découverte"><span class="titre">Découverte</span></label>
+          <label class="option puce"><input type="radio" name="niveau" value="Intermédiaire"><span class="titre">Intermédiaire</span></label>
+          <label class="option puce"><input type="radio" name="niveau" value="Confirmé"><span class="titre">Confirmé</span></label>
+          <label class="option puce"><input type="radio" name="niveau" value="Expert"><span class="titre">Expert</span></label>
+        </div>
+      </fieldset>
+      <div class="grille" style="margin-top:16px;">
+        <div class="champ"><label for="objectifs">Ce que vous souhaitez retirer de la formation</label>
+          <textarea id="objectifs" name="objectifs" maxlength="800" placeholder="Ex. mettre à jour mes connaissances sur la coordination SSI"></textarea></div>
+        <div class="champ"><label for="attentes">Questions ou situations que vous aimeriez voir traitées</label>
+          <textarea id="attentes" name="attentes" maxlength="800"></textarea></div>
+        <div class="champ"><label for="handicap">Besoin d'aménagement lié à une situation de handicap</label>
+          <input id="handicap" name="handicap" type="text" maxlength="400">
+          <span class="aide">Confidentiel : seul le référent handicap de l'ACSES y a accès.</span></div>
+        <div class="champ" id="bloc-regime" hidden><label for="regime">Régime alimentaire ou allergie</label>
+          <input id="regime" name="regime" type="text" maxlength="120" placeholder="Ex. végétarien, sans porc, allergie aux fruits à coque"></div>
+      </div>
+      <div class="actions-etape"><span></span><button type="submit" class="btn btn-primaire btn-l" id="envoyer">Enregistrer</button></div>
+    </form>
+    <section id="fin" class="carte succes" hidden><div class="coche">✓</div><h2>Merci, c'est enregistré</h2><p>Vous pouvez revenir sur cette page avec le même lien pour modifier vos réponses.</p></section>
+  </main>
+
+  <footer class="pied"><div class="interieur"><span>ACSES - Organisme certifié Qualiopi</span><a href="confidentialite.html">Confidentialité</a><span>Une question : <span data-cfg="contact.email">inscription@acses-asso.com</span></span></div></footer>
+  <script src="assets/config.js"></script>
+  <script src="assets/jef.js"></script>
+  <script src="assets/pages/positionnement.js"></script>
+</body>
+</html>

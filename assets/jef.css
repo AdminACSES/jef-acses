@@ -353,3 +353,11 @@ table.tableau { width: 100%; border-collapse: collapse; font-size: .9rem; }
 
 /* --- Impression ---------------------------------------------------------- */
 @media print { .entete, .pied, .barre-laterale, .barre-haut, #toasts { display: none !important; } body { background: #fff; } }
+
+/* v2.2 : exemples de saisie bien distincts d'une valeur remplie */
+input::placeholder, textarea::placeholder { color: #9AA6B8; font-style: italic; opacity: 1; }
+.legende-obligatoire { margin: -4px 0 14px; }
+.ferme-bloc { text-align: center; padding: 34px 24px; }
+.ferme-bloc h1 { margin: 8px 0 10px; }
+.ferme-bloc .coche { width: 58px; height: 58px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 6px; font-size: 26px; }
+.ferme-bloc h1 { font-size: clamp(1.4rem, 3vw, 1.9rem); }

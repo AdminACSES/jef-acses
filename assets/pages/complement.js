@@ -21,8 +21,8 @@
     JEF.rendre('#dossier', h`<div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;">
       <div style="flex:1;min-width:240px;">
         <div class="petit">Dossier <span class="mono">${d.id}</span></div>
-        <h2 style="margin:4px 0;">${d.civilite} ${d.prenom} ${d.nom}</h2>
-        <div class="petit">${d.fonction} - ${d.etablissement}</div>
+        <h2 style="margin:4px 0;">${d.prenom} ${d.nom}</h2>
+        <div class="petit">${d.fonction}${d.etablissement ? ' - ' + d.etablissement : ''}</div>
       </div>
       <dl class="infos" style="grid-template-columns:auto auto;">
         <dt>Formation (${d.typologie})</dt><dd>${JEF.euros(d.montantFormation)}</dd>
@@ -39,6 +39,16 @@
     if (d.modeFinancement) f.elements.modeFinancement.value = d.modeFinancement;
   }
 
+  function adapterParcours(d) {
+    if (d.parcours !== 'PERSONNEL') return;
+    $('#s1').hidden = true;
+    $('#s2-texte').textContent = '1. Contrat signé';
+    $('#s3 span').textContent = '2. Validation par l\'ACSES';
+    $('#depot-titre').textContent = 'Déposer le contrat de formation signé';
+    $('#depot-texte').textContent = 'Le contrat vous a été envoyé par email. Datez-le, signez-le, puis déposez-le ici en PDF ou en photo. Vous recevez un accusé de réception. Vous disposez de 14 jours pour vous rétracter, et vous ne payez qu\'après la formation.';
+    $('#modifier-admin').hidden = true;
+  }
+
   function montrer(etape) {
     $('#form-admin').hidden = etape !== 'completer';
     $('#bloc-depot').hidden = etape !== 'deposer';
@@ -47,8 +57,8 @@
     if (etape === 'deposer') etapes(2);
     if (etape === 'recue') {
       etapes(3);
-      JEF.rendre('#bloc-fin', h`<div class="coche">✓</div><h2>Convention reçue</h2>
-        <p>Reçue le ${dossier.conventionRecue || 'aujourd\'hui'}. Le Bureau de l'ACSES va la valider, puis le badge d'accès sera envoyé au stagiaire.</p>
+      JEF.rendre('#bloc-fin', h`<div class="coche">✓</div><h2>${dossier.parcours === 'PERSONNEL' ? 'Contrat reçu' : 'Convention reçue'}</h2>
+        <p>Reçu le ${dossier.conventionRecue || 'aujourd\'hui'}. Le bureau de l'ACSES va le valider, puis le badge d'accès sera envoyé au stagiaire.</p>
         <button class="btn" type="button" id="redeposer">Déposer une version corrigée</button>`);
       $('#redeposer').addEventListener('click', function () { montrer('deposer'); });
     }
@@ -69,6 +79,7 @@
     $('#chargement').hidden = true;
     $('#contenu').hidden = false;
     afficherDossier(dossier);
+    adapterParcours(dossier);
     remplirFormulaire(dossier);
     montrer(rep.etape);
   }).catch(function (e) { erreur(e.message); });
@@ -113,7 +124,7 @@
     lecteur.onload = function () {
       var b64 = String(lecteur.result).split(',')[1];
       JEF.post('rh_deposer', { data: { id: id, k: k, fichier: { nom: fichierChoisi.name, type: fichierChoisi.type, base64: b64 } } }, { delai: 120000 })
-        .then(function () { retablir(); dossier.conventionRecue = JEF.date(new Date(), true); montrer('recue'); JEF.toast('Convention déposée. Un accusé de réception vous a été envoyé.', 'ok'); })
+        .then(function () { retablir(); dossier.conventionRecue = JEF.date(new Date(), true); montrer('recue'); JEF.toast('Document déposé. Un accusé de réception vous a été envoyé.', 'ok'); })
         .catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
     };
     lecteur.onerror = function () { retablir(); JEF.toast('Lecture du fichier impossible.', 'erreur'); };

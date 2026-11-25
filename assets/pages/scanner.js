@@ -50,7 +50,7 @@
 
   // ----- Affichage du résultat ----------------------------------------------
   var VERDICTS = {
-    OK: ['ok', '✅ ACCÈS VALIDÉ'], DEJA: ['deja', '⚠️ DÉJÀ ENREGISTRÉ SUR CE CRÉNEAU'], HORS_LIGNE: ['ok', '✅ ENREGISTRÉ HORS LIGNE'],
+    OK: ['ok', '✅ ACCÈS VALIDÉ'], DEJA: ['deja', '⚠️ DÉJÀ ENREGISTRÉ'], HORS_LIGNE: ['ok', '✅ ENREGISTRÉ HORS LIGNE'],
     ANNULE: ['ko', '⛔ INSCRIPTION ANNULÉE'], FAUX: ['ko', '⛔ BADGE NON VALIDE'], INCONNU: ['ko', '⛔ BADGE INCONNU'], HORS_CRENEAU: ['deja', '⏸ AUCUNE DEMI-JOURNÉE EN COURS']
   };
 

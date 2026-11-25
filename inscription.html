@@ -18,22 +18,35 @@
   </header>
 
   <main class="conteneur">
-    <div id="ferme" class="alerte a-attention" hidden style="margin-bottom:18px;"></div>
+    <div id="ferme" class="carte" hidden></div>
 
-    <div class="disposition" id="zone-formulaire">
+    <div class="disposition" id="zone-formulaire" hidden>
       <form id="form" class="carte" novalidate>
         <ol class="stepper" aria-label="Étapes">
-          <li class="actif"><span>Formule</span></li><li><span>Vos coordonnées</span></li><li><span>Positionnement</span></li><li><span>Service formation</span></li>
+          <li class="actif"><span>Inscription</span></li><li><span data-libelle="etape2">Vos coordonnées</span></li><li><span>Positionnement</span></li><li><span data-libelle="etape4">Service formation</span></li>
         </ol>
+        <p class="petit legende-obligatoire">Les champs marqués d'une étoile <span class="obligatoire"></span> sont obligatoires.</p>
 
         <!-- Étape 1 -->
         <section data-etape="1">
-          <h2>Votre formule</h2>
+          <h2>Qui remplit ce formulaire ?</h2>
+          <fieldset class="champ">
+            <legend class="sr">Qui remplit ce formulaire</legend>
+            <div class="choix c3">
+              <label class="option"><input type="radio" name="parcours" value="STAGIAIRE" checked required>
+                <span><span class="titre">Je suis le stagiaire</span><small>Mon établissement prend en charge la formation. Mon service formation fera la suite.</small></span></label>
+              <label class="option"><input type="radio" name="parcours" value="SERVICE">
+                <span><span class="titre">J'inscris un stagiaire</span><small>Service formation ou secrétariat. Je remplis tout, y compris la partie administrative.</small></span></label>
+              <label class="option"><input type="radio" name="parcours" value="PERSONNEL">
+                <span><span class="titre">Je paie moi-même</span><small>Je m'inscris à titre personnel et je règle la formation.</small></span></label>
+            </div>
+          </fieldset>
+          <h2 style="margin-top:22px;">Formule</h2>
           <fieldset class="champ">
             <legend class="legende obligatoire">Statut d'adhésion</legend>
             <div class="choix c2">
               <label class="option"><input type="radio" name="typologie" value="ADHERENT" checked required>
-                <span><span class="titre">Adhérent ACSES</span><small>Établissement à jour de cotisation</small></span><span class="prix" id="prix-adh">250 €</span></label>
+                <span><span class="titre">Adhérent ACSES</span><small>À jour de cotisation</small></span><span class="prix" id="prix-adh">250 €</span></label>
               <label class="option"><input type="radio" name="typologie" value="NON_ADHERENT">
                 <span><span class="titre">Non-adhérent</span><small>Tarif public</small></span><span class="prix" id="prix-nonadh">350 €</span></label>
             </div>
@@ -41,65 +54,106 @@
           <fieldset class="champ" style="margin-top:20px;">
             <legend class="legende">Repas (facultatifs, à la carte)</legend>
             <div class="choix c3" id="repas"></div>
-            <span class="aide">Vous pourrez préciser un régime alimentaire à l'étape 3.</span>
           </fieldset>
         </section>
 
         <!-- Étape 2 -->
         <section data-etape="2" hidden>
-          <h2>Vos coordonnées</h2>
+          <h2 data-libelle="titre2">Vos coordonnées</h2>
+          <p class="petit" data-pour="SERVICE" hidden>Le stagiaire recevra son badge et ses documents à son adresse email.</p>
           <div class="grille g2">
-            <div class="champ"><label class="obligatoire" for="civilite">Civilité</label>
-              <select id="civilite" name="civilite" required><option value="Mme">Madame</option><option value="M.">Monsieur</option></select></div>
-            <div class="champ"><label class="obligatoire" for="fonction">Fonction</label><input id="fonction" name="fonction" type="text" maxlength="120" required autocomplete="organization-title" placeholder="Responsable sécurité incendie"></div>
             <div class="champ"><label class="obligatoire" for="prenom">Prénom</label><input id="prenom" name="prenom" type="text" maxlength="80" required autocomplete="given-name"></div>
             <div class="champ"><label class="obligatoire" for="nom">Nom</label><input id="nom" name="nom" type="text" maxlength="80" required autocomplete="family-name"></div>
-            <div class="champ"><label class="obligatoire" for="email">Email professionnel</label><input id="email" name="email" type="email" maxlength="120" required autocomplete="email"></div>
-            <div class="champ"><label class="obligatoire" for="telephone">Téléphone portable</label><input id="telephone" name="telephone" type="tel" maxlength="25" required autocomplete="tel"></div>
-            <div class="champ"><label class="obligatoire" for="etablissement">Établissement</label><input id="etablissement" name="etablissement" type="text" maxlength="150" required autocomplete="organization" placeholder="Centre hospitalier de..."></div>
+            <div class="champ"><label class="obligatoire" for="fonction">Fonction</label><input id="fonction" name="fonction" type="text" maxlength="120" required autocomplete="organization-title" placeholder="Ex. chargé de sécurité incendie"></div>
+            <div class="champ"><label class="obligatoire" for="email">Email</label><input id="email" name="email" type="email" maxlength="120" required autocomplete="email">
+              <span class="aide" data-libelle="aideEmail">Pour recevoir votre badge et vos documents.</span></div>
+            <div class="champ"><label for="telephone" data-requis="telephone">Téléphone portable</label><input id="telephone" name="telephone" type="tel" maxlength="25" autocomplete="tel"></div>
+            <div class="champ"><label for="etablissement" data-requis="etablissement">Établissement</label><input id="etablissement" name="etablissement" type="text" maxlength="150" autocomplete="organization" placeholder="Ex. centre hospitalier de Biarritz"></div>
             <div class="champ"><label for="ville">Ville de l'établissement</label><input id="ville" name="ville" type="text" maxlength="80" autocomplete="address-level2"></div>
           </div>
         </section>
 
         <!-- Étape 3 -->
         <section data-etape="3" hidden>
-          <h2>Votre positionnement</h2>
-          <p class="petit">Ces informations permettent d'adapter la formation à votre profil (exigence Qualiopi).</p>
-          <fieldset class="champ">
-            <legend class="legende obligatoire">Votre niveau actuel sur les thèmes de l'édition</legend>
-            <div class="choix c4">
-              <label class="option puce"><input type="radio" name="niveau" value="Découverte" required><span class="titre">Découverte</span></label>
-              <label class="option puce"><input type="radio" name="niveau" value="Intermédiaire"><span class="titre">Intermédiaire</span></label>
-              <label class="option puce"><input type="radio" name="niveau" value="Confirmé"><span class="titre">Confirmé</span></label>
-              <label class="option puce"><input type="radio" name="niveau" value="Expert"><span class="titre">Expert</span></label>
+          <h2>Positionnement</h2>
+          <div class="alerte a-info" data-pour="SERVICE" hidden><div><b>Le stagiaire le remplira lui-même.</b> Il recevra un lien par email pour indiquer son niveau, ses attentes et un éventuel besoin d'aménagement. Vous pouvez passer à l'étape suivante.</div></div>
+          <div data-pas-pour="SERVICE">
+            <p class="petit">Facultatif, mais utile pour adapter la formation à votre profil. Vous pourrez aussi le compléter plus tard.</p>
+            <fieldset class="champ">
+              <legend class="legende">Votre niveau actuel sur les thèmes de l'édition</legend>
+              <div class="choix c4">
+                <label class="option puce"><input type="radio" name="niveau" value="Découverte"><span class="titre">Découverte</span></label>
+                <label class="option puce"><input type="radio" name="niveau" value="Intermédiaire"><span class="titre">Intermédiaire</span></label>
+                <label class="option puce"><input type="radio" name="niveau" value="Confirmé"><span class="titre">Confirmé</span></label>
+                <label class="option puce"><input type="radio" name="niveau" value="Expert"><span class="titre">Expert</span></label>
+              </div>
+            </fieldset>
+            <div class="grille" style="margin-top:16px;">
+              <div class="champ"><label for="objectifs">Ce que vous souhaitez retirer de la formation</label>
+                <textarea id="objectifs" name="objectifs" maxlength="800" placeholder="Ex. mettre à jour mes connaissances sur la coordination SSI"></textarea></div>
+              <div class="champ"><label for="attentes">Questions ou situations que vous aimeriez voir traitées</label>
+                <textarea id="attentes" name="attentes" maxlength="800"></textarea></div>
+              <div class="champ"><label for="handicap">Besoin d'aménagement lié à une situation de handicap</label>
+                <input id="handicap" name="handicap" type="text" maxlength="400">
+                <span class="aide">Confidentiel : seul le référent handicap de l'ACSES y a accès.</span></div>
             </div>
-          </fieldset>
-          <div class="grille" style="margin-top:16px;">
-            <div class="champ"><label class="obligatoire" for="objectifs">Ce que vous souhaitez retirer de la formation</label>
-              <textarea id="objectifs" name="objectifs" maxlength="800" required placeholder="Ex. mettre à jour mes connaissances sur la coordination SSI"></textarea></div>
-            <div class="champ"><label for="attentes">Questions ou situations que vous aimeriez voir traitées</label>
-              <textarea id="attentes" name="attentes" maxlength="800"></textarea></div>
-            <div class="champ"><label for="handicap">Besoin d'aménagement lié à une situation de handicap</label>
-              <input id="handicap" name="handicap" type="text" maxlength="400" placeholder="Aucun">
-              <span class="aide">Confidentiel : seul le référent handicap de l'ACSES y a accès.</span></div>
-            <div class="champ" id="bloc-regime"><label for="regime">Régime alimentaire ou allergie</label>
-              <input id="regime" name="regime" type="text" maxlength="120" placeholder="Standard, végétarien, sans porc, allergie...">
-              <span class="aide">Transmis au traiteur sous forme de nombre de couverts, sans votre nom.</span></div>
           </div>
+          <div class="champ" id="bloc-regime" style="margin-top:16px;"><label for="regime">Régime alimentaire ou allergie</label>
+            <input id="regime" name="regime" type="text" maxlength="120" placeholder="Ex. végétarien, sans porc, allergie aux fruits à coque">
+            <span class="aide">Transmis au traiteur sous forme de nombre de couverts, sans le nom.</span></div>
         </section>
 
         <!-- Étape 4 -->
         <section data-etape="4" hidden>
-          <h2>Votre service formation</h2>
-          <p class="petit">Votre service formation complétera les informations administratives (SIRET, financement, signataire) et déposera la convention signée grâce à un lien personnel.</p>
-          <div class="champ"><label for="emailFormation">Email de votre service formation</label>
-            <input id="emailFormation" name="emailFormation" type="email" maxlength="120" placeholder="formation@etablissement.fr"></div>
-          <label class="option" style="margin-top:12px;"><input type="checkbox" name="envoiDirect" id="envoiDirect">
-            <span><span class="titre">Envoyer directement le dossier à mon service formation</span>
-            <small>Sinon, vous recevez le dossier et le lien pour le leur transmettre.</small></span></label>
+          <div data-pour="STAGIAIRE">
+            <h2>Votre service formation</h2>
+            <p class="petit">Votre service formation complétera les informations administratives (SIRET, financement, signataire) et déposera la convention signée grâce à un lien personnel.</p>
+            <div class="champ"><label for="emailFormation">Email de votre service formation</label>
+              <input id="emailFormation" name="emailFormation" type="email" maxlength="120" placeholder="Ex. formation@etablissement.fr"></div>
+            <label class="option" style="margin-top:12px;"><input type="checkbox" name="envoiDirect" id="envoiDirect">
+              <span><span class="titre">Envoyer directement le dossier à mon service formation</span>
+              <small>Sinon, vous recevez le dossier et le lien pour le leur transmettre.</small></span></label>
+          </div>
+
+          <div data-pour="SERVICE" hidden>
+            <h2>Informations administratives</h2>
+            <p class="petit">Elles servent à établir la convention de formation, envoyée par email juste après. Vous pourrez ensuite déposer la convention signée.</p>
+            <div class="grille g2">
+              <div class="champ span2"><label class="obligatoire" for="raisonSociale">Raison sociale de l'établissement</label><input id="raisonSociale" name="raisonSociale" type="text" maxlength="150" required></div>
+              <div class="champ"><label for="siret">SIRET (14 chiffres)</label><input id="siret" name="siret" type="text" inputmode="numeric" pattern="[0-9 ]{14,17}" maxlength="17"></div>
+              <div class="champ"><label for="codeNaf">Code NAF ou APE</label><input id="codeNaf" name="codeNaf" type="text" maxlength="10" placeholder="Ex. 8610Z"></div>
+              <div class="champ span2"><label class="obligatoire" for="adresseFacturation">Adresse de facturation</label><input id="adresseFacturation" name="adresseFacturation" type="text" maxlength="300" required></div>
+              <div class="champ"><label class="obligatoire" for="signataire">Signataire de la convention (nom et fonction)</label><input id="signataire" name="signataire" type="text" maxlength="150" required placeholder="Ex. Mme Martin, directrice des ressources humaines"></div>
+              <div class="champ"><label class="obligatoire" for="contactFormation">Votre nom et téléphone</label><input id="contactFormation" name="contactFormation" type="text" maxlength="150" required></div>
+              <div class="champ"><label class="obligatoire" for="emailFormationSF">Email du service formation</label><input id="emailFormationSF" name="emailFormationSF" type="email" maxlength="120" required>
+                <span class="aide">Reçoit la convention, la facture et le lien de dépôt.</span></div>
+              <div class="champ"><label class="obligatoire" for="modeFinancement">Mode de prise en charge</label>
+                <select id="modeFinancement" name="modeFinancement" required>
+                  <option value="ANFH">ANFH</option><option value="OPCO">OPCO</option>
+                  <option value="Plan de développement des compétences">Plan de développement des compétences</option><option value="Autre">Autre</option>
+                </select></div>
+              <div class="champ"><label for="nomOpco">Délégation ANFH ou nom de l'OPCO</label><input id="nomOpco" name="nomOpco" type="text" maxlength="120"></div>
+              <div class="champ"><label for="bonCommande">N° de bon de commande ou d'engagement</label><input id="bonCommande" name="bonCommande" type="text" maxlength="60"></div>
+            </div>
+          </div>
+
+          <div data-pour="PERSONNEL" hidden>
+            <h2>Règlement</h2>
+            <div class="alerte a-info"><div>Vous financez vous-même la formation : un <strong>contrat de formation</strong> vous est envoyé par email. Vous le signez et le déposez en ligne. Vous disposez ensuite de <strong>14 jours pour vous rétracter</strong>, et vous ne payez qu'<strong>après la formation</strong>, à réception de la facture.</div></div>
+            <div class="champ" style="margin-top:14px;"><label class="obligatoire" for="adressePerso">Adresse postale</label><input id="adressePerso" name="adressePerso" type="text" maxlength="300" required autocomplete="street-address" placeholder="Ex. 12 rue des Lilas, 44000 Nantes">
+              <span class="aide">Imprimée sur le contrat et la facture.</span></div>
+            <fieldset class="champ" style="margin-top:14px;">
+              <legend class="legende obligatoire">Mode de règlement</legend>
+              <div class="choix c2">
+                <label class="option puce"><input type="radio" name="modeReglement" value="Virement" required><span class="titre">Virement</span></label>
+                <label class="option puce"><input type="radio" name="modeReglement" value="Chèque"><span class="titre">Chèque</span></label>
+              </div>
+            </fieldset>
+          </div>
+
           <div class="grille" style="margin-top:18px;gap:12px;">
-            <label class="case"><input type="checkbox" name="partage"> <span>J'accepte que le QR Code de mon badge contienne mon email et mon téléphone professionnels, pour échanger mes coordonnées avec les exposants que je choisis de rencontrer.</span></label>
-            <label class="case champ" style="flex-direction:row;"><input type="checkbox" name="consentement" required> <span>J'ai lu les <span data-lien="cgv">conditions générales de vente</span> et la <a href="confidentialite.html" target="_blank" rel="noopener">politique de confidentialité</a>, transmises avec le dossier. <span class="obligatoire"></span></span></label>
+            <label class="case"><input type="checkbox" name="partage"> <span data-libelle="partage">J'accepte que le QR Code de mon badge contienne mon email et mon téléphone, pour échanger mes coordonnées avec les exposants que je choisis de rencontrer.</span></label>
+            <label class="case champ" style="flex-direction:row;"><input type="checkbox" name="consentement" required> <span class="obligatoire">J'ai lu les <span data-lien="cgv">conditions générales de vente</span> et la <a href="confidentialite.html" target="_blank" rel="noopener">politique de confidentialité</a>, transmises avec le dossier.</span></label>
           </div>
         </section>
 
@@ -120,6 +174,7 @@
       </aside>
     </div>
 
+    <div id="chargement" class="chargement"><span class="rotation"></span>Chargement...</div>
     <div id="resultat" class="carte succes" hidden></div>
   </main>
 

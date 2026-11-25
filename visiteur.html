@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'none'; object-src 'none'">
-  <title>Invitation visiteur des stands - JEF ACSES</title>
+  <title>Invitation visiteur de l'espace exposants - JEF ACSES</title>
   <link rel="icon" href="logo-acses.png">
   <link rel="stylesheet" href="assets/jef.css">
 </head>
@@ -25,18 +25,18 @@
     <div id="ferme" class="alerte a-attention" hidden style="margin-top:18px;"></div>
 
     <form id="form" class="carte" novalidate>
+        <p class="petit legende-obligatoire">Les champs marqués d'une étoile <span class="obligatoire"></span> sont obligatoires.</p>
       <fieldset class="champ">
         <legend class="legende obligatoire">Demi-journée de votre visite</legend>
         <div class="choix c3" id="creneaux"></div>
       </fieldset>
       <div class="grille g2" style="margin-top:18px;">
-        <div class="champ"><label class="obligatoire" for="civilite">Civilité</label><select id="civilite" name="civilite"><option value="Mme">Madame</option><option value="M.">Monsieur</option></select></div>
-        <div class="champ"><label class="obligatoire" for="fonction">Fonction</label><input id="fonction" name="fonction" type="text" maxlength="120" required></div>
         <div class="champ"><label class="obligatoire" for="prenom">Prénom</label><input id="prenom" name="prenom" type="text" maxlength="80" required></div>
         <div class="champ"><label class="obligatoire" for="nom">Nom</label><input id="nom" name="nom" type="text" maxlength="80" required></div>
-        <div class="champ"><label class="obligatoire" for="email">Email professionnel</label><input id="email" name="email" type="email" maxlength="120" required></div>
+        <div class="champ"><label class="obligatoire" for="fonction">Fonction</label><input id="fonction" name="fonction" type="text" maxlength="120" required placeholder="Ex. cadre de santé"></div>
+        <div class="champ"><label class="obligatoire" for="email">Email</label><input id="email" name="email" type="email" maxlength="120" required><span class="aide">Pour recevoir votre badge.</span></div>
         <div class="champ"><label for="telephone">Téléphone</label><input id="telephone" name="telephone" type="tel" maxlength="25"></div>
-        <div class="champ span2"><label class="obligatoire" for="organisme">Établissement ou société</label><input id="organisme" name="organisme" type="text" maxlength="150" required></div>
+        <div class="champ span2"><label class="obligatoire" for="organisme">Établissement ou entreprise</label><input id="organisme" name="organisme" type="text" maxlength="150" required></div>
       </div>
       <div class="grille" style="margin-top:18px;gap:12px;">
         <label class="case"><input type="checkbox" name="partage"> <span>J'accepte que le QR Code de mon badge contienne mon email et mon téléphone, pour échanger mes coordonnées avec les exposants.</span></label>

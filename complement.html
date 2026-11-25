@@ -6,7 +6,7 @@
   <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'none'; object-src 'none'">
-  <title>Dossier service formation - JEF ACSES</title>
+  <title>Dossier d'inscription - JEF ACSES</title>
   <link rel="icon" href="logo-acses.png">
   <link rel="stylesheet" href="assets/jef.css">
 </head>
@@ -14,7 +14,7 @@
   <header class="entete">
     <div class="interieur">
       <a href="./"><img src="logo-acses.png" alt="ACSES - accueil" width="69" height="40"></a>
-      <div class="titre">Espace service formation<small><span data-cfg="intitule">Journées d'Études et de Formation ACSES</span></small></div>
+      <div class="titre">Dossier d'inscription<small><span data-cfg="intitule">Journées d'Études et de Formation ACSES</span></small></div>
     </div>
   </header>
 
@@ -26,7 +26,7 @@
       <section class="carte" id="dossier"></section>
 
       <ol class="stepper" style="margin-top:22px;" aria-label="Étapes">
-        <li id="s1"><span>1. Informations administratives</span></li><li id="s2"><span>2. Convention signée</span></li><li id="s3"><span>3. Validation par l'ACSES</span></li>
+        <li id="s1"><span>1. Informations administratives</span></li><li id="s2"><span id="s2-texte">2. Convention signée</span></li><li id="s3"><span>3. Validation par l'ACSES</span></li>
       </ol>
 
       <form id="form-admin" class="carte" novalidate hidden>
@@ -34,18 +34,18 @@
         <p class="petit">Elles servent à établir la convention de formation définitive, envoyée par email dès validation.</p>
         <div class="grille g2">
           <div class="champ span2"><label class="obligatoire" for="raisonSociale">Raison sociale de l'établissement</label><input id="raisonSociale" name="raisonSociale" type="text" maxlength="150" required></div>
-          <div class="champ"><label class="obligatoire" for="siret">SIRET (14 chiffres)</label><input id="siret" name="siret" type="text" inputmode="numeric" pattern="[0-9 ]{14,17}" maxlength="17" required></div>
-          <div class="champ"><label for="codeNaf">Code NAF / APE</label><input id="codeNaf" name="codeNaf" type="text" maxlength="10" placeholder="8610Z"></div>
+          <div class="champ"><label for="siret">SIRET (14 chiffres)</label><input id="siret" name="siret" type="text" inputmode="numeric" pattern="[0-9 ]{14,17}" maxlength="17"></div>
+          <div class="champ"><label for="codeNaf">Code NAF / APE</label><input id="codeNaf" name="codeNaf" type="text" maxlength="10" placeholder="Ex. 8610Z"></div>
           <div class="champ span2"><label class="obligatoire" for="adresseFacturation">Adresse de facturation</label><input id="adresseFacturation" name="adresseFacturation" type="text" maxlength="300" required></div>
           <div class="champ"><label for="effectif">Effectif salarié</label><input id="effectif" name="effectif" type="text" maxlength="20"></div>
-          <div class="champ"><label class="obligatoire" for="signataire">Signataire de la convention (nom et fonction)</label><input id="signataire" name="signataire" type="text" maxlength="150" required placeholder="Directeur des ressources humaines"></div>
+          <div class="champ"><label class="obligatoire" for="signataire">Signataire de la convention (nom et fonction)</label><input id="signataire" name="signataire" type="text" maxlength="150" required placeholder="Ex. Mme Martin, directrice des ressources humaines"></div>
           <div class="champ"><label class="obligatoire" for="contactFormation">Contact au service formation (nom et téléphone)</label><input id="contactFormation" name="contactFormation" type="text" maxlength="150" required></div>
           <div class="champ"><label class="obligatoire" for="emailFormation">Email du service formation</label><input id="emailFormation" name="emailFormation" type="email" maxlength="120" required></div>
           <div class="champ"><label class="obligatoire" for="modeFinancement">Mode de prise en charge</label>
             <select id="modeFinancement" name="modeFinancement" required>
               <option value="ANFH">ANFH</option><option value="OPCO">OPCO</option>
               <option value="Plan de développement des compétences">Plan de développement des compétences</option>
-              <option value="Financement personnel">Financement personnel</option><option value="Autre">Autre</option>
+              <option value="Autre">Autre</option>
             </select></div>
           <div class="champ"><label for="nomOpco">Délégation ANFH ou nom de l'OPCO</label><input id="nomOpco" name="nomOpco" type="text" maxlength="120"></div>
           <div class="champ span2"><label for="bonCommande">N° de bon de commande ou d'engagement (Chorus Pro)</label><input id="bonCommande" name="bonCommande" type="text" maxlength="60"></div>
@@ -54,8 +54,8 @@
       </form>
 
       <section class="carte" id="bloc-depot" hidden>
-        <h2>Déposer la convention signée</h2>
-        <p>La convention définitive a été envoyée par email. Une fois signée et tamponnée, déposez-la ici : elle est archivée automatiquement dans le dossier du stagiaire et vous recevez un accusé de réception.</p>
+        <h2 id="depot-titre">Déposer la convention signée</h2>
+        <p id="depot-texte">La convention définitive a été envoyée par email. Une fois signée et tamponnée, déposez-la ici : elle est archivée automatiquement dans le dossier du stagiaire et vous recevez un accusé de réception.</p>
         <label class="depot" id="zone-depot" for="fichier">
           <div class="grand">📄</div>
           <b>Glissez le fichier ici ou cliquez pour le choisir</b>
@@ -65,7 +65,7 @@
         <input type="file" id="fichier" accept="application/pdf,image/jpeg,image/png" class="sr">
         <div class="actions-etape">
           <button type="button" class="btn btn-fantome" id="modifier-admin">Modifier les informations administratives</button>
-          <button type="button" class="btn btn-orange btn-l" id="btn-depot" disabled>Déposer la convention</button>
+          <button type="button" class="btn btn-orange btn-l" id="btn-depot" disabled>Déposer le document</button>
         </div>
       </section>
 

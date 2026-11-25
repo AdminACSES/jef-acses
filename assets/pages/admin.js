@@ -1,725 +1,1422 @@
 /* ==========================================================================
-   Cockpit du Bureau : tableau de bord, stagiaires, badges, exposants,
-   restauration, accueil et Qualiopi, journal. Toutes les données affichées
-   passent par JEF.h (échappement automatique).
+   Cockpit du bureau - version 2.1
+   Toutes les données affichées passent par JEF.h (échappement automatique).
+   Textes de l'interface : admin-contenus.js
    ========================================================================== */
 (function () {
   'use strict';
   var h = JEF.h, $ = JEF.$, $$ = JEF.$$, brut = JEF.brut;
-  var D = null, vue = 'tableau', ficheOuverte = null, journal = null, reglages = null, reglagesModifies = false;
-  var filtres = { stag: { q: '', statut: '', tri: 'recent' }, badges: { q: '', profil: '' }, journal: '' };
-  var TITRES = { tableau: 'Tableau de bord', stagiaires: 'Stagiaires', badges: 'Badges', societes: 'Exposants', restauration: 'Restauration', accueil: 'Accueil et Qualiopi', journal: 'Journal des actions', reglages: 'Réglages de l\'édition' };
-  var PROFILS = {
-    EXPOSANT: { libelle: 'Exposant', classe: 'p-orange' }, VISITEUR: { libelle: 'Visiteur', classe: 'p-vert' },
-    INVITE: { libelle: 'Invité ACSES', classe: 'p-violet' }, INTERVENANT: { libelle: 'Intervenant', classe: 'p-bleu' }
-  };
+  var C = window.JEF_COCKPIT;
+  var D = null, session = null, vue = 'tableau', fiche = null, journal = null;
+  var reglages = null, reglagesInitial = '', reglagesModifies = false;
+  var connectes = [], tableCourante = null, filtresPages = {}, etatsTables = {};
   var COURT = { JM: 'J', GALA: 'G', VM: 'V' };
+  var PROFILS = { EXPOSANT: 'Exposant', VISITEUR: 'Visiteur', INVITE: 'Invité ACSES', INTERVENANT: 'Intervenant' };
+  var COULEURS_AVATAR = ['#15528F', '#EB7E0C', '#1E7B45', '#6D28D9', '#B25E00', '#2575B3', '#0E7490'];
 
-  // ----- Outils --------------------------------------------------------------
-  function normal(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+  // ======================================================================
+  // Outils
+  // ======================================================================
+  function lireLocal(k, d) { try { var v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
+  function ecrireLocal(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* rien */ } }
+  function normal(s) { return String(s === undefined || s === null ? '' : s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
   function prefixe(l) { return String(l.Statut || '').slice(0, 1); }
   function actif(l) { var p = prefixe(l); return p !== '9' && p !== '8'; }
   function actifBadge(b) { return prefixe(b) !== '9'; }
   function nomComplet(l) { return (l.Prenom || '') + ' ' + (l.Nom || ''); }
+  function initiales(nom) { return String(nom || '?').split('@')[0].split(/[\s._-]+/).filter(String).slice(0, 2).map(function (x) { return x[0].toUpperCase(); }).join('') || '?'; }
+  function couleurDe(s) { var n = 0; String(s).split('').forEach(function (c) { n = (n * 31 + c.charCodeAt(0)) % 997; }); return COULEURS_AVATAR[n % COULEURS_AVATAR.length]; }
+  function tag(classe, texte) { return h`<span class="tag ${classe}">${texte}</span>`; }
+  function trouver(type, id) {
+    var liste = type === 'STAG' ? D.stagiaires : type === 'ENT' ? D.entreprises : D.badges;
+    return liste.filter(function (x) { return x.ID === id; })[0];
+  }
+  function entrepriseDe(b) { return D.entreprises.filter(function (e) { return e.ID === b.Entreprise_ID; })[0]; }
+  function entrepriseActive(e) { return String(e.Statut || 'Active') !== 'Annulée'; }
+  function courtCreneau(lib) {
+    var m = String(lib).match(/^(\S+)\s+\d+\s+\S+\s*-\s*(.+)$/);
+    if (!m) return lib;
+    var jour = m[1].slice(0, 3);
+    return jour.charAt(0).toUpperCase() + jour.slice(1) + '. ' + m[2].replace('après-midi', 'ap.-midi');
+  }
+  function heureMaj(d) { return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', ' h '); }
 
-  function pastilleStatut(l, estBadge) {
-    var p = prefixe(l);
-    var m = estBadge
-      ? { 1: ['p-ambre', 'Enregistré'], 2: ['p-vert', 'Badge envoyé'], 9: ['p-rouge', 'Annulé'] }
-      : { 1: ['p-ambre', 'Pré-inscrit'], 2: ['p-violet', 'Dossier complété'], 3: ['p-orange', 'Convention à valider'], 4: ['p-bleu', 'Validé'], 5: ['p-vert', 'Payé'], 8: ['p-ambre', 'Liste d\'attente'], 9: ['p-rouge', 'Annulé'] };
-    var x = m[p] || ['', l.Statut || '-'];
-    return h`<span class="pastille ${x[0]}">${x[1]}</span>`;
+  function tagStatutStagiaire(l) {
+    var m = { 1: ['t-violet', 'Pré-inscrit'], 2: ['t-violet', 'Dossier complété'], 3: ['t-orange', 'Convention à valider'], 4: ['t-bleu', 'Validé'], 5: ['t-vert', 'Payé'], 8: ['t-violet', 'Liste d\'attente'], 9: ['t-rouge', 'Annulé'] };
+    var x = m[prefixe(l)] || ['t-gris', l.Statut || '-'];
+    return tag(x[0], x[1]);
   }
-  function pastilleProfil(b) { var p = PROFILS[b.Profil] || { libelle: b.Profil, classe: '' }; return h`<span class="pastille nue ${p.classe}">${p.libelle}</span>`; }
-  function repasMini(l) {
-    return h`<span class="repas-mini" title="Jeudi midi, gala, vendredi midi">${['JM', 'GALA', 'VM'].map(function (c) { return h`<span class="${JEF.oui(l['Repas_' + c]) ? 'on' : ''}">${COURT[c]}</span>`; })}</span>`;
+  function tagStatutBadge(b) {
+    var p = prefixe(b);
+    if (p === '9') return tag('t-rouge', 'Annulé');
+    if (b.Badge_Envoye) return tag('t-vert', 'Badge envoyé');
+    return tag('t-orange', b.Email ? 'Badge à envoyer' : 'À imprimer');
   }
-  function points(l) {
-    return h`<span class="points">${(D.creneaux || []).map(function (c) { return h`<i class="${l['Presence_' + c.n] ? 'on' : ''}" title="${c.libelle}"></i>`; })}</span>`;
+  function tagPass(b) { return b.Type_Pass === 'Supplémentaire' ? tag('t-orange', 'Pass supplémentaire ' + JEF.euros(b.Montant)) : tag('t-vert', 'Pass inclus'); }
+  function repas3(l) {
+    return h`<span class="repas3" title="Jeudi midi, gala, vendredi midi">${['JM', 'GALA', 'VM'].map(function (c) { return h`<span class="${JEF.oui(l['Repas_' + c]) ? 'on' : ''}">${COURT[c]}</span>`; })}</span>`;
   }
-  function trouver(type, id) { return (type === 'STAG' ? D.stagiaires : D.badges).filter(function (x) { return x.ID === id; })[0]; }
+  function boutonsPresence(l) {
+    if (D.reglages.scanUnique) {
+      var tous = D.creneaux.every(function (c) { return l['Presence_' + c.n]; });
+      var une = D.creneaux.filter(function (c) { return l['Presence_' + c.n]; })[0];
+      return h`<span class="pres-groupe"><button class="pres ${tous ? 'on' : ''}" data-op="presence" data-n="tous" title="${tous ? 'Présent, arrivé à ' + JEF.heure(l['Presence_' + une.n]) + '. Cliquer pour retirer' : 'Cliquer pour marquer présent sur les 2 jours'}">${tous ? 'Présent' : (une ? 'Partiel' : 'Marquer présent')}</button></span>`;
+    }
+    return h`<span class="pres-groupe">${D.creneaux.map(function (c) {
+      var on = l['Presence_' + c.n];
+      return h`<button class="pres ${on ? 'on' : ''}" data-op="presence" data-n="${c.n}" title="${c.libelle}${on ? ' - présent à ' + JEF.heure(on) + ', cliquer pour retirer' : ' - cliquer pour valider la présence'}">${courtCreneau(c.libelle)}</button>`;
+    })}</span>`;
+  }
+  function legende(nom) {
+    var l = C.legendes[nom];
+    if (!l) return '';
+    return h`<div class="legende-couleurs">${l.map(function (x) {
+      if (x[0] === 'pres-on') return h`<span><span class="pres on" style="cursor:default;">Présent</span> ${x[1]}</span>`;
+      if (x[0] === 'pres') return h`<span><span class="pres" style="cursor:default;">Marquer présent</span> ${x[1]}</span>`;
+      return h`<span>${tag(x[0], x[1])}</span>`;
+    })}</div>`;
+  }
+  function aidePage(page) {
+    var a = C.aides[page] || { texte: '', points: [] };
+    var ouvert = lireLocal('jef_aide_' + page, true);
+    return h`<details class="aide-page" data-aide="${page}" ${brut(ouvert ? 'open' : '')}><summary>Aide de cette page</summary><div class="contenu">
+      <p style="margin:0 0 4px;">${a.texte}</p>${a.points.length ? h`<ul>${a.points.map(function (p) { return h`<li>${p}</li>`; })}</ul>` : ''}
+      ${a.legende ? h`<div><b>Légende</b>${legende(a.legende)}</div>` : ''}</div></details>`;
+  }
+  function brancherAide() {
+    $$('details.aide-page').forEach(function (d) { d.addEventListener('toggle', function () { ecrireLocal('jef_aide_' + d.getAttribute('data-aide'), d.open); }); });
+  }
+  function panneau(titre, indice, contenu, outils, classe) {
+    return h`<section class="panneau ${classe || ''}"><div class="panneau-tete"><div><h3>${titre}</h3>${indice ? h`<p class="indice">${indice}</p>` : ''}</div>
+      ${outils ? h`<div class="outils-droite">${outils}</div>` : ''}</div>${contenu}</section>`;
+  }
 
-  // ----- Connexion -------------------------------------------------------------
+  // ======================================================================
+  // Tableau générique : tri au clic sur le titre, filtre sous chaque titre,
+  // en-tête et première colonne figés, lignes et noms cliquables.
+  // ======================================================================
+  function tableau(id, cfg) {
+    var etat = etatsTables[id] = etatsTables[id] || { tri: cfg.triDefaut || null, sens: cfg.sensDefaut || 1, filtres: {} };
+    function visibles() {
+      var liste = cfg.lignes.filter(function (l) {
+        return cfg.colonnes.every(function (c) {
+          var f = etat.filtres[c.cle];
+          return !f || normal(c.val(l)).indexOf(normal(f)) !== -1;
+        });
+      });
+      var col = cfg.colonnes.filter(function (c) { return c.cle === etat.tri; })[0];
+      if (col) {
+        liste.sort(function (a, b) {
+          var x = col.tri ? col.tri(a) : col.val(a), y = col.tri ? col.tri(b) : col.val(b);
+          if (typeof x === 'number' && typeof y === 'number') return (x - y) * etat.sens;
+          return String(x).localeCompare(String(y), 'fr', { numeric: true }) * etat.sens;
+        });
+      }
+      return liste;
+    }
+    function corps() {
+      var liste = visibles();
+      tableCourante = { id: id, cfg: cfg, lignes: liste };
+      var tb = $('#t-' + id + ' tbody');
+      if (!tb) return;
+      JEF.rendre(tb, liste.length ? liste.map(function (l) {
+        return h`<tr data-cle="${l.ID}">${cfg.colonnes.map(function (c) { return h`<td class="${c.classe || ''}">${c.rendu ? c.rendu(l) : c.val(l)}</td>`; })}</tr>`;
+      }) : h`<tr class="vide-l"><td colspan="${cfg.colonnes.length}">${cfg.vide || 'Aucune ligne ne correspond aux filtres.'}</td></tr>`);
+      $('#tp-' + id).textContent = liste.length + ' ligne' + (liste.length > 1 ? 's' : '') + (liste.length !== cfg.lignes.length ? ' sur ' + cfg.lignes.length : '');
+    }
+    var html = h`<div class="table-defile"><table class="tab" id="t-${id}"><thead>
+      <tr>${cfg.colonnes.map(function (c) {
+        var actifTri = etat.tri === c.cle;
+        return h`<th>${c.trier === false ? c.titre : h`<button class="tri" data-tri="${c.cle}" ${brut(actifTri ? 'data-sens="' + etat.sens + '"' : '')}>${c.titre}<span class="fleche">${actifTri && etat.sens < 0 ? '▼' : '▲'}</span></button>`}</th>`;
+      })}</tr>
+      <tr class="filtres">${cfg.colonnes.map(function (c) {
+        return h`<th>${c.filtre === false ? '' : h`<input type="search" data-filtre="${c.cle}" value="${etat.filtres[c.cle] || ''}" placeholder="Filtrer" aria-label="Filtrer ${c.titre}">`}</th>`;
+      })}</tr></thead><tbody></tbody></table></div><div class="table-pied"><span id="tp-${id}"></span><span>${cfg.pied || 'Cliquez sur une ligne pour ouvrir la fiche'}</span></div>`;
+    return {
+      html: html,
+      monter: function () {
+        corps();
+        var t = $('#t-' + id);
+        $$('[data-tri]', t).forEach(function (b) {
+          b.addEventListener('click', function () {
+            var cle = b.getAttribute('data-tri');
+            if (etat.tri === cle) etat.sens = -etat.sens; else { etat.tri = cle; etat.sens = 1; }
+            $$('[data-tri]', t).forEach(function (x) { x.removeAttribute('data-sens'); $('.fleche', x).textContent = '▲'; });
+            b.setAttribute('data-sens', etat.sens); $('.fleche', b).textContent = etat.sens < 0 ? '▼' : '▲';
+            corps();
+          });
+        });
+        $$('[data-filtre]', t).forEach(function (i) { i.addEventListener('input', function () { etat.filtres[i.getAttribute('data-filtre')] = i.value; corps(); }); });
+        $('tbody', t).addEventListener('click', function (e) {
+          var tr = e.target.closest('tr[data-cle]');
+          if (!tr) return;
+          var l = cfg.lignes.filter(function (x) { return x.ID === tr.getAttribute('data-cle'); })[0];
+          var b = e.target.closest('[data-op]');
+          if (b) { e.stopPropagation(); cfg.action(b.getAttribute('data-op'), l, b); return; }
+          if (cfg.clic) cfg.clic(l);
+        });
+      }
+    };
+  }
+
+  // ======================================================================
+  // Connexion, chargement, structure
+  // ======================================================================
   function demarrer() {
     JEF.onSessionExpiree = function () { JEF.toast('Session expirée : reconnectez-vous.', 'erreur'); setTimeout(function () { location.reload(); }, 1500); };
     var s = JEF.session();
     if (s) { ouvrirApp(s); return; }
     JEF.config().then(function (cfg) { JEF.connexionGoogle(cfg.googleClientId, ouvrirApp, $('#message-connexion')); })
-      .catch(function (e) { $('#message-connexion').textContent = e.message; });
+      .catch(function (e) { $('#message-connexion').textContent = 'Serveur injoignable. ' + e.message; });
   }
 
   function ouvrirApp(s) {
-    if (s.role !== 'admin') {
-      JEF.rendre('#message-connexion', h`Votre compte a un accès accueil uniquement. <a href="scanner.html">Ouvrir le scanner</a>`);
-      return;
-    }
+    if (s.role !== 'admin') { JEF.rendre('#message-connexion', h`Votre compte a un accès accueil uniquement. <a href="scanner.html">Ouvrir le scanner</a>`); return; }
+    session = s;
     $('#connexion').hidden = true;
     $('#app').hidden = false;
-    $('#utilisateur').textContent = s.email;
-    charger();
+    construireMenu();
+    construireCompte();
+    var depart = (location.hash || '').replace('#', '');
+    var ficheDemandee = depart.indexOf('fiche=') === 0 ? decodeURIComponent(depart.slice(6)) : '';
+    vue = ficheDemandee ? 'stagiaires' : (C.aides[depart] ? depart : lireLocal('jef_vue', 'tableau'));
+    if (ficheDemandee) filtresPages.stagiaires = 'valider';
+    charger().then(function () {
+      signalerPresence();
+      if (ficheDemandee && trouver('STAG', ficheDemandee)) {
+        history.replaceState(null, '', '#stagiaires');
+        ouvrirFiche('STAG', ficheDemandee);
+        var l = trouver('STAG', ficheDemandee);
+        if (l.Convention_Fichier) apercuConvention(l);
+      } else afficherNouveautesUneFois();
+    });
+    setInterval(signalerPresence, 30000);
+    setInterval(function () { if (D && !document.hidden && !fiche && !$('#voile').classList.contains('ouvert') && !reglagesModifies) charger(true); }, 120000);
   }
+
+  function construireMenu() {
+    JEF.rendre('#nav', C.menu.map(function (g) {
+      return h`<div class="menu-groupe"><div class="menu-groupe-titre"><i style="background:${g.couleur};"></i>${g.titre}</div>
+        ${g.pages.map(function (p) { return h`<button class="menu-btn" data-vue="${p[0]}">${p[1]}<span class="compteur" id="c-${p[0]}" hidden></span></button>`; })}</div>`;
+    }));
+    $('#menu-bas').textContent = 'Version ' + C.version;
+    $$('#nav [data-vue]').forEach(function (b) { b.addEventListener('click', function () { aller(b.getAttribute('data-vue')); $('#menu').classList.remove('ouvert'); }); });
+  }
+
+  function construireCompte() {
+    var b = $('#b-compte');
+    JEF.rendre(b, h`<span class="avatar" style="background:${couleurDe(session.email)};">${initiales(session.nom || session.email)}</span><span>${String(session.nom && session.nom.indexOf('@') === -1 ? session.nom : session.email.split('@')[0]).split(' ')[0]}</span>`);
+    JEF.rendre('#menu-compte', h`<div class="entete-menu"><b>${session.nom || ''}</b><br>${session.email}<br>Administrateur</div>
+      <a href="scanner.html" target="_blank" rel="noopener">Ouvrir le scanner</a>
+      <button data-compte="aide">Mode d'emploi</button><button data-compte="sortir">Se déconnecter</button>`);
+  }
+
+  function etatSynchro(classe, texte) { var e = $('#etat-synchro'); e.className = 'etat-synchro ' + (classe || ''); e.textContent = texte; }
 
   function charger(silencieux) {
-    var btn = $('#rafraichir');
-    var retablir = silencieux ? function () {} : JEF.attente(btn, 'Actualisation');
+    if (!silencieux) etatSynchro('en-cours', 'Actualisation');
     return JEF.post('admin_liste').then(function (d) {
       D = d;
-      retablir();
-      $('#pastille-test').hidden = !d.reglages.modeTest;
-      $('#edition').textContent = 'Version ' + d.reglages.version;
-      var aValider = d.stagiaires.filter(function (l) { return prefixe(l) === '3'; }).length;
-      $('#c-stag').hidden = !aValider; $('#c-stag').textContent = aValider;
+      etatSynchro(reglagesModifies ? 'attention' : '', reglagesModifies ? 'Pensez à enregistrer' : 'À jour à ' + heureMaj(new Date()));
+      majCompteurs();
+      afficherBandeaux();
       afficher();
-      if (ficheOuverte) ouvrirFiche(ficheOuverte.type, ficheOuverte.id);
-    }).catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+      if (fiche) ouvrirFiche(fiche.type, fiche.id, true);
+    }).catch(function (e) { etatSynchro('erreur', 'Erreur de connexion'); JEF.toast(e.message, 'erreur'); });
   }
 
+  function majCompteurs() {
+    var n = { stagiaires: D.stagiaires.filter(function (l) { return prefixe(l) === '3'; }).length,
+      entreprises: D.badges.filter(function (b) { return b.Profil === 'EXPOSANT' && actifBadge(b) && b.Email && !b.Badge_Envoye; }).length };
+    Object.keys(n).forEach(function (k) { var c = $('#c-' + k); if (c) { c.hidden = !n[k]; c.textContent = n[k]; } });
+  }
+
+  // ----- Bandeaux ----------------------------------------------------------
+  function afficherBandeaux() {
+    var liste = [];
+    var r = D.reglages;
+    if (r.modeTest) liste.push({ g: 'violet', essentiel: true, t: brut('<b>Mode test actif.</b> Les formulaires restent ouverts et tous les emails partent vers l\'adresse de test.'), a: [['Réglages', function () { aller('reglages'); }]] });
+    if (r.quotaEmails < 150) liste.push({ g: 'rouge', essentiel: true, t: 'Plus que ' + r.quotaEmails + ' emails possibles aujourd\'hui. Les envois en nombre risquent d\'échouer.' });
+    var conv = D.stagiaires.filter(function (l) { return prefixe(l) === '3'; }).length;
+    if (conv) liste.push({ g: 'orange', t: conv + ' convention' + (conv > 1 ? 's signées attendent' : ' signée attend') + ' votre validation.', a: [['Voir', function () { filtresPages.stagiaires = 'valider'; aller('stagiaires'); }]] });
+    if (!r.ouverture.ouvert && !r.modeTest) liste.push({ g: 'gris', t: 'Les inscriptions sont fermées en ce moment.', a: [['Dates', function () { aller('reglages'); }]] });
+    var vu = lireLocal('jef_version_vue', '');
+    if (vu && vu !== C.version) liste.push({ g: 'gris', t: 'Nouvelle version ' + C.version + ' du cockpit.', a: [['Quoi de neuf', function () { aller('nouveautes'); }]] });
+    var z = $('#bandeaux');
+    var rendu = function (b, i) {
+      return h`<div class="bandeau b-${b.g}"><span class="texte">${b.t}</span>${(b.a || []).map(function (a, j) { return h`<button class="btn btn-s" data-bandeau="${i}-${j}">${a[0]}</button>`; })}</div>`;
+    };
+    var essentiels = liste.filter(function (b) { return b.essentiel; }), autres = liste.filter(function (b) { return !b.essentiel; });
+    JEF.rendre(z, h`${essentiels.map(function (b) { return rendu(b, liste.indexOf(b)); })}
+      ${autres.length === 1 ? rendu(autres[0], liste.indexOf(autres[0])) : ''}
+      ${autres.length > 1 ? h`<details class="groupe-bandeaux"><summary>${autres.length} informations en attente</summary><div>${autres.map(function (b) { return rendu(b, liste.indexOf(b)); })}</div></details>` : ''}`);
+    $$('[data-bandeau]', z).forEach(function (b) {
+      var p = b.getAttribute('data-bandeau').split('-');
+      b.addEventListener('click', liste[Number(p[0])].a[Number(p[1])][1]);
+    });
+  }
+
+  function afficherNouveautesUneFois() {
+    var vu = lireLocal('jef_version_vue', '');
+    if (vu === C.version) return;
+    ecrireLocal('jef_version_vue', C.version);
+    var n = C.nouveautes[0];
+    ouvrirModale('Nouveautés de la version ' + n.version, h`<ul style="margin:0;padding-left:18px;display:grid;gap:4px;">${n.points.map(function (p) { return h`<li>${p}</li>`; })}</ul>`,
+      [{ texte: 'Voir le mode d\'emploi', action: function () { fermerModale(); aller('aide'); } }, { texte: 'C\'est noté', classe: 'btn-primaire' }]);
+  }
+
+  // ----- Personnes connectées ----------------------------------------------
+  function signalerPresence() {
+    if (!session) return;
+    JEF.post('presence', { data: { vue: vue, fiche: fiche ? fiche.id : '' } }, { delai: 20000 }).then(function (r) {
+      connectes = r.connectes || [];
+      var autres = connectes.filter(function (c) { return !c.moi; });
+      JEF.rendre('#connectes', autres.map(function (c) {
+        var page = ((C.menu.map(function (g) { return g.pages; }).reduce(function (a, b) { return a.concat(b); }, []).filter(function (p) { return p[0] === c.vue; })[0]) || [])[1] || 'cockpit';
+        return h`<span class="avatar" style="background:${couleurDe(c.email)};" title="${(c.nom || c.email) + ' - ' + (c.role === 'accueil' ? 'scanner' : page) + (c.fiche ? ', fiche ' + c.fiche : '')}">${initiales(c.nom || c.email)}</span>`;
+      }));
+      if (fiche) avertirFicheOuverte();
+    }).catch(function () { /* silencieux : n'empêche pas de travailler */ });
+  }
+  function avertirFicheOuverte() {
+    var z = $('#fiche-partagee');
+    if (!z || !fiche) return;
+    var autres = connectes.filter(function (c) { return !c.moi && c.fiche === fiche.id; });
+    JEF.rendre(z, autres.length ? h`<div class="bandeau b-violet" style="margin:0 0 4px;"><span class="texte"><b>${autres.map(function (c) { return c.nom || c.email; }).join(', ')}</b> consulte aussi cette fiche. Évitez de modifier la même chose en même temps.</span></div>` : '');
+  }
+
+  // ======================================================================
+  // Navigation
+  // ======================================================================
+  function titrePage(v) {
+    var t = 'Cockpit';
+    C.menu.forEach(function (g) { g.pages.forEach(function (p) { if (p[0] === v) t = p[1]; }); });
+    return t;
+  }
+  function aller(v) {
+    if (vue === 'reglages' && reglagesModifies && v !== 'reglages') {
+      confirmer('Modifications non enregistrées', 'Vous avez modifié des réglages sans les enregistrer. Quitter la page les annule.', 'Quitter sans enregistrer', true)
+        .then(function (ok) { if (ok) { reglagesModifies = false; aller(v); } });
+      return;
+    }
+    vue = v; ecrireLocal('jef_vue', v);
+    history.replaceState(null, '', '#' + v);
+    fermerFiche(); afficher(); window.scrollTo(0, 0); signalerPresence();
+  }
   function afficher() {
-    $('#titre-vue').textContent = TITRES[vue];
-    $$('.barre-laterale [data-vue]').forEach(function (b) { if (b.getAttribute('data-vue') === vue) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+    $('#titre-vue').textContent = titrePage(vue);
+    document.title = titrePage(vue) + ' - Cockpit JEF ACSES';
+    $$('#nav [data-vue]').forEach(function (b) { if (b.getAttribute('data-vue') === vue) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+    tableCourante = null;
+    JEF.rendre('#actions-contexte', '');
     if (!D) return;
-    ({ tableau: vueTableau, stagiaires: vueStagiaires, badges: vueBadges, societes: vueSocietes, restauration: vueRestauration, accueil: vueAccueil, journal: vueJournal, reglages: vueReglages })[vue]();
+    var f = { tableau: vueTableau, stagiaires: vueStagiaires, qualiopi: vueQualiopi, entreprises: vueEntreprises, badges: vueBadges,
+      restauration: vueRestauration, jourj: vueJourJ, reglages: vueReglages, journal: vueJournal, aide: vueAide, nouveautes: vueNouveautes }[vue] || vueTableau;
+    f();
+    brancherAide();
   }
 
-  // ----- Tableau de bord -------------------------------------------------------
+  // ======================================================================
+  // Tableau de bord
+  // ======================================================================
   function vueTableau() {
     var st = D.stagiaires, actifs = st.filter(actif), badges = D.badges.filter(actifBadge);
-    var cap = D.reglages.capacite;
-    var ca = actifs.reduce(function (t, l) { return t + (Number(l.Montant_Total) || 0); }, 0);
+    var r = D.reglages, maintenant = Date.now();
+    var exposants = badges.filter(function (b) { return b.Profil === 'EXPOSANT'; });
+    var aFaire = [
+      { n: st.filter(function (l) { return prefixe(l) === '3'; }).length, t: 'Conventions à valider', s: 'Signées et déposées par le service formation', go: function () { filtresPages.stagiaires = 'valider'; aller('stagiaires'); } },
+      { n: st.filter(function (l) { return prefixe(l) === '4'; }).length, t: 'Paiements attendus', s: 'Dossiers validés, à encaisser', go: function () { filtresPages.stagiaires = 'encaisser'; aller('stagiaires'); } },
+      { n: st.filter(function (l) { return /[12]/.test(prefixe(l)) && l.Date_Inscription && maintenant - new Date(l.Date_Inscription) > 10 * 864e5; }).length, t: 'Dossiers à relancer', s: 'Sans document signé depuis plus de 10 jours', go: function () { filtresPages.stagiaires = 'relance'; aller('stagiaires'); } },
+      { n: actifs.filter(function (l) { return l.Adherent_Verifie === 'À vérifier'; }).length, t: 'Tarifs adhérent à vérifier', s: 'Email absent de la liste des adhérents', go: function () { filtresPages.stagiaires = 'adh'; aller('stagiaires'); } },
+      { n: st.filter(function (l) { return prefixe(l) === '8'; }).length, t: 'Personnes en liste d\'attente', s: 'À admettre si une place se libère', go: function () { filtresPages.stagiaires = 'attente'; aller('stagiaires'); } },
+      { n: D.entreprises.filter(function (e) { return entrepriseActive(e) && !e.Pass_Total; }).length, t: 'Entreprises sans représentant', s: 'Noms des exposants à demander', go: function () { filtresPages.entreprises = 'sans'; aller('entreprises'); } },
+      { n: exposants.filter(function (b) { return b.Email && !b.Badge_Envoye; }).length, t: 'Badges exposants à envoyer', s: 'Représentants ajoutés, badge pas encore parti', go: function () { filtresPages.entreprises = 'envoyer'; aller('entreprises'); } },
+      { n: exposants.filter(function (b) { return Number(b.Montant) > 0; }).length, t: 'Pass exposants supplémentaires', s: 'À facturer aux entreprises', go: function () { filtresPages.entreprises = 'supp'; aller('entreprises'); } },
+      { n: badges.filter(function (b) { return b.Profil !== 'EXPOSANT' && b.Email && !b.Badge_Envoye; }).length, t: 'Badges visiteurs ou invités à envoyer', s: 'Pas encore partis', go: function () { filtresPages.badges = 'envoyer'; aller('badges'); } },
+      { n: actifs.filter(function (l) { return Number(l.Heures) > 0 && !l.Attestation_Envoyee; }).length, t: 'Attestations à envoyer', s: 'Stagiaires présents sans attestation', go: function () { aller('qualiopi'); } }
+    ].filter(function (x) { return x.n > 0; });
+
+    var cap = r.capacite;
+    var ca = actifs.reduce(function (t, l) { return t + (Number(l.Montant_Total) || 0); }, 0)
+      + exposants.reduce(function (t, b) { return t + (Number(b.Montant) || 0); }, 0);
+    var facture = actifs.filter(function (l) { return l.Numero_Facture; }).reduce(function (t, l) { return t + (Number(l.Montant_Total) || 0); }, 0);
     var encaisse = actifs.filter(function (l) { return l.Date_Paiement; }).reduce(function (t, l) { return t + (Number(l.Montant_Total) || 0); }, 0);
-    var parProfil = {};
-    badges.forEach(function (b) { parProfil[b.Profil] = (parProfil[b.Profil] || 0) + 1; });
-    var repas = { JM: 0, GALA: 0, VM: 0 };
-    actifs.concat(badges).forEach(function (l) { Object.keys(repas).forEach(function (c) { if (JEF.oui(l['Repas_' + c])) repas[c]++; }); });
+    var visiteurs = badges.filter(function (b) { return b.Profil === 'VISITEUR'; }).length;
+    var invites = badges.filter(function (b) { return b.Profil === 'INVITE' || b.Profil === 'INTERVENANT'; }).length;
 
-    var etapes = [['1', 'Pré-inscrits', '#F59E0B'], ['2', 'Dossiers complétés', '#7C3AED'], ['3', 'Conventions à valider', '#EB7E0C'], ['4', 'Validés, badge envoyé', '#2575B3'], ['5', 'Payés', '#047857']];
-    var max = Math.max.apply(null, etapes.map(function (e) { return st.filter(function (l) { return prefixe(l) === e[0]; }).length; }).concat([1]));
+    // Repas par jour et par profil
+    var groupes = [['Stagiaires', actifs], ['Exposants', exposants], ['Invités et intervenants', badges.filter(function (b) { return b.Profil === 'INVITE' || b.Profil === 'INTERVENANT'; })]];
+    var codes = Object.keys(D.repas);
+    var lignesRepas = codes.map(function (c) {
+      var par = groupes.map(function (g) { return g[1].filter(function (l) { return JEF.oui(l['Repas_' + c]); }).length; });
+      var tous = actifs.concat(badges).filter(function (l) { return JEF.oui(l['Repas_' + c]); });
+      var regimes = tous.filter(function (l) { return l.Regime && !/^standard$/i.test(String(l.Regime).trim()); }).length;
+      return { lib: D.repas[c].libelle, par: par, total: tous.length, regimes: regimes };
+    });
 
-    var alertes = [];
-    var conv = st.filter(function (l) { return prefixe(l) === '3'; });
-    if (conv.length) alertes.push({ t: conv.length + ' convention(s) signée(s) à valider', f: function () { filtres.stag.statut = '3'; aller('stagiaires'); } });
-    var adh = actifs.filter(function (l) { return l.Adherent_Verifie === 'À vérifier'; });
-    if (adh.length) alertes.push({ t: adh.length + ' tarif(s) adhérent à vérifier (email absent de la liste des adhérents)', f: function () { filtres.stag.q = ''; filtres.stag.statut = 'adh'; aller('stagiaires'); } });
-    var anciens = st.filter(function (l) { return prefixe(l) === '1' && l.Date_Inscription && Date.now() - new Date(l.Date_Inscription) > 10 * 864e5; });
-    if (anciens.length) alertes.push({ t: anciens.length + ' dossier(s) sans réponse du service formation depuis plus de 10 jours', f: function () { filtres.stag.statut = '1'; aller('stagiaires'); } });
-    var supp = badges.filter(function (b) { return Number(b.Montant) > 0; });
-    if (supp.length) alertes.push({ t: supp.length + ' pass exposant supplémentaire(s) à facturer', f: function () { filtres.badges.profil = 'EXPOSANT'; aller('badges'); } });
-    var attente = st.filter(function (l) { return prefixe(l) === '8'; });
-    if (attente.length) alertes.push({ t: attente.length + ' personne(s) en liste d\'attente', f: function () { filtres.stag.statut = '8'; aller('stagiaires'); } });
-    var sansSoc = D.societes.filter(function (s) { return !s.Pass_Total; });
-    if (sansSoc.length) alertes.push({ t: sansSoc.length + ' société(s) exposante(s) sans aucun représentant inscrit', f: function () { aller('societes'); } });
-
-    // Rythme des inscriptions sur 10 semaines
-    var semaines = [], maintenant = Date.now();
+    // Avancement, financement, établissements, aménagements
+    var etapes = [['1', 'Pré-inscrits', '#6D28D9'], ['2', 'Dossiers complétés', '#8B5CF6'], ['3', 'Conventions à valider', '#EB7E0C'], ['4', 'Validés', '#2F6BFF'], ['5', 'Payés', '#1E7B45']];
+    var maxE = Math.max.apply(null, etapes.map(function (e) { return st.filter(function (l) { return prefixe(l) === e[0]; }).length; }).concat([1]));
+    var fin = {};
+    actifs.forEach(function (l) { var k = l.Mode_Financement || 'Pas encore indiqué'; fin[k] = (fin[k] || 0) + 1; });
+    var maxF = Math.max.apply(null, Object.keys(fin).map(function (k) { return fin[k]; }).concat([1]));
+    var etab = {};
+    actifs.forEach(function (l) { var k = l.Etablissement || '-'; etab[k] = (etab[k] || 0) + 1; });
+    var topEtab = Object.keys(etab).sort(function (a, b) { return etab[b] - etab[a]; }).slice(0, 6);
+    var amenagements = actifs.filter(function (l) { return l.Handicap && !/^aucun/i.test(String(l.Handicap).trim()); });
+    var adh = actifs.filter(function (l) { return l.Typologie === 'Adhérent'; }).length;
+    var semaines = [];
     for (var i = 9; i >= 0; i--) {
-      var fin = maintenant - i * 7 * 864e5, deb = fin - 7 * 864e5;
-      semaines.push(st.filter(function (l) { var t = new Date(l.Date_Inscription).getTime(); return t > deb && t <= fin; }).length);
+      var finS = maintenant - i * 7 * 864e5, debS = finS - 7 * 864e5;
+      semaines.push(st.filter(function (l) { var t = new Date(l.Date_Inscription).getTime(); return t > debS && t <= finS; }).length);
     }
     var maxS = Math.max.apply(null, semaines.concat([1]));
+    var presentsJ = D.creneaux.map(function (c) { return { lib: c.libelle, n: actifs.concat(badges).filter(function (l) { return l['Presence_' + c.n]; }).length }; });
 
-    JEF.rendre('#vue', h`
-      ${D.reglages.modeTest ? h`<div class="alerte a-attention" style="margin-bottom:16px;"><div><b>Mode test actif</b>Les formulaires sont ouverts et tous les emails partent vers l'adresse de test. Passez Mode_Test à NON dans PARAMETRES à l'ouverture.</div></div>` : ''}
-      <div class="kpis">
-        <div class="kpi"><div class="libelle">Stagiaires inscrits</div><div class="valeur">${actifs.length}${cap ? brut(' <small style="font-size:1rem;color:var(--texte-3)">/ ' + cap + '</small>') : ''}</div>
-          ${cap ? h`<div class="jauge"><i style="width:${Math.min(100, Math.round(actifs.length / cap * 100))}%"></i></div>` : h`<div class="detail">Capacité non limitée</div>`}</div>
-        <div class="kpi"><div class="libelle">Chiffre d'affaires prévu</div><div class="valeur">${JEF.euros(ca)}</div><div class="detail">dont ${JEF.euros(encaisse)} encaissés</div></div>
-        <div class="kpi"><div class="libelle">Badges hors stagiaires</div><div class="valeur">${badges.length}</div>
-          <div class="detail">${Object.keys(parProfil).map(function (k) { return (PROFILS[k] || {}).libelle + ' ' + parProfil[k]; }).join(' - ') || 'Aucun'}</div></div>
-        <div class="kpi"><div class="libelle">Repas commandés</div><div class="valeur">${repas.GALA}</div>
-          <div class="detail">au gala - jeudi midi ${repas.JM} - vendredi midi ${repas.VM}</div></div>
+    JEF.rendre('#vue', h`${aidePage('tableau')}
+      ${panneau('Actions à faire', 'Un clic ouvre la liste concernée.', aFaire.length
+        ? h`<div class="a-faire">${aFaire.map(function (x, i) { return h`<button class="carte-faire" data-faire="${i}"><b>${x.n}</b><span>${x.t}<small>${x.s}</small></span></button>`; })}</div>`
+        : h`<div class="a-faire"><div class="carte-faire ok"><b>✓</b><span>Rien à faire pour le moment<small>Tous les dossiers sont à jour</small></span></div></div>`)}
+      <div class="chiffres">
+        <div class="chiffre"><div class="lib">Stagiaires inscrits</div><div class="val">${actifs.length}${cap ? brut('<small style="font-size:14px;color:var(--texte-2)"> / ' + cap + '</small>') : ''}</div>
+          ${cap ? h`<div class="jauge2"><i style="width:${Math.min(100, Math.round(actifs.length / cap * 100))}%"></i></div><div class="det">${Math.max(0, cap - actifs.length)} places restantes</div>` : h`<div class="det">Places non limitées</div>`}</div>
+        <div class="chiffre"><div class="lib">Chiffre d'affaires prévu</div><div class="val">${JEF.euros(ca)}</div><div class="det">${JEF.euros(facture)} facturés, ${JEF.euros(encaisse)} encaissés</div></div>
+        <div class="chiffre"><div class="lib">Entreprises partenaires</div><div class="val">${D.entreprises.filter(entrepriseActive).length}</div><div class="det">${exposants.length} badges exposants</div></div>
+        <div class="chiffre"><div class="lib">Visiteurs de l'espace exposants</div><div class="val">${visiteurs}</div><div class="det">Invitations gratuites</div></div>
+        <div class="chiffre"><div class="lib">Invités et intervenants</div><div class="val">${invites}</div><div class="det">Créés par le bureau</div></div>
+        <div class="chiffre"><div class="lib">Participants attendus</div><div class="val">${actifs.length + badges.length}</div><div class="det">Tous badges confondus</div></div>
       </div>
-      <div class="grille g2">
-        <section class="carte"><h3>Avancement des dossiers stagiaires</h3>
-          <div class="entonnoir">${etapes.map(function (e) {
-            var n = st.filter(function (l) { return prefixe(l) === e[0]; }).length;
-            return h`<div class="ligne"><span>${e[1]}</span><div class="barre"><i style="width:${Math.round(n / max * 100)}%;background:${e[2]};"></i></div><b>${n}</b></div>`;
-          })}</div></section>
-        <section class="carte"><h3>À traiter</h3>
-          <ul class="liste-alertes" id="alertes">${alertes.length ? alertes.map(function (a, i) { return h`<li data-i="${i}">⚠️ ${a.t}</li>`; }) : h`<li class="ok">✅ Tout est à jour</li>`}</ul></section>
+      ${panneau('Repas par jour', 'Couverts à commander, par profil. Les régimes particuliers sont détaillés dans Restauration.', h`<div class="table-defile" style="max-height:none;"><table class="tab">
+        <thead><tr><th>Repas</th>${groupes.map(function (g) { return h`<th>${g[0]}</th>`; })}<th>Total</th><th>Dont régimes particuliers</th></tr></thead>
+        <tbody>${lignesRepas.map(function (x) { return h`<tr style="cursor:default;"><td><b>${x.lib}</b></td>${x.par.map(function (n) { return h`<td>${n}</td>`; })}<td><b>${x.total}</b></td><td>${x.regimes}</td></tr>`; })}</tbody></table></div>`,
+        h`<button class="btn btn-s" data-aller="restauration">Détail des régimes</button>`)}
+      <div class="grille3">
+        ${panneau('Avancement des dossiers', 'Nombre de dossiers à chaque étape.', h`<div class="barres">${etapes.map(function (e) {
+          var n = st.filter(function (l) { return prefixe(l) === e[0]; }).length;
+          return h`<div class="l"><span>${e[1]}</span><div class="b"><i style="width:${Math.round(n / maxE * 100)}%;background:${e[2]};"></i></div><b>${n}</b></div>`;
+        })}</div>`)}
+        ${panneau('Financement', 'Mode de prise en charge indiqué par le service formation.', h`<div class="barres">${Object.keys(fin).sort().map(function (k) {
+          return h`<div class="l"><span>${k}</span><div class="b"><i style="width:${Math.round(fin[k] / maxF * 100)}%;background:var(--bleu-2);"></i></div><b>${fin[k]}</b></div>`;
+        })}${Object.keys(fin).length ? '' : h`<p class="indice">Aucun stagiaire pour le moment.</p>`}</div>`)}
+        ${panneau('Adhésion', 'Répartition des stagiaires inscrits.', h`<div class="barres">
+          <div class="l"><span>Adhérents</span><div class="b"><i style="width:${actifs.length ? Math.round(adh / actifs.length * 100) : 0}%;background:var(--vert);"></i></div><b>${adh}</b></div>
+          <div class="l"><span>Non-adhérents</span><div class="b"><i style="width:${actifs.length ? Math.round((actifs.length - adh) / actifs.length * 100) : 0}%;background:var(--orange-acses);"></i></div><b>${actifs.length - adh}</b></div></div>`)}
+        ${panneau('Établissements représentés', Object.keys(etab).length + ' établissements différents.', h`<div class="barres">${topEtab.map(function (k) {
+          return h`<div class="l"><span title="${k}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${k}</span><div class="b"><i style="width:${Math.round(etab[k] / (etab[topEtab[0]] || 1) * 100)}%;background:var(--bleu);"></i></div><b>${etab[k]}</b></div>`;
+        })}</div>`)}
+        ${panneau('Besoins d\'aménagement', 'Données de santé, à ne pas diffuser. Cliquez sur un nom pour ouvrir la fiche.', amenagements.length
+          ? h`<ul style="margin:0;padding-left:18px;display:grid;gap:4px;">${amenagements.map(function (l) { return h`<li><button class="lien-nom" data-fiche="${l.ID}">${nomComplet(l)}</button> - ${l.Handicap}</li>`; })}</ul>`
+          : h`<p class="indice" style="margin:0;">Aucun besoin signalé.</p>`)}
+        ${panneau('Présences jour J', 'Personnes enregistrées par demi-journée, tous profils.', h`<div class="barres">${presentsJ.map(function (p) {
+          return h`<div class="l"><span>${courtCreneau(p.lib)}</span><div class="b"><i style="width:${Math.round(p.n / Math.max(1, actifs.length + badges.length) * 100)}%;background:var(--vert);"></i></div><b>${p.n}</b></div>`;
+        })}</div>`)}
       </div>
-      <section class="carte" style="margin-top:18px;"><h3>Rythme des inscriptions (10 dernières semaines)</h3>
-        <div style="display:flex;align-items:flex-end;gap:8px;height:110px;">${semaines.map(function (n, i) {
-          return h`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;"><small>${n || ''}</small><div style="width:100%;background:${i === 9 ? 'var(--orange)' : 'var(--bleu-2)'};border-radius:6px 6px 0 0;height:${Math.max(4, Math.round(n / maxS * 80))}px;"></div></div>`;
-        })}</div><div class="petit" style="display:flex;justify-content:space-between;margin-top:4px;"><span>il y a 10 semaines</span><span>cette semaine</span></div></section>`);
-    $$('#alertes li[data-i]').forEach(function (li) { li.addEventListener('click', function () { alertes[Number(li.getAttribute('data-i'))].f(); }); });
+      ${panneau('Rythme des inscriptions', 'Nouvelles pré-inscriptions par semaine, sur les 10 dernières semaines.', h`<div style="display:flex;align-items:flex-end;gap:8px;height:110px;">${semaines.map(function (n, i) {
+        return h`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;"><small>${n || ''}</small><div style="width:100%;background:${i === 9 ? 'var(--orange-acses)' : 'var(--bleu-2)'};border-radius:6px 6px 0 0;height:${Math.max(3, Math.round(n / maxS * 80))}px;"></div></div>`;
+      })}</div><div class="indice" style="display:flex;justify-content:space-between;"><span>Il y a 10 semaines</span><span>Cette semaine</span></div>`)}`);
+    $$('[data-faire]').forEach(function (b) { b.addEventListener('click', function () { aFaire[Number(b.getAttribute('data-faire'))].go(); }); });
+    $$('[data-fiche]').forEach(function (b) { b.addEventListener('click', function () { ouvrirFiche('STAG', b.getAttribute('data-fiche')); }); });
+    $$('[data-aller]').forEach(function (b) { b.addEventListener('click', function () { aller(b.getAttribute('data-aller')); }); });
   }
 
-  // ----- Stagiaires ------------------------------------------------------------
-  function actionPrincipale(l) {
+  // ======================================================================
+  // Stagiaires
+  // ======================================================================
+  function puces(page, options, defaut) {
+    var courant = filtresPages[page] || defaut;
+    return h`<div class="barre-filtres" role="group" aria-label="Filtres rapides">${options.map(function (o) {
+      return h`<button class="puce-filtre" data-puce="${o[0]}" aria-pressed="${courant === o[0] ? 'true' : 'false'}">${o[1]}<span class="n">${o[2]}</span></button>`;
+    })}</div>`;
+  }
+  function brancherPuces(page, rendre) {
+    $$('[data-puce]').forEach(function (b) { b.addEventListener('click', function () { filtresPages[page] = b.getAttribute('data-puce'); rendre(); }); });
+  }
+
+  function actionPrincipaleStagiaire(l) {
     var p = prefixe(l);
-    if (p === '3') return h`<button class="btn btn-s btn-vert" data-op="valider">Valider</button>`;
-    if (p === '4') return h`<button class="btn btn-s" data-op="payer">Encaisser</button>`;
-    if (p === '1' || p === '2') return h`<button class="btn btn-s btn-fantome" data-op="lien" title="Renvoyer le lien au service formation">Relancer</button>`;
+    if (p === '3') return h`<button class="btn btn-s btn-action" data-op="verifier">Vérifier et valider</button>`;
+    if (p === '4') return h`<button class="btn btn-s btn-primaire" data-op="payer">Encaisser</button>`;
+    if (p === '1' || p === '2') return h`<button class="btn btn-s" data-op="lien">Relancer</button>`;
     if (p === '8') return h`<button class="btn btn-s" data-op="sortir_attente">Admettre</button>`;
-    if (p === '5') return h`<button class="btn btn-s btn-fantome" data-op="badge_pdf">Badge</button>`;
-    return '';
+    if (p === '5') return h`<button class="btn btn-s" data-op="badge_pdf">Badge</button>`;
+    return h`<button class="btn btn-s" data-op="reactiver">Réactiver</button>`;
   }
 
   function vueStagiaires() {
-    var f = filtres.stag;
-    var q = normal(f.q);
-    var liste = D.stagiaires.filter(function (l) {
-      if (q && normal([l.ID, l.Nom, l.Prenom, l.Email, l.Etablissement, l.Raison_Sociale].join(' ')).indexOf(q) === -1) return false;
-      if (f.statut === 'adh') return l.Adherent_Verifie === 'À vérifier' && actif(l);
-      if (f.statut === 'bureau') return JEF.oui(l.Membre_Bureau);
-      if (f.statut === 'actifs') return actif(l);
-      if (f.statut) return prefixe(l) === f.statut;
-      return true;
-    }).sort(function (a, b) {
-      if (f.tri === 'nom') return normal(a.Nom).localeCompare(normal(b.Nom));
-      if (f.tri === 'etab') return normal(a.Etablissement).localeCompare(normal(b.Etablissement));
-      if (f.tri === 'statut') return String(a.Statut).localeCompare(String(b.Statut));
-      return String(b.ID).localeCompare(String(a.ID));
+    var st = D.stagiaires, maintenant = Date.now();
+    var filtres = {
+      tous: ['Tous', function () { return true; }],
+      actifs: ['Inscrits', actif],
+      valider: ['À valider', function (l) { return prefixe(l) === '3'; }],
+      attente_sf: ['Document signé attendu', function (l) { return /[12]/.test(prefixe(l)); }],
+      relance: ['À relancer', function (l) { return /[12]/.test(prefixe(l)) && maintenant - new Date(l.Date_Inscription) > 10 * 864e5; }],
+      encaisser: ['À encaisser', function (l) { return prefixe(l) === '4'; }],
+      payes: ['Payés', function (l) { return prefixe(l) === '5'; }],
+      attente: ['Liste d\'attente', function (l) { return prefixe(l) === '8'; }],
+      annules: ['Annulés', function (l) { return prefixe(l) === '9'; }],
+      adh: ['Adhésion à vérifier', function (l) { return actif(l) && l.Adherent_Verifie === 'À vérifier'; }],
+      bureau: ['Membres du bureau', function (l) { return JEF.oui(l.Membre_Bureau); }]
+    };
+    var courant = filtresPages.stagiaires && filtres[filtresPages.stagiaires] ? filtresPages.stagiaires : 'actifs';
+    var t = tableau('stag', {
+      lignes: st.filter(filtres[courant][1]), triDefaut: 'id', sensDefaut: -1,
+      colonnes: [
+        { cle: 'nom', titre: 'Stagiaire', val: function (l) { return nomComplet(l); }, tri: function (l) { return normal(l.Nom); },
+          rendu: function (l) { return h`<button class="lien-nom" data-op="fiche">${nomComplet(l)}</button> ${JEF.oui(l.Membre_Bureau) ? tag('t-encre nu', 'Bureau') : ''}<div class="sous">${l.Email}</div>`; } },
+        { cle: 'id', titre: 'Dossier', val: function (l) { return l.ID; }, rendu: function (l) { return h`<span class="mono">${l.ID}</span><div class="sous">${JEF.date(l.Date_Inscription)}</div>`; } },
+        { cle: 'etab', titre: 'Établissement', val: function (l) { return l.Etablissement; }, rendu: function (l) { return h`${l.Etablissement}${l.Adherent_Verifie === 'À vérifier' ? h` ${tag('t-orange nu', 'Adhésion ?')}` : ''}`; } },
+        { cle: 'formule', titre: 'Formule', val: function (l) { return l.Typologie + ' ' + l.Montant_Total; }, tri: function (l) { return Number(l.Montant_Total) || 0; },
+          rendu: function (l) { return h`${l.Typologie}<div class="sous">${JEF.euros(l.Montant_Total)}${l.Parcours === 'PERSONNEL' ? ' - paie lui-même' : (l.Parcours === 'SERVICE' ? ' - inscrit par le SF' : '')}</div>`; } },
+        { cle: 'repas', titre: 'Repas', val: function (l) { return ['JM', 'GALA', 'VM'].filter(function (c) { return JEF.oui(l['Repas_' + c]); }).join(' '); }, rendu: repas3, filtre: false },
+        { cle: 'statut', titre: 'Avancement', val: function (l) { return String(l.Statut).slice(3); }, tri: function (l) { return String(l.Statut); }, rendu: tagStatutStagiaire },
+        { cle: 'presence', titre: 'Présence', val: function (l) { return String(l.Heures || 0) + ' h'; }, tri: function (l) { return Number(l.Heures) || 0; }, rendu: function (l) { return boutonsPresence(l); }, filtre: false },
+        { cle: 'action', titre: 'Action', val: function () { return ''; }, rendu: actionPrincipaleStagiaire, trier: false, filtre: false }
+      ],
+      clic: function (l) { ouvrirFiche('STAG', l.ID); },
+      action: function (op, l, b) { if (op === 'fiche') ouvrirFiche('STAG', l.ID); else if (op === 'verifier') { ouvrirFiche('STAG', l.ID); apercuConvention(l); } else if (op === 'presence') basculerPresence('STAG', l, b); else executer('STAG', l.ID, op, {}, b); },
+      vide: 'Aucun dossier dans cette catégorie.'
     });
-    JEF.rendre('#vue', h`
-      <div class="outils">
-        <input type="search" id="q" placeholder="Rechercher un nom, un établissement, un ID..." value="${f.q}" aria-label="Rechercher">
-        <select id="f-statut" aria-label="Filtrer par statut">
-          ${[['', 'Tous les statuts'], ['actifs', 'Inscrits actifs'], ['1', 'Pré-inscrits'], ['2', 'Dossiers complétés'], ['3', 'Conventions à valider'], ['4', 'Validés'], ['5', 'Payés'], ['8', 'Liste d\'attente'], ['9', 'Annulés'], ['adh', 'Adhésion à vérifier'], ['bureau', 'Membres du Bureau']]
-            .map(function (o) { return h`<option value="${o[0]}" ${brut(f.statut === o[0] ? 'selected' : '')}>${o[1]}</option>`; })}
-        </select>
-        <select id="f-tri" aria-label="Trier">
-          ${[['recent', 'Plus récents'], ['nom', 'Nom'], ['etab', 'Établissement'], ['statut', 'Avancement']].map(function (o) { return h`<option value="${o[0]}" ${brut(f.tri === o[0] ? 'selected' : '')}>Tri : ${o[1]}</option>`; })}
-        </select>
-        <span class="petit">${liste.length} dossier(s)</span>
-      </div>
-      <div class="tableau-conteneur"><table class="tableau"><thead><tr>
-        <th>Dossier</th><th>Stagiaire</th><th>Établissement</th><th>Formule</th><th>Avancement</th><th>Présence</th><th></th></tr></thead>
-        <tbody>${liste.length ? liste.map(function (l) {
-          return h`<tr data-id="${l.ID}" data-type="STAG">
-            <td><div class="mono nom">${l.ID}</div><div class="sous">${JEF.date(l.Date_Inscription)}</div></td>
-            <td><div class="nom">${nomComplet(l)} ${JEF.oui(l.Membre_Bureau) ? h`<span class="pastille nue p-nuit">Bureau</span>` : ''}</div><div class="sous">${l.Email}</div></td>
-            <td>${l.Etablissement}${l.Adherent_Verifie === 'À vérifier' ? h` <span title="Email absent de la liste des adhérents">⚠️</span>` : ''}</td>
-            <td><div>${l.Typologie} - ${JEF.euros(l.Montant_Total)}</div>${repasMini(l)}</td>
-            <td>${pastilleStatut(l)}</td><td>${points(l)}</td>
-            <td style="text-align:right;">${actionPrincipale(l)}</td></tr>`;
-        }) : h`<tr><td colspan="7" class="vide">Aucun dossier ne correspond.</td></tr>`}</tbody></table></div>`);
-    $('#q').addEventListener('input', function () { f.q = this.value; var pos = this.selectionStart; vueStagiaires(); var c = $('#q'); c.focus(); c.setSelectionRange(pos, pos); });
-    $('#f-statut').addEventListener('change', function () { f.statut = this.value; vueStagiaires(); });
-    $('#f-tri').addEventListener('change', function () { f.tri = this.value; vueStagiaires(); });
-    brancherLignes();
+    JEF.rendre('#vue', h`${aidePage('stagiaires')}
+      ${puces('stagiaires', Object.keys(filtres).map(function (k) { return [k, filtres[k][0], st.filter(filtres[k][1]).length]; }), 'actifs')}
+      ${t.html}`);
+    t.monter();
+    brancherPuces('stagiaires', vueStagiaires);
   }
 
-  function brancherLignes() {
-    $$('#vue tbody tr[data-id]').forEach(function (tr) {
-      tr.addEventListener('click', function (e) {
-        var type = tr.getAttribute('data-type'), id = tr.getAttribute('data-id');
-        var b = e.target.closest('[data-op]');
-        if (b) { e.stopPropagation(); executer(type, id, b.getAttribute('data-op'), {}, b); return; }
-        ouvrirFiche(type, id);
+  // ======================================================================
+  // Présences et Qualiopi
+  // ======================================================================
+  function vueQualiopi() {
+    var st = D.stagiaires.filter(function (l) { return /[3458]/.test(prefixe(l)) || Number(l.Heures) > 0; });
+    var valides = D.stagiaires.filter(function (l) { return /[45]/.test(prefixe(l)); });
+    var t = tableau('qualiopi', {
+      lignes: st, triDefaut: 'nom',
+      colonnes: [
+        { cle: 'nom', titre: 'Stagiaire', val: nomComplet, tri: function (l) { return normal(l.Nom); }, rendu: function (l) { return h`<button class="lien-nom" data-op="fiche">${nomComplet(l)}</button><div class="sous">${l.Etablissement}</div>`; } },
+        { cle: 'statut', titre: 'Dossier', val: function (l) { return String(l.Statut).slice(3); }, rendu: tagStatutStagiaire },
+        { cle: 'presence', titre: 'Présences (cliquer pour valider)', val: function (l) { return String(l.Heures || 0); }, rendu: boutonsPresence, filtre: false, trier: false },
+        { cle: 'heures', titre: 'Heures', val: function (l) { return Number(l.Heures) || 0; }, rendu: function (l) { return h`<b>${l.Heures || 0} h</b>`; }, filtre: false },
+        { cle: 'attestation', titre: 'Attestation', val: function (l) { return l.Attestation_Envoyee ? 'envoyée' : 'non'; },
+          rendu: function (l) { return l.Attestation_Envoyee ? tag('t-vert', 'Envoyée le ' + JEF.date(l.Attestation_Envoyee)) : (Number(l.Heures) > 0 ? h`<button class="btn btn-s" data-op="attestation">Envoyer</button>` : tag('t-gris', 'Pas de présence')); } }
+      ],
+      clic: function (l) { ouvrirFiche('STAG', l.ID); },
+      action: function (op, l, b) { if (op === 'fiche') ouvrirFiche('STAG', l.ID); else if (op === 'presence') basculerPresence('STAG', l, b); else executer('STAG', l.ID, op, {}, b); },
+      vide: 'Aucun stagiaire validé pour le moment.'
+    });
+    var r = D.reglages;
+    JEF.rendre('#vue', h`${aidePage('qualiopi')}
+      <div class="chiffres">${D.creneaux.map(function (c) {
+        var n = valides.filter(function (l) { return l['Presence_' + c.n]; }).length;
+        return h`<div class="chiffre"><div class="lib">${c.libelle} (${c.heures} h)</div><div class="val">${n}<small style="font-size:14px;color:var(--texte-2)"> / ${valides.length}</small></div>
+          <div class="jauge2"><i style="width:${valides.length ? Math.round(n / valides.length * 100) : 0}%"></i></div><div class="det">stagiaires validés présents</div></div>`;
+      })}
+        <div class="chiffre"><div class="lib">Attestations envoyées</div><div class="val">${D.stagiaires.filter(function (l) { return l.Attestation_Envoyee; }).length}</div><div class="det">Envoi automatique le ${JEF.date(String(r.dateAttestations).replace(' ', 'T'), true) || '-'}</div></div></div>
+      ${panneau('Émargement', 'Corrigez ici une présence oubliée par le scanner. Chaque modification est inscrite au journal.', t.html,
+        h`<button class="btn btn-s" data-lancer="feuille">Générer la feuille de présence</button><button class="btn btn-s btn-action" data-lancer="attestations">Envoyer les attestations maintenant</button>`)}`);
+    t.monter();
+    brancherLancer();
+  }
+
+  function brancherLancer() {
+    $$('[data-lancer]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var op = b.getAttribute('data-lancer');
+        var go = function () {
+          var fenetre = op === 'feuille' ? preparerFenetre('Préparation de la feuille de présence') : null;
+          var retablir = JEF.attente(b, 'En cours');
+          JEF.post('admin_lancer', { data: { op: op } }, { delai: 360000 }).then(function (rep) {
+            retablir();
+            if (rep.pdfUrl && fenetre) fenetre.location.href = rep.pdfUrl;
+            var msg = op === 'attestations' ? rep.envoyees + ' attestation(s) envoyée(s), ' + rep.restantes + ' restante(s) (la suite part seule)'
+              : op === 'rappels' ? rep.envoyes + ' rappel(s) envoyé(s), ' + rep.restants + ' restant(s)'
+              : op === 'feuille' ? 'Feuille de présence créée dans Drive' : [].concat(rep.resultat || 'Terminé').join(' - ');
+            JEF.toast(msg, 'ok'); charger(true);
+          }).catch(function (e) { retablir(); if (fenetre) fenetre.close(); JEF.toast(e.message, 'erreur'); });
+        };
+        var textes = {
+          attestations: ['Envoyer les attestations', 'Chaque stagiaire présent qui n\'a pas encore son attestation la reçoit maintenant, avec les heures suivies. La feuille de présence est générée en même temps.'],
+          rappels: ['Envoyer les rappels', 'Chaque participant validé qui n\'a pas encore reçu le rappel le reçoit maintenant, avec son badge.'],
+          planifier: ['Programmer les envois', 'Le rappel et les attestations seront envoyés seuls aux dates des réglages.']
+        };
+        if (textes[op]) confirmer(textes[op][0], textes[op][1], 'Confirmer', false).then(function (ok) { if (ok) go(); });
+        else go();
       });
     });
   }
 
-  // ----- Badges ----------------------------------------------------------------
-  function vueBadges() {
-    var f = filtres.badges, q = normal(f.q);
-    var liste = D.badges.filter(function (b) {
-      if (q && normal([b.ID, b.Nom, b.Prenom, b.Email, b.Organisme].join(' ')).indexOf(q) === -1) return false;
-      return !f.profil || b.Profil === f.profil;
-    }).sort(function (a, b) { return String(b.ID).localeCompare(String(a.ID)); });
-    JEF.rendre('#vue', h`
-      <div class="outils">
-        <input type="search" id="q" placeholder="Rechercher..." value="${f.q}" aria-label="Rechercher">
-        <select id="f-profil" aria-label="Profil"><option value="">Tous les profils</option>
-          ${Object.keys(PROFILS).map(function (k) { return h`<option value="${k}" ${brut(f.profil === k ? 'selected' : '')}>${PROFILS[k].libelle}</option>`; })}</select>
-        <span class="petit">${liste.length} badge(s)</span>
-        <button class="btn btn-primaire btn-s" id="nouveau-badge" style="margin-left:auto;">+ Nouveau badge</button>
-      </div>
-      <div class="tableau-conteneur"><table class="tableau"><thead><tr><th>Réf.</th><th>Profil</th><th>Personne</th><th>Organisme</th><th>Repas / visite</th><th>État</th><th>Présence</th><th></th></tr></thead>
-        <tbody>${liste.length ? liste.map(function (b) {
-          return h`<tr data-id="${b.ID}" data-type="PRO">
-            <td class="mono nom">${b.ID}</td><td>${pastilleProfil(b)}${Number(b.Montant) > 0 ? h`<div class="sous">${b.Type_Pass} ${JEF.euros(b.Montant)}</div>` : ''}</td>
-            <td><div class="nom">${nomComplet(b)}</div><div class="sous">${b.Fonction}</div></td><td>${b.Organisme}</td>
-            <td>${b.Profil === 'VISITEUR' ? h`<span class="sous">${b.Creneau_Visite}</span>` : repasMini(b)}</td>
-            <td>${pastilleStatut(b, true)}</td><td>${points(b)}</td>
-            <td style="text-align:right;"><button class="btn btn-s" data-op="${b.Email ? 'badge_envoyer' : 'badge_pdf'}">${b.Email ? 'Envoyer' : 'PDF'}</button></td></tr>`;
-        }) : h`<tr><td colspan="8" class="vide">Aucun badge.</td></tr>`}</tbody></table></div>`);
-    $('#q').addEventListener('input', function () { f.q = this.value; var pos = this.selectionStart; vueBadges(); var c = $('#q'); c.focus(); c.setSelectionRange(pos, pos); });
-    $('#f-profil').addEventListener('change', function () { f.profil = this.value; vueBadges(); });
-    $('#nouveau-badge').addEventListener('click', modaleBadge);
-    brancherLignes();
+  // ======================================================================
+  // Entreprises partenaires
+  // ======================================================================
+  function vueEntreprises() {
+    var ents = D.entreprises;
+    var exposants = D.badges.filter(function (b) { return b.Profil === 'EXPOSANT' && actifBadge(b); });
+    var filtres = {
+      toutes: ['Toutes', function (e) { return entrepriseActive(e); }],
+      sans: ['Sans représentant', function (e) { return entrepriseActive(e) && !e.Pass_Total; }],
+      envoyer: ['Badges à envoyer', function (e) { return exposants.some(function (b) { return b.Entreprise_ID === e.ID && b.Email && !b.Badge_Envoye; }); }],
+      supp: ['Pass supplémentaires', function (e) { return exposants.some(function (b) { return b.Entreprise_ID === e.ID && Number(b.Montant) > 0; }); }],
+      annulees: ['Annulées', function (e) { return !entrepriseActive(e); }]
+    };
+    var courant = filtresPages.entreprises && filtres[filtresPages.entreprises] ? filtresPages.entreprises : 'toutes';
+    var t = tableau('ent', {
+      lignes: ents.filter(filtres[courant][1]), triDefaut: 'nom',
+      colonnes: [
+        { cle: 'nom', titre: 'Entreprise partenaire', val: function (e) { return e.Nom; }, rendu: function (e) { return h`<button class="lien-nom" data-op="fiche">${e.Nom}</button><div class="sous">${e.ID}</div>`; } },
+        { cle: 'emplacement', titre: 'Emplacement exposant', val: function (e) { return e.Emplacement || ''; } },
+        { cle: 'contact', titre: 'Contact', val: function (e) { return (e.Contact || '') + ' ' + (e.Email_Contact || ''); }, rendu: function (e) { return h`${e.Contact || '-'}<div class="sous">${e.Email_Contact || ''}</div>`; } },
+        { cle: 'pass', titre: 'Pass inclus', val: function (e) { return e.Pass_Inclus + '/' + e.Quota; }, tri: function (e) { return e.Pass_Inclus; },
+          rendu: function (e) { return tag(e.Pass_Inclus >= e.Quota ? 't-vert' : 't-gris', e.Pass_Inclus + ' sur ' + e.Quota); }, filtre: false },
+        { cle: 'badges', titre: 'Représentants', val: function (e) { return e.Pass_Total; }, rendu: function (e) {
+          var supp = e.Pass_Total - e.Pass_Inclus;
+          return h`<b>${e.Pass_Total}</b>${supp > 0 ? h` ${tag('t-orange nu', supp + ' supp.')}` : ''}<div class="sous">${e.Badges_Envoyes} badge(s) envoyé(s)</div>`;
+        }, filtre: false },
+        { cle: 'actions', titre: 'Actions', val: function () { return ''; }, trier: false, filtre: false,
+          rendu: function (e) { return entrepriseActive(e) ? h`<button class="btn btn-s btn-primaire" data-op="ajouter">Ajouter un représentant</button>` : tag('t-rouge', 'Annulée'); } }
+      ],
+      clic: function (e) { ouvrirFiche('ENT', e.ID); },
+      action: function (op, e) { if (op === 'ajouter') modaleRepresentant(e); else ouvrirFiche('ENT', e.ID); },
+      vide: ents.length ? 'Aucune entreprise dans cette catégorie.' : 'Aucune entreprise partenaire. Créez-en une ou importez votre liste.'
+    });
+    JEF.rendre('#vue', h`${aidePage('entreprises')}
+      ${panneau('Entreprises partenaires exposantes', D.entreprises.filter(entrepriseActive).length + ' entreprises, ' + exposants.length + ' badges exposants. Pass inclus par défaut ' + D.reglages.quota + ', pass supplémentaire ' + JEF.euros(D.reglages.tarifPassSupp) + '.',
+        h`${puces('entreprises', Object.keys(filtres).map(function (k) { return [k, filtres[k][0], ents.filter(filtres[k][1]).length]; }), 'toutes')}${t.html}`,
+        h`<button class="btn btn-s btn-primaire" id="b-nouvelle-ent">Nouvelle entreprise</button><button class="btn btn-s" id="b-import">Importer en masse</button>`)}`);
+    t.monter();
+    brancherPuces('entreprises', vueEntreprises);
+    $('#b-nouvelle-ent').addEventListener('click', function () { modaleEntreprise(null); });
+    $('#b-import').addEventListener('click', function () { modaleImport('entreprises'); });
   }
 
-  function casesRepas(prefixeNom, valeurs) {
+  function modaleEntreprise(e) {
+    ouvrirModale(e ? 'Modifier ' + e.Nom : 'Nouvelle entreprise partenaire', h`
+      <p class="indice" style="margin:0;">Seul le nom est obligatoire. Les représentants s'ajoutent ensuite dans la fiche de l'entreprise.</p>
+      <div class="champ"><label class="obligatoire" for="e-nom">Entreprise</label><input id="e-nom" name="nom" type="text" required value="${e ? e.Nom : ''}"></div>
+      <div class="grille g2">
+        <div class="champ"><label for="e-contact">Contact</label><input id="e-contact" name="contact" type="text" value="${e ? e.Contact || '' : ''}"></div>
+        <div class="champ"><label for="e-email">Email du contact</label><input id="e-email" name="email" type="email" value="${e ? e.Email_Contact || '' : ''}"></div>
+        <div class="champ"><label for="e-tel">Téléphone du contact</label><input id="e-tel" name="telephone" type="tel" value="${e ? e.Telephone_Contact || '' : ''}"></div>
+        <div class="champ"><label for="e-empl">Emplacement exposant</label><input id="e-empl" name="emplacement" type="text" placeholder="Ex. Exposant 12" value="${e ? e.Emplacement || '' : ''}"></div>
+        <div class="champ"><label for="e-quota">Pass inclus</label><input id="e-quota" name="quota" type="number" min="0" max="20" placeholder="${D.reglages.quota} par défaut" value="${e && e.Quota_Gratuit !== '' && e.Quota_Gratuit !== undefined ? e.Quota_Gratuit : ''}"></div>
+      </div>
+      <div class="champ"><label for="e-notes">Notes internes</label><input id="e-notes" name="notes" type="text" value="${e ? e.Notes || '' : ''}"></div>`,
+    [{ texte: 'Annuler' }, { texte: e ? 'Enregistrer' : 'Créer l\'entreprise', classe: 'btn-primaire', action: function (zone, btn) {
+      if (!JEF.valider(zone)) return;
+      var d = JEF.lireFormulaire(zone);
+      d.op = e ? 'modifier' : 'creer'; if (e) d.id = e.ID;
+      var retablir = JEF.attente(btn, 'Enregistrement');
+      JEF.post('admin_entreprise', { data: d }).then(function (r) {
+        fermerModale(); JEF.toast(e ? 'Entreprise modifiée' : 'Entreprise créée', 'ok');
+        charger(true).then(function () { if (!e && r.id) ouvrirFiche('ENT', r.id); });
+      }).catch(function (err) { retablir(); JEF.toast(err.message, 'erreur'); });
+    } }]);
+  }
+
+  function champsRepresentant(prefixeNom) {
+    return h`<div class="grille g2">
+      <div class="champ"><label class="obligatoire" for="${prefixeNom}prenom">Prénom</label><input id="${prefixeNom}prenom" name="prenom" type="text" required></div>
+      <div class="champ"><label class="obligatoire" for="${prefixeNom}nom">Nom</label><input id="${prefixeNom}nom" name="nom" type="text" required></div>
+      <div class="champ"><label for="${prefixeNom}fonction">Fonction</label><input id="${prefixeNom}fonction" name="fonction" type="text"></div>
+      <div class="champ"><label for="${prefixeNom}email">Email</label><input id="${prefixeNom}email" name="email" type="email"></div>
+      <div class="champ"><label for="${prefixeNom}tel">Téléphone</label><input id="${prefixeNom}tel" name="telephone" type="tel"></div>
+    </div>
+    <fieldset class="champ"><legend class="legende">Repas compris avec le pass</legend>${casesRepas('repas_', null, true)}</fieldset>
+    <div class="champ"><label for="${prefixeNom}regime">Régime alimentaire</label><input id="${prefixeNom}regime" name="regime" type="text" placeholder="Standard"></div>`;
+  }
+
+  function modaleRepresentant(e) {
+    var restant = Math.max(0, e.Quota - e.Pass_Inclus);
+    ouvrirModale('Ajouter un représentant - ' + e.Nom, h`
+      <div class="bandeau ${restant ? 'b-gris' : 'b-orange'}"><span class="texte">${restant ? 'Pass inclus : il en reste ' + restant + ' sur ' + e.Quota + '.' : 'Les ' + e.Quota + ' pass inclus sont utilisés : ce représentant sera un pass supplémentaire à ' + JEF.euros(D.reglages.tarifPassSupp) + ', à facturer.'}</span></div>
+      ${champsRepresentant('r-')}
+      <label class="case"><input type="checkbox" name="envoyer" ${brut(D.reglages.badgeExposantAuto ? 'checked' : '')}> <span>Envoyer le badge par email tout de suite</span></label>`,
+    [{ texte: 'Annuler' }, { texte: 'Ajouter', classe: 'btn-primaire', action: function (zone, btn) {
+      if (!JEF.valider(zone)) return;
+      var d = JEF.lireFormulaire(zone);
+      d.profil = 'EXPOSANT'; d.entrepriseId = e.ID;
+      d.repas = {}; Object.keys(D.repas).forEach(function (c) { d.repas[c] = d['repas_' + c]; });
+      var retablir = JEF.attente(btn, 'Ajout');
+      JEF.post('admin_badge', { data: d }).then(function (r) {
+        fermerModale();
+        JEF.toast(d.prenom + ' ' + d.nom + ' ajouté(e), ' + (r.typePass === 'Inclus' ? 'pass inclus' : 'pass supplémentaire à facturer') + (r.envoye ? ', badge envoyé' : ''), 'ok');
+        charger(true);
+      }).catch(function (err) { retablir(); JEF.toast(err.message, 'erreur'); });
+    } }]);
+  }
+
+  // ----- Import en masse (CSV ou copier-coller depuis Excel) ---------------
+  var CHAMPS_IMPORT = {
+    entreprises: [['nom', ['entreprise', 'entreprise partenaire', 'societe', 'nom', 'raison sociale']], ['contact', ['contact', 'nom du contact', 'interlocuteur']],
+      ['email', ['email', 'e mail', 'mail', 'email du contact']], ['telephone', ['telephone', 'tel', 'telephone du contact']],
+      ['emplacement', ['emplacement', 'emplacement exposant', 'stand', 'numero']], ['quota', ['pass inclus', 'quota', 'nombre de pass']], ['notes', ['notes', 'remarques', 'commentaire']]],
+    representants: [['entrepriseId', ['id entreprise', 'identifiant entreprise', 'id']], ['entreprise', ['entreprise', 'entreprise partenaire', 'societe']], ['emplacement', ['emplacement', 'emplacement exposant']],
+      ['civilite', ['civilite']], ['nom', ['nom']], ['prenom', ['prenom']], ['fonction', ['fonction', 'poste']], ['email', ['email', 'e mail', 'mail']], ['telephone', ['telephone', 'tel']],
+      ['repasJM', ['repas 1', 'jeudi midi', 'dejeuner du jeudi', 'dejeuner jeudi']], ['repasGALA', ['repas 2', 'gala', 'soiree de gala']], ['repasVM', ['repas 3', 'vendredi midi', 'dejeuner du vendredi', 'dejeuner vendredi']],
+      ['regime', ['regime', 'regime alimentaire', 'allergies']]]
+  };
+  function enteteNormal(s) { return normal(s).replace(/[^a-z0-9]+/g, ' ').trim(); }
+  function analyserCSV(texte) {
+    texte = texte.replace(/^﻿/, '');
+    var premiere = texte.split(/\r?\n/)[0] || '';
+    var sep = [';', '\t', ','].sort(function (a, b) { return premiere.split(b).length - premiere.split(a).length; })[0];
+    var lignes = [], ligne = [], champ = '', guillemets = false;
+    for (var i = 0; i < texte.length; i++) {
+      var c = texte[i];
+      if (guillemets) {
+        if (c === '"' && texte[i + 1] === '"') { champ += '"'; i++; }
+        else if (c === '"') guillemets = false;
+        else champ += c;
+      } else if (c === '"') guillemets = true;
+      else if (c === sep) { ligne.push(champ); champ = ''; }
+      else if (c === '\n' || c === '\r') { if (c === '\r' && texte[i + 1] === '\n') i++; ligne.push(champ); lignes.push(ligne); ligne = []; champ = ''; }
+      else champ += c;
+    }
+    if (champ !== '' || ligne.length) { ligne.push(champ); lignes.push(ligne); }
+    return lignes.filter(function (l) { return l.some(function (x) { return String(x).trim() !== ''; }); });
+  }
+  function versObjets(lignes, type) {
+    if (!lignes.length) return { objets: [], inconnues: [] };
+    var entetes = lignes[0].map(enteteNormal);
+    var champs = CHAMPS_IMPORT[type];
+    if (type === 'representants') {
+      // Les colonnes de repas portent les libellés des réglages.
+      champs = champs.map(function (c) {
+        var code = { repasJM: 'JM', repasGALA: 'GALA', repasVM: 'VM' }[c[0]];
+        return code ? [c[0], c[1].concat([enteteNormal(D.repas[code].libelle)])] : c;
+      });
+    }
+    var correspondance = entetes.map(function (e) {
+      var trouve = champs.filter(function (c) { return c[1].indexOf(e) !== -1; })[0];
+      return trouve ? trouve[0] : null;
+    });
+    var inconnues = lignes[0].filter(function (x, i) { return !correspondance[i] && String(x).trim(); });
+    var objets = lignes.slice(1).map(function (l) {
+      var o = {};
+      correspondance.forEach(function (cle, i) { if (cle) o[cle] = String(l[i] === undefined ? '' : l[i]).trim(); });
+      return o;
+    });
+    return { objets: objets, inconnues: inconnues, reconnues: correspondance.filter(Boolean) };
+  }
+  function lireFichierTexte(fichier) {
+    return fichier.arrayBuffer().then(function (buf) {
+      try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+      catch (e) { return new TextDecoder('windows-1252').decode(buf); }
+    });
+  }
+  function csvDepuis(lignes) {
+    return '﻿' + lignes.map(function (l) {
+      return l.map(function (v) { var s = String(v === undefined || v === null ? '' : v); if (/^[=+\-@]/.test(s)) s = "'" + s; return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(';');
+    }).join('\r\n');
+  }
+  function modeleEntreprises() {
+    JEF.telecharger('modele_entreprises_partenaires.csv', csvDepuis([
+      ['Entreprise', 'Contact', 'Email', 'Téléphone', 'Emplacement exposant', 'Pass inclus', 'Notes'],
+      ['Exemple Sécurité SA', 'Marie Dupont', 'marie.dupont@exemple.fr', '06 00 00 00 00', 'Exposant 12', '2', 'Ligne d\'exemple, à supprimer'],
+      ['Exemple Incendie', '', '', '', '', '', 'Seul le nom est obligatoire']
+    ]));
+  }
+  function feuilleRepresentants() {
+    var lib = D.repas;
+    var lignes = [['ID entreprise', 'Entreprise', 'Emplacement exposant', 'Nom', 'Prénom', 'Fonction', 'Email', 'Téléphone',
+      lib.JM.libelle, lib.GALA.libelle, lib.VM.libelle, 'Régime alimentaire']];
+    D.entreprises.filter(entrepriseActive).sort(function (a, b) { return String(a.Nom).localeCompare(String(b.Nom), 'fr'); }).forEach(function (e) {
+      var reps = D.badges.filter(function (b) { return b.Entreprise_ID === e.ID && actifBadge(b); });
+      reps.forEach(function (b) {
+        lignes.push([e.ID, e.Nom, e.Emplacement || '', b.Nom, b.Prenom, b.Fonction, b.Email, b.Telephone,
+          JEF.oui(b.Repas_JM) ? 'OUI' : 'NON', JEF.oui(b.Repas_GALA) ? 'OUI' : 'NON', JEF.oui(b.Repas_VM) ? 'OUI' : 'NON', b.Regime]);
+      });
+      var vides = Math.max(1, e.Quota - e.Pass_Inclus);
+      for (var i = 0; i < vides; i++) lignes.push([e.ID, e.Nom, e.Emplacement || '', '', '', '', '', '', 'OUI', 'OUI', 'OUI', '']);
+    });
+    JEF.telecharger('feuille_representants_a_completer.csv', csvDepuis(lignes));
+  }
+
+  function modaleImport(onglet) {
+    var etat = { type: onglet, objets: [], verdicts: null };
+    var TEXTES = {
+      entreprises: { etapes: ['Téléchargez le modèle et remplissez une ligne par entreprise, dans Excel ou Google Sheets.', 'Enregistrez au format CSV, ou copiez directement les lignes avec leurs titres.', 'Déposez le fichier ou collez les lignes, puis vérifiez. Rien n\'est enregistré avant votre confirmation.'],
+        bouton: 'Télécharger le modèle', fn: modeleEntreprises },
+      representants: { etapes: ['Téléchargez la feuille à compléter : une ligne par pass inclus restant de chaque entreprise, déjà remplie avec l\'entreprise. Les représentants déjà inscrits y figurent aussi, ils ne seront pas recréés.', 'Complétez nom, prénom, fonction, email et repas (OUI ou NON). Ajoutez des lignes pour des pass supplémentaires, laissez vides les lignes inutiles.', 'Déposez le fichier ou collez les lignes, puis vérifiez.'],
+        bouton: 'Télécharger la feuille à compléter', fn: feuilleRepresentants }
+    };
+    function rendre() {
+      var tx = TEXTES[etat.type];
+      var etiquettes = { nouvelle: ['t-vert', 'Nouvelle'], maj: ['t-bleu', 'Mise à jour'], nouveau: ['t-vert', 'À créer'], existe: ['t-gris', 'Déjà inscrit'], doublon: ['t-gris', 'Doublon ignoré'], erreur: ['t-rouge', 'Erreur'] };
+      var aImporter = etat.verdicts ? etat.verdicts.filter(function (v) { return v.etat === 'nouvelle' || v.etat === 'maj' || v.etat === 'nouveau'; }).length : 0;
+      JEF.rendre('#modale-corps', h`
+        <div class="onglets" role="tablist">
+          <button type="button" role="tab" data-onglet="entreprises" aria-selected="${etat.type === 'entreprises'}">1. Les entreprises</button>
+          <button type="button" role="tab" data-onglet="representants" aria-selected="${etat.type === 'representants'}">2. Les représentants</button>
+        </div>
+        <ol class="etapes-import">${tx.etapes.map(function (e) { return h`<li>${e}</li>`; })}</ol>
+        <div><button type="button" class="btn btn-s" id="i-modele">${tx.bouton}</button></div>
+        <div class="grille g2">
+          <div class="champ"><label for="i-fichier">Fichier CSV</label><input type="file" id="i-fichier" accept=".csv,.txt,text/csv"></div>
+          <div class="champ"><label for="i-coller">Ou collez les lignes copiées depuis Excel</label><textarea id="i-coller" style="min-height:70px;" placeholder="Copiez les lignes, titres compris, puis collez ici"></textarea></div>
+        </div>
+        ${etat.type === 'representants' ? h`<label class="case"><input type="checkbox" id="i-envoyer"> <span>Envoyer les badges par email juste après l'import (représentants qui ont un email)</span></label>` : ''}
+        <div id="i-resultat">${etat.verdicts ? h`
+          <div class="bandeau ${aImporter ? 'b-gris' : 'b-orange'}"><span class="texte"><b>${aImporter}</b> ligne(s) prête(s) à importer sur ${etat.verdicts.length}.
+            ${etat.inconnues && etat.inconnues.length ? 'Colonnes ignorées : ' + etat.inconnues.join(', ') + '.' : ''}</span></div>
+          <div class="table-defile" style="max-height:260px;"><table class="tab"><thead><tr><th>Ligne</th><th>${etat.type === 'entreprises' ? 'Entreprise' : 'Représentant'}</th>${etat.type === 'representants' ? h`<th>Entreprise</th>` : ''}<th>Résultat</th><th>Détail</th></tr></thead>
+          <tbody>${etat.verdicts.map(function (v) { var e = etiquettes[v.etat] || ['t-gris', v.etat]; return h`<tr style="cursor:default;"><td>${v.ligne + 1}</td><td>${v.nom}</td>${etat.type === 'representants' ? h`<td>${v.entreprise}</td>` : ''}<td>${tag(e[0], e[1])}</td><td class="sous">${v.message || ''}</td></tr>`; })}</tbody></table></div>` : ''}</div>`);
+      $$('[data-onglet]').forEach(function (b) { b.addEventListener('click', function () { etat.type = b.getAttribute('data-onglet'); etat.verdicts = null; etat.objets = []; rendre(); }); });
+      $('#i-modele').addEventListener('click', tx.fn);
+      $('#i-fichier').addEventListener('change', function () { var f = this.files[0]; if (f) lireFichierTexte(f).then(function (t) { $('#i-coller').value = t; }); });
+      var bv = $('#modale [data-b="1"]'), bi = $('#modale [data-b="2"]');
+      if (bi) { bi.disabled = !aImporter; bi.textContent = aImporter ? 'Importer ' + aImporter + ' ligne(s)' : 'Importer'; bi.className = 'btn ' + (aImporter ? 'btn-action' : ''); }
+      if (bv) bv.className = 'btn ' + (etat.verdicts ? '' : 'btn-primaire');
+    }
+    function verifier(btn) {
+      var texte = $('#i-coller').value;
+      if (!texte.trim()) { JEF.toast('Déposez un fichier ou collez des lignes.', 'erreur'); return; }
+      var r = versObjets(analyserCSV(texte), etat.type);
+      var obligatoire = etat.type === 'entreprises' ? 'nom' : 'nom';
+      if (r.reconnues.indexOf(obligatoire) === -1) { JEF.toast('Colonne « ' + (etat.type === 'entreprises' ? 'Entreprise' : 'Nom') + ' » introuvable : gardez la ligne des titres du modèle.', 'erreur'); return; }
+      etat.objets = r.objets; etat.inconnues = r.inconnues;
+      var retablir = JEF.attente(btn, 'Vérification');
+      JEF.post('admin_entreprise', { data: { op: etat.type === 'entreprises' ? 'import' : 'import_representants', apercu: true, lignes: r.objets } }).then(function (rep) {
+        retablir(); etat.verdicts = rep.verdicts; rendre();
+      }).catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+    }
+    function importer(btn) {
+      var envoyer = $('#i-envoyer') ? $('#i-envoyer').checked : false;
+      var retablir = JEF.attente(btn, 'Import en cours');
+      JEF.post('admin_entreprise', { data: { op: etat.type === 'entreprises' ? 'import' : 'import_representants', lignes: etat.objets, envoyer: envoyer } }, { delai: 360000 }).then(function (rep) {
+        fermerModale();
+        JEF.toast(etat.type === 'entreprises' ? rep.crees + ' entreprise(s) créée(s), ' + rep.majs + ' mise(s) à jour'
+          : rep.crees + ' badge(s) créé(s)' + (rep.supplementaires ? ', dont ' + rep.supplementaires + ' pass supplémentaire(s) à facturer' : '') + (envoyer ? ', ' + rep.envoyes + ' envoyé(s)' : ''), 'ok');
+        charger(true);
+      }).catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+    }
+    ouvrirModale('Importer en masse', h`<div></div>`, [{ texte: 'Fermer' }, { texte: 'Vérifier', classe: 'btn-primaire', action: function (z, b) { verifier(b); } },
+      { texte: 'Importer', action: function (z, b) { importer(b); } }], 'large');
+    rendre();
+  }
+
+  // ======================================================================
+  // Visiteurs et invités
+  // ======================================================================
+  function vueBadges() {
+    var liste = D.badges.filter(function (b) { return b.Profil !== 'EXPOSANT'; });
+    var filtres = {
+      tous: ['Tous', actifBadge],
+      VISITEUR: ['Visiteurs', function (b) { return actifBadge(b) && b.Profil === 'VISITEUR'; }],
+      INVITE: ['Invités ACSES', function (b) { return actifBadge(b) && b.Profil === 'INVITE'; }],
+      INTERVENANT: ['Intervenants', function (b) { return actifBadge(b) && b.Profil === 'INTERVENANT'; }],
+      envoyer: ['Badges à envoyer', function (b) { return actifBadge(b) && b.Email && !b.Badge_Envoye; }],
+      annules: ['Annulés', function (b) { return !actifBadge(b); }]
+    };
+    var courant = filtresPages.badges && filtres[filtresPages.badges] ? filtresPages.badges : 'tous';
+    var t = tableau('badges', {
+      lignes: liste.filter(filtres[courant][1]), triDefaut: 'id', sensDefaut: -1,
+      colonnes: [
+        { cle: 'nom', titre: 'Personne', val: nomComplet, tri: function (b) { return normal(b.Nom); }, rendu: function (b) { return h`<button class="lien-nom" data-op="fiche">${nomComplet(b)}</button><div class="sous">${b.Fonction || ''}</div>`; } },
+        { cle: 'id', titre: 'Badge', val: function (b) { return b.ID; }, rendu: function (b) { return h`<span class="mono">${b.ID}</span>`; } },
+        { cle: 'profil', titre: 'Profil', val: function (b) { return PROFILS[b.Profil] || b.Profil; }, rendu: function (b) { return tag('t-gris nu', PROFILS[b.Profil] || b.Profil); } },
+        { cle: 'org', titre: 'Établissement ou organisme', val: function (b) { return b.Organisme || ''; } },
+        { cle: 'repas', titre: 'Repas ou visite', val: function (b) { return b.Profil === 'VISITEUR' ? b.Creneau_Visite : ''; }, rendu: function (b) { return b.Profil === 'VISITEUR' ? h`<span class="sous">${b.Creneau_Visite}</span>` : repas3(b); } },
+        { cle: 'etat', titre: 'Badge', val: function (b) { return b.Badge_Envoye ? 'envoyé' : 'à envoyer'; }, rendu: tagStatutBadge },
+        { cle: 'presence', titre: 'Présence', val: function () { return ''; }, rendu: boutonsPresence, filtre: false, trier: false },
+        { cle: 'action', titre: 'Action', val: function () { return ''; }, trier: false, filtre: false,
+          rendu: function (b) { return b.Email ? h`<button class="btn btn-s ${b.Badge_Envoye ? '' : 'btn-action'}" data-op="badge_envoyer">${b.Badge_Envoye ? 'Renvoyer' : 'Envoyer'}</button>` : h`<button class="btn btn-s" data-op="badge_pdf">PDF</button>`; } }
+      ],
+      clic: function (b) { ouvrirFiche('PRO', b.ID); },
+      action: function (op, b, btn) { if (op === 'fiche') ouvrirFiche('PRO', b.ID); else if (op === 'presence') basculerPresence('PRO', b, btn); else executer('PRO', b.ID, op, {}, btn); },
+      vide: 'Aucun badge dans cette catégorie.'
+    });
+    JEF.rendre('#vue', h`${aidePage('badges')}
+      ${panneau('Visiteurs, invités et intervenants', 'Lien d\'invitation des visiteurs : jef.acses-asso.com/visiteur.html',
+        h`${puces('badges', Object.keys(filtres).map(function (k) { return [k, filtres[k][0], liste.filter(filtres[k][1]).length]; }), 'tous')}${t.html}`,
+        h`<button class="btn btn-s" id="b-copier-lien">Copier le lien visiteurs</button><button class="btn btn-s btn-primaire" id="b-nouveau-badge">Nouveau badge</button>`)}`);
+    t.monter();
+    brancherPuces('badges', vueBadges);
+    $('#b-nouveau-badge').addEventListener('click', modaleBadge);
+    $('#b-copier-lien').addEventListener('click', function () { JEF.copier('https://jef.acses-asso.com/visiteur.html'); });
+  }
+
+  function casesRepas(prefixeNom, valeurs, tousCoches) {
     return h`<div class="choix c3">${Object.keys(D.repas).map(function (c) {
-      return h`<label class="option puce"><input type="checkbox" name="${prefixeNom + c}" ${brut(valeurs && JEF.oui(valeurs['Repas_' + c]) ? 'checked' : '')}><span>${D.repas[c].libelle}</span></label>`;
+      var coche = valeurs ? JEF.oui(valeurs['Repas_' + c]) : !!tousCoches;
+      return h`<label class="option puce"><input type="checkbox" name="${prefixeNom + c}" ${brut(coche ? 'checked' : '')}><span>${D.repas[c].libelle}</span></label>`;
     })}</div>`;
   }
 
   function modaleBadge() {
     ouvrirModale('Nouveau badge', h`
+      <p class="indice" style="margin:0;">Pour un exposant, passez par la fiche de son entreprise partenaire.</p>
       <div class="champ"><label for="m-profil">Profil</label><select id="m-profil" name="profil">
-        ${Object.keys(PROFILS).map(function (k) { return h`<option value="${k}" ${brut(k === 'INVITE' ? 'selected' : '')}>${PROFILS[k].libelle}</option>`; })}</select></div>
+        <option value="INVITE">Invité de l'ACSES</option><option value="INTERVENANT">Intervenant</option><option value="VISITEUR">Visiteur de l'espace exposants</option></select></div>
       <div class="grille g2">
-        <div class="champ"><label for="m-civ">Civilité</label><select id="m-civ" name="civilite"><option>Mme</option><option>M.</option></select></div>
-        <div class="champ"><label for="m-fonction">Fonction</label><input id="m-fonction" name="fonction" type="text"></div>
         <div class="champ"><label class="obligatoire" for="m-prenom">Prénom</label><input id="m-prenom" name="prenom" type="text" required></div>
         <div class="champ"><label class="obligatoire" for="m-nom">Nom</label><input id="m-nom" name="nom" type="text" required></div>
+        <div class="champ"><label for="m-fonction">Fonction</label><input id="m-fonction" name="fonction" type="text"></div>
         <div class="champ"><label for="m-email">Email</label><input id="m-email" name="email" type="email"></div>
-        <div class="champ"><label for="m-org">Organisme</label><input id="m-org" name="organisme" type="text"></div>
+        <div class="champ"><label for="m-org">Établissement ou organisme</label><input id="m-org" name="organisme" type="text"></div>
       </div>
-      <div class="champ" id="m-bloc-soc" hidden><label for="m-soc">Société exposante</label><select id="m-soc" name="societeId"><option value="">-</option>
-        ${D.societes.map(function (s) { return h`<option value="${s.ID}">${s.Nom}</option>`; })}</select></div>
-      <div class="champ" id="m-bloc-cr" hidden><label for="m-cr">Demi-journée de visite</label><select id="m-cr" name="creneauVisite">
-        ${D.creneaux.map(function (c) { return h`<option>${c.libelle}</option>`; })}</select></div>
-      <fieldset class="champ" id="m-bloc-repas"><legend class="legende">Repas</legend>${casesRepas('repas_', null)}</fieldset>
+      <div class="champ" id="m-bloc-cr" hidden><label for="m-cr">Demi-journée de visite</label><select id="m-cr" name="creneauVisite">${D.creneaux.map(function (c) { return h`<option>${c.libelle}</option>`; })}</select></div>
+      <fieldset class="champ" id="m-bloc-repas"><legend class="legende">Repas</legend>${casesRepas('repas_', null, false)}</fieldset>
       <div class="champ"><label for="m-regime">Régime alimentaire</label><input id="m-regime" name="regime" type="text"></div>
-      <label class="case"><input type="checkbox" name="envoyer" checked> <span>Envoyer le badge par email (sinon, ouvrir le PDF pour l'imprimer)</span></label>`,
+      <label class="case"><input type="checkbox" name="envoyer" checked> <span>Envoyer le badge par email (sans email, le PDF s'ouvre pour l'impression)</span></label>`,
     [{ texte: 'Annuler' }, { texte: 'Créer le badge', classe: 'btn-primaire', action: function (zone, btn) {
       if (!JEF.valider(zone)) return;
       var d = JEF.lireFormulaire(zone);
       d.repas = {}; Object.keys(D.repas).forEach(function (c) { d.repas[c] = d['repas_' + c]; });
-      if (d.societeId) { var s = D.societes.filter(function (x) { return x.ID === d.societeId; })[0]; if (s && !d.organisme) d.organisme = s.Nom; }
-      var retablir = JEF.attente(btn, 'Création...');
+      var fenetre = (!d.envoyer || !d.email) ? preparerFenetre('Préparation du badge') : null;
+      var retablir = JEF.attente(btn, 'Création');
       JEF.post('admin_badge', { data: d }).then(function (r) {
         fermerModale(); JEF.toast('Badge ' + r.id + ' créé' + (r.envoye ? ' et envoyé' : ''), 'ok');
-        if (r.pdfUrl) window.open(r.pdfUrl, '_blank', 'noopener');
+        if (fenetre && r.id) ouvrirBadgePdf('PRO', r.id, fenetre); else if (fenetre) fenetre.close();
         charger(true);
-      }).catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+      }).catch(function (e) { retablir(); if (fenetre) fenetre.close(); JEF.toast(e.message, 'erreur'); });
     } }]);
-    function adapter() {
-      var p = $('#m-profil').value;
-      $('#m-bloc-soc').hidden = p !== 'EXPOSANT';
-      $('#m-bloc-cr').hidden = p !== 'VISITEUR';
-      $('#m-bloc-repas').hidden = p === 'VISITEUR';
-    }
+    function adapter() { var p = $('#m-profil').value; $('#m-bloc-cr').hidden = p !== 'VISITEUR'; $('#m-bloc-repas').hidden = p === 'VISITEUR'; }
     $('#m-profil').addEventListener('change', adapter); adapter();
   }
 
-  // ----- Sociétés exposantes ---------------------------------------------------
-  function vueSocietes() {
-    JEF.rendre('#vue', h`
-      <div class="outils"><span class="petit">Chaque société reçoit un lien personnel : ses représentants s'inscrivent eux-mêmes et reçoivent leur badge. Quota par défaut : ${D.reglages.quota} pass inclus.</span>
-        <button class="btn btn-primaire btn-s" id="nouvelle-soc" style="margin-left:auto;">+ Nouvelle société</button></div>
-      <div class="tableau-conteneur"><table class="tableau"><thead><tr><th>Société</th><th>Stand</th><th>Contact</th><th>Pass inclus</th><th>Représentants</th><th></th></tr></thead>
-        <tbody>${D.societes.length ? D.societes.map(function (s) {
-          var plein = s.Pass_Inclus >= s.Quota;
-          return h`<tr data-soc="${s.ID}">
-            <td><div class="nom">${s.Nom}</div><div class="sous mono">${s.ID}</div></td><td>${s.Stand || '-'}</td><td class="sous">${s.Email_Contact || '-'}</td>
-            <td><span class="pastille ${plein ? 'p-ambre' : 'p-vert'}">${s.Pass_Inclus} / ${s.Quota}</span></td><td>${s.Pass_Total}</td>
-            <td style="text-align:right;white-space:nowrap;">
-              <button class="btn btn-s" data-sop="copier">Copier le lien</button>
-              <button class="btn btn-s" data-sop="envoyer_lien" ${brut(s.Email_Contact ? '' : 'disabled')}>Envoyer</button>
-              <button class="btn btn-s btn-fantome" data-sop="modifier">Modifier</button></td></tr>`;
-        }) : h`<tr><td colspan="6" class="vide">Aucune société. Créez-en une pour lui envoyer son lien d'inscription.</td></tr>`}</tbody></table></div>`);
-    $('#nouvelle-soc').addEventListener('click', function () { modaleSociete(null); });
-    $$('#vue tr[data-soc]').forEach(function (tr) {
-      var s = D.societes.filter(function (x) { return x.ID === tr.getAttribute('data-soc'); })[0];
-      $$('[data-sop]', tr).forEach(function (b) {
-        b.addEventListener('click', function () {
-          var op = b.getAttribute('data-sop');
-          if (op === 'copier') JEF.copier(s.Lien);
-          else if (op === 'modifier') modaleSociete(s);
-          else {
-            var retablir = JEF.attente(b, '...');
-            JEF.post('admin_societe', { data: { op: op, id: s.ID } }).then(function () { retablir(); JEF.toast('Lien envoyé à ' + s.Email_Contact, 'ok'); })
-              .catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
-          }
-        });
-      });
-    });
-  }
-
-  function modaleSociete(s) {
-    ouvrirModale(s ? 'Modifier ' + s.Nom : 'Nouvelle société exposante', h`
-      <div class="champ"><label class="obligatoire" for="s-nom">Société</label><input id="s-nom" name="nom" type="text" required value="${s ? s.Nom : ''}"></div>
-      <div class="grille g2">
-        <div class="champ"><label for="s-email">Email du contact</label><input id="s-email" name="email" type="email" value="${s ? s.Email_Contact : ''}"></div>
-        <div class="champ"><label for="s-stand">Stand</label><input id="s-stand" name="stand" type="text" value="${s ? s.Stand : ''}"></div>
-        <div class="champ"><label for="s-quota">Pass inclus</label><input id="s-quota" name="quota" type="number" min="0" max="20" placeholder="${D.reglages.quota} (par défaut)" value="${s && s.Quota_Gratuit !== '' ? s.Quota_Gratuit : ''}"></div>
-      </div>
-      <div class="champ"><label for="s-notes">Notes</label><input id="s-notes" name="notes" type="text" value="${s ? s.Notes : ''}"></div>
-      ${s ? h`<button type="button" class="btn btn-s btn-danger" id="s-cle" style="justify-self:start;">Désactiver l'ancien lien et en créer un nouveau</button>`
-        : h`<label class="case"><input type="checkbox" name="envoyer" checked> <span>Envoyer tout de suite le lien d'inscription au contact</span></label>`}`,
-    [{ texte: 'Annuler' }, { texte: s ? 'Enregistrer' : 'Créer', classe: 'btn-primaire', action: function (zone, btn) {
-      if (!JEF.valider(zone)) return;
-      var d = JEF.lireFormulaire(zone);
-      d.op = s ? 'modifier' : 'creer'; if (s) d.id = s.ID;
-      var retablir = JEF.attente(btn, '...');
-      JEF.post('admin_societe', { data: d }).then(function () { fermerModale(); JEF.toast('Société enregistrée', 'ok'); charger(true); })
-        .catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
-    } }]);
-    if (s) $('#s-cle').addEventListener('click', function () {
-      confirmer('Renouveler le lien', 'L\'ancien lien ne fonctionnera plus. Pensez à envoyer le nouveau à la société.', 'Renouveler', true).then(function (ok) {
-        if (!ok) return;
-        JEF.post('admin_societe', { data: { op: 'nouvelle_cle', id: s.ID } }).then(function () { JEF.toast('Nouveau lien créé', 'ok'); charger(true); })
-          .catch(function (e) { JEF.toast(e.message, 'erreur'); });
-      });
-    });
-  }
-
-  // ----- Restauration ----------------------------------------------------------
+  // ======================================================================
+  // Restauration
+  // ======================================================================
   function vueRestauration() {
-    var personnes = D.stagiaires.filter(actif).concat(D.badges.filter(actifBadge));
-    var codes = Object.keys(D.repas), regimes = {}, totaux = {}, profils = {};
+    var personnes = D.stagiaires.filter(actif).map(function (l) { return { l: l, p: 'Stagiaires' }; })
+      .concat(D.badges.filter(actifBadge).map(function (b) { return { l: b, p: b.Profil === 'EXPOSANT' ? 'Exposants' : (b.Profil === 'VISITEUR' ? 'Visiteurs' : 'Invités et intervenants') }; }));
+    var codes = Object.keys(D.repas), regimes = {}, profils = {}, totaux = {};
     codes.forEach(function (c) { totaux[c] = 0; });
-    personnes.forEach(function (l) {
-      var r = (l.Regime || 'Standard').trim() || 'Standard';
-      var prof = l.Profil ? (PROFILS[l.Profil] || {}).libelle : 'Stagiaire';
+    personnes.forEach(function (x) {
+      var r = String(x.l.Regime || '').trim() || 'Standard';
       codes.forEach(function (c) {
-        if (!JEF.oui(l['Repas_' + c])) return;
-        regimes[r] = regimes[r] || {}; regimes[r][c] = (regimes[r][c] || 0) + 1; totaux[c]++;
-        profils[prof] = profils[prof] || {}; profils[prof][c] = (profils[prof][c] || 0) + 1;
+        if (!JEF.oui(x.l['Repas_' + c])) return;
+        totaux[c]++;
+        regimes[r] = regimes[r] || {}; regimes[r][c] = (regimes[r][c] || 0) + 1;
+        profils[x.p] = profils[x.p] || {}; profils[x.p][c] = (profils[x.p][c] || 0) + 1;
       });
     });
-    function tableau(titre, objet) {
-      return h`<section class="carte"><h3>${titre}</h3><div class="tableau-conteneur"><table class="tableau matrice"><thead><tr><th></th>${codes.map(function (c) { return h`<th>${D.repas[c].libelle}</th>`; })}</tr></thead>
-        <tbody>${Object.keys(objet).sort().map(function (k) { return h`<tr><td>${k}</td>${codes.map(function (c) { return h`<td>${objet[k][c] || ''}</td>`; })}</tr>`; })}
-        <tr><td><b>Total</b></td>${codes.map(function (c) { return h`<td><b>${totaux[c]}</b></td>`; })}</tr></tbody></table></div></section>`;
+    function matrice(objet) {
+      return h`<div class="table-defile" style="max-height:none;"><table class="tab"><thead><tr><th></th>${codes.map(function (c) { return h`<th>${D.repas[c].libelle}</th>`; })}</tr></thead>
+        <tbody>${Object.keys(objet).sort().map(function (k) { return h`<tr style="cursor:default;"><td><b>${k}</b></td>${codes.map(function (c) { return h`<td>${objet[k][c] || ''}</td>`; })}</tr>`; })}
+        <tr style="cursor:default;"><td><b>Total</b></td>${codes.map(function (c) { return h`<td><b>${totaux[c]}</b></td>`; })}</tr></tbody></table></div>`;
     }
-    JEF.rendre('#vue', h`
-      <div class="kpis">${codes.map(function (c) { return h`<div class="kpi"><div class="libelle">${D.repas[c].libelle}</div><div class="valeur">${totaux[c]}</div><div class="detail">couverts</div></div>`; })}</div>
-      <div class="grille g2">${tableau('Par régime alimentaire', regimes)}${tableau('Par profil', profils)}</div>
-      <p class="petit" style="margin-top:14px;">L'export « Liste traiteur » ne contient que des volumes, sans aucun nom (régimes et allergies sont des données de santé).</p>`);
-  }
-
-  // ----- Accueil et Qualiopi ---------------------------------------------------
-  function vueAccueil() {
-    var st = D.stagiaires.filter(actif), badges = D.badges.filter(actifBadge);
-    var valides = st.filter(function (l) { return /^[45]/.test(prefixe(l)); });
-    var presents = st.filter(function (l) { return Number(l.Heures) > 0; });
-    var attest = st.filter(function (l) { return l.Attestation_Envoyee; });
-    var r = D.reglages;
-    JEF.rendre('#vue', h`
-      <div class="kpis">${D.creneaux.map(function (c) {
-        var ns = st.filter(function (l) { return l['Presence_' + c.n]; }).length;
-        var nb = badges.filter(function (l) { return l['Presence_' + c.n]; }).length;
-        return h`<div class="kpi"><div class="libelle">${c.libelle} (${c.heures} h)</div><div class="valeur">${ns} <small style="font-size:1rem;color:var(--texte-3)">/ ${valides.length}</small></div>
-          <div class="jauge"><i style="width:${valides.length ? Math.round(ns / valides.length * 100) : 0}%"></i></div><div class="detail">stagiaires présents - ${nb} autres badges</div></div>`;
-      })}
-        <div class="kpi"><div class="libelle">Attestations envoyées</div><div class="valeur">${attest.length} <small style="font-size:1rem;color:var(--texte-3)">/ ${presents.length}</small></div><div class="detail">stagiaires ayant au moins une présence</div></div>
-      </div>
-      <div class="grille g2">
-        <section class="carte"><h3>Jour J</h3>
-          <p class="petit">Le scanner fonctionne sur téléphone (caméra) ou PC (douchette). Il continue hors connexion et synchronise ensuite.</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <a class="btn btn-primaire" href="scanner.html" target="_blank" rel="noopener">📷 Ouvrir le scanner</a>
-            <button class="btn" data-lancer="feuille">Générer la feuille de présence</button>
-          </div></section>
-        <section class="carte"><h3>Envois automatiques</h3>
-          <dl class="infos"><dt>Rappel avec badge</dt><dd>${r.dateRappel || '-'}</dd><dt>Attestations et feuille</dt><dd>${r.dateAttestations || '-'}</dd><dt>Emails restants aujourd'hui</dt><dd>${r.quotaEmails}</dd></dl>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
-            <button class="btn btn-s" data-lancer="planifier">Programmer aux dates des paramètres</button>
-            <button class="btn btn-s" data-lancer="rappels">Envoyer les rappels maintenant</button>
-            <button class="btn btn-s btn-orange" data-lancer="attestations">Envoyer les attestations maintenant</button>
-          </div></section>
-        <section class="carte"><h3>Réglages actuels</h3>
-          <dl class="infos"><dt>Mode test</dt><dd>${r.modeTest ? 'Actif' : 'Désactivé (production)'}</dd>
-            <dt>Inscriptions</dt><dd>${r.ouverture.ouvert ? 'Ouvertes' : 'Fermées'}</dd>
-            <dt>Facturation automatique</dt><dd>${r.facturationAuto ? 'Oui' : 'Non (factures manuelles)'}</dd>
-            <dt>Capacité</dt><dd>${r.capacite || 'Illimitée'}</dd></dl>
-          <p class="petit" style="margin:10px 0 0;">Ces réglages se modifient dans l'onglet PARAMETRES du classeur.</p></section>
-        <section class="carte"><h3>Documents fixes</h3>
-          <p class="petit">Après une modification du programme, des CGV ou du règlement, reconvertissez-les en PDF : ils sont joints à chaque pré-inscription.</p>
-          <button class="btn btn-s" data-lancer="documents_fixes">Reconvertir en PDF</button></section>
+    JEF.rendre('#vue', h`${aidePage('restauration')}
+      <div class="chiffres">${codes.map(function (c) { return h`<div class="chiffre"><div class="lib">${D.repas[c].libelle}</div><div class="val">${totaux[c]}</div><div class="det">couverts, prix stagiaire ${JEF.euros(D.repas[c].tarif)}</div></div>`; })}</div>
+      <div class="grille2">
+        ${panneau('Par profil', 'Qui mange à chaque repas.', matrice(profils))}
+        ${panneau('Par régime alimentaire', 'À transmettre au traiteur. L\'export ne contient aucun nom.', matrice(regimes), h`<button class="btn btn-s" data-export-direct="traiteur">Exporter pour le traiteur</button>`)}
       </div>`);
-    $$('[data-lancer]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var op = b.getAttribute('data-lancer');
-        var go = function () {
-          var retablir = JEF.attente(b, 'En cours...');
-          JEF.post('admin_lancer', { data: { op: op } }, { delai: 360000 }).then(function (rep) {
-            retablir();
-            if (rep.pdfUrl) window.open(rep.pdfUrl, '_blank', 'noopener');
-            var msg = op === 'attestations' ? rep.envoyees + ' attestation(s) envoyée(s), ' + rep.restantes + ' restante(s) (suite automatique)'
-              : op === 'rappels' ? rep.envoyes + ' rappel(s) envoyé(s), ' + rep.restants + ' restant(s)'
-              : rep.resultat ? [].concat(rep.resultat).join(' - ') || 'Terminé' : 'Terminé';
-            JEF.toast(msg, 'ok'); charger(true);
-          }).catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
-        };
-        if (op === 'attestations' || op === 'rappels') {
-          confirmer('Confirmer l\'envoi', op === 'attestations' ? 'Envoyer maintenant les attestations à tous les stagiaires présents qui ne l\'ont pas encore reçue, et générer la feuille de présence ?'
-            : 'Envoyer maintenant le rappel avec badge à tous les participants validés qui ne l\'ont pas reçu ?', 'Envoyer', false).then(function (ok) { if (ok) go(); });
-        } else go();
-      });
-    });
+    $$('[data-export-direct]').forEach(function (b) { b.addEventListener('click', function () { exporter(b.getAttribute('data-export-direct')); }); });
   }
 
-  // ----- Journal ---------------------------------------------------------------
-  function vueJournal() {
-    if (!journal) {
-      JEF.rendre('#vue', h`<div class="chargement"><span class="rotation"></span>Chargement du journal...</div>`);
-      JEF.post('admin_journal').then(function (r) { journal = r.journal; if (vue === 'journal') vueJournal(); }).catch(function (e) { JEF.toast(e.message, 'erreur'); });
-      return;
-    }
-    var q = normal(filtres.journal);
-    var liste = journal.filter(function (j) { return !q || normal([j.Utilisateur, j.Action, j.Cible, j.Detail].join(' ')).indexOf(q) !== -1; });
-    JEF.rendre('#vue', h`<div class="outils"><input type="search" id="q" placeholder="Filtrer le journal..." value="${filtres.journal}"><span class="petit">300 dernières actions</span>
-      <button class="btn btn-s" id="recharger-journal" style="margin-left:auto;">↻</button></div>
-      <div class="tableau-conteneur"><table class="tableau"><thead><tr><th>Date</th><th>Utilisateur</th><th>Action</th><th>Dossier</th><th>Détail</th></tr></thead>
-      <tbody>${liste.map(function (j) { return h`<tr style="cursor:default;"><td class="sous">${JEF.date(j.Date, true)}</td><td>${j.Utilisateur}</td><td><b>${j.Action}</b></td><td class="mono">${j.Cible}</td><td class="sous">${j.Detail}</td></tr>`; })}</tbody></table></div>`);
-    $('#q').addEventListener('input', function () { filtres.journal = this.value; var p = this.selectionStart; vueJournal(); var c = $('#q'); c.focus(); c.setSelectionRange(p, p); });
-    $('#recharger-journal').addEventListener('click', function () { journal = null; vueJournal(); });
+  // ======================================================================
+  // Accueil jour J
+  // ======================================================================
+  function vueJourJ() {
+    var tous = D.stagiaires.filter(actif).concat(D.badges.filter(actifBadge));
+    var r = D.reglages;
+    JEF.rendre('#vue', h`${aidePage('jourj')}
+      <div class="chiffres">${D.creneaux.map(function (c) {
+        var n = tous.filter(function (l) { return l['Presence_' + c.n]; }).length;
+        return h`<div class="chiffre"><div class="lib">${c.libelle}</div><div class="val">${n}<small style="font-size:14px;color:var(--texte-2)"> / ${tous.length}</small></div><div class="jauge2"><i style="width:${tous.length ? Math.round(n / tous.length * 100) : 0}%"></i></div><div class="det">personnes enregistrées, tous profils</div></div>`;
+      })}</div>
+      <div class="grille2">
+        ${panneau('Scanner de l\'accueil', 'Téléphone ou PC avec douchette. Connexion avec un compte autorisé (administrateur ou accueil).',
+          h`<ol class="etapes-import"><li>Ouvrez le scanner sur chaque poste d'accueil.</li><li>Vérifiez la demi-journée affichée en haut.</li><li>Scannez le QR code du badge : écran vert, accès validé et repas affichés. Orange, déjà enregistré. Rouge, badge refusé.</li></ol>`,
+          h`<a class="btn btn-s btn-primaire" href="scanner.html" target="_blank" rel="noopener">Ouvrir le scanner</a>`)}
+        ${panneau('Envois avant et après', 'Programmés aux dates des réglages.', h`<dl class="infos"><dt>Rappel avec badge</dt><dd>${r.dateRappel || '-'}</dd><dt>Attestations</dt><dd>${r.dateAttestations || '-'}</dd><dt>Emails restants aujourd'hui</dt><dd>${r.quotaEmails}</dd></dl>`,
+          h`<button class="btn btn-s" data-lancer="planifier">Programmer</button><button class="btn btn-s" data-lancer="rappels">Envoyer les rappels maintenant</button>`)}
+        ${panneau('Plan de secours', 'En cas de coupure du réseau.', h`<ul style="margin:0;padding-left:18px;display:grid;gap:4px;">
+          <li>Le scanner continue sans réseau et envoie les scans au retour de la connexion.</li>
+          <li>La veille, exportez la liste des participants (bouton Exporter) sur le PC de l'accueil.</li>
+          <li>Imprimez quelques badges vierges pour les arrivées de dernière minute.</li>
+          <li>Une présence oubliée se rattrape ensuite dans Présences et Qualiopi.</li></ul>`, h`<button class="btn btn-s" data-export-direct="participants">Exporter les participants</button>`)}
+      </div>`);
+    brancherLancer();
+    $$('[data-export-direct]').forEach(function (b) { b.addEventListener('click', function () { exporter(b.getAttribute('data-export-direct')); }); });
   }
 
-
-  // ----- Réglages ----------------------------------------------------------------
+  // ======================================================================
+  // Réglages
+  // ======================================================================
   function champReglage(r) {
     var v = r.valeur || '', id = 'rg-' + r.cle;
+    var saisie;
     if (r.type === 'ouinon') {
-      var oui = /^(oui|true|1)$/i.test(v);
-      return h`<label class="option puce" style="justify-content:space-between;"><span><span class="titre">${r.libelle}</span>${r.aide ? h`<small>${r.aide}</small>` : ''}</span>
-        <input type="checkbox" data-cle="${r.cle}" data-type="ouinon" ${brut(oui ? 'checked' : '')} style="width:22px;height:22px;"></label>`;
-    }
-    if (r.type === 'creneau') {
+      saisie = h`<label class="interrupteur"><input type="checkbox" id="${id}" data-cle="${r.cle}" data-type="ouinon" ${brut(/^(oui|true|1)$/i.test(v) ? 'checked' : '')}><span>${/^(oui|true|1)$/i.test(v) ? 'Oui' : 'Non'}</span></label>`;
+    } else if (r.type === 'creneau') {
       var p = v ? v.split('|') : ['', '', '', '', ''];
-      return h`<fieldset class="champ" data-cle="${r.cle}" data-type="creneau" style="border:1px solid var(--bord);border-radius:12px;padding:12px;">
-        <legend class="legende" style="padding:0 6px;">${r.libelle}</legend>
-        <div class="grille" style="grid-template-columns:2fr 1.2fr 1fr 1fr .8fr;gap:8px;">
-          <input type="text" data-p="0" value="${p[0] || ''}" placeholder="Libellé (ex. Jeudi 10 juin - matin)" aria-label="Libellé">
-          <input type="date" data-p="1" value="${p[1] || ''}" aria-label="Date">
-          <input type="time" data-p="2" value="${p[2] || ''}" aria-label="Début du scan">
-          <input type="time" data-p="3" value="${p[3] || ''}" aria-label="Fin du scan">
-          <input type="number" data-p="4" min="0" max="12" step="0.5" value="${p[4] || ''}" placeholder="h" aria-label="Heures de formation">
-        </div><span class="aide">Libellé, date, début et fin de la fenêtre de scan, heures de formation comptées. Laisser le libellé vide pour ne pas utiliser ce créneau.</span></fieldset>`;
+      saisie = h`<div data-cle="${r.cle}" data-type="creneau" style="display:grid;grid-template-columns:2fr 1.3fr 1fr 1fr .8fr;gap:6px;">
+        <input type="text" data-p="0" value="${p[0] || ''}" placeholder="Libellé" aria-label="Libellé">
+        <input type="date" data-p="1" value="${p[1] || ''}" aria-label="Date">
+        <input type="time" data-p="2" value="${p[2] || ''}" aria-label="Début du scan">
+        <input type="time" data-p="3" value="${p[3] || ''}" aria-label="Fin du scan">
+        <input type="number" data-p="4" min="0" max="12" step="0.5" value="${p[4] || ''}" placeholder="h" aria-label="Heures de formation"></div>
+        <div class="exp">Libellé, date, début et fin du scan, heures de formation. Libellé vide = demi-journée non utilisée.</div>`;
+    } else if (r.type === 'comptes') {
+      saisie = h`<textarea id="${id}" data-cle="${r.cle}" data-type="comptes" style="min-height:56px;width:100%;" placeholder="prenom.nom@acses-asso.com, ...">${v}</textarea>`;
+    } else if (r.type === 'secret') {
+      saisie = h`<input id="${id}" data-cle="${r.cle}" data-type="secret" type="url" style="width:100%;" placeholder="${r.defini ? 'Configuré. Collez un nouveau lien pour le remplacer' : 'https://chat.googleapis.com/...'}">`;
+    } else {
+      var attrs = { euros: 'type="number" min="0" step="0.01" style="width:120px;"', nombre: 'type="number" min="0" step="0.5" style="width:120px;"', entier: 'type="number" min="0" step="1" style="width:120px;"',
+        entier_vide: 'type="number" min="0" step="1" placeholder="Illimité" style="width:120px;"', compteur: 'type="number" min="1" step="1" style="width:120px;"',
+        jour: 'type="date"', dateheure: 'type="datetime-local"', email: 'type="email" style="width:100%;"', url: 'type="url" style="width:100%;" placeholder="https://"',
+        drive_dossier: 'type="text" style="width:100%;" placeholder="Lien ou identifiant du dossier Drive"', drive_fichier: 'type="text" style="width:100%;" placeholder="Lien ou identifiant du fichier Drive"',
+        client_google: 'type="text" style="width:100%;"' }[r.type] || 'type="text" style="width:100%;"';
+      saisie = h`<div style="display:flex;gap:6px;align-items:center;"><input id="${id}" data-cle="${r.cle}" data-type="${r.type}" ${brut(attrs)} value="${r.type === 'dateheure' ? v.replace(' ', 'T') : v}">${r.type === 'euros' ? h`<b>€</b>` : ''}</div>`;
     }
-    var attrs = { euros: 'type="number" min="0" step="0.01"', nombre: 'type="number" min="0" step="0.5"', entier: 'type="number" min="0" step="1"',
-      entier_vide: 'type="number" min="0" step="1" placeholder="Illimité"', compteur: 'type="number" min="1" step="1"',
-      jour: 'type="date"', dateheure: 'type="datetime-local"', email: 'type="email"', url: 'type="url" placeholder="https://"' }[r.type] || 'type="text"';
-    var valeur = r.type === 'dateheure' ? v.replace(' ', 'T') : v;
-    var saisie = r.type === 'comptes'
-      ? h`<textarea id="${id}" data-cle="${r.cle}" data-type="comptes" style="min-height:64px;" placeholder="prenom.nom@acses-asso.com, ...">${valeur}</textarea>`
-      : h`<div style="display:flex;align-items:center;gap:8px;"><input id="${id}" data-cle="${r.cle}" data-type="${r.type}" ${brut(attrs)} value="${valeur}">${r.type === 'euros' ? h`<b>€</b>` : ''}</div>`;
-    return h`<div class="champ"><label for="${id}">${r.libelle}</label>${saisie}${r.aide && r.type !== 'comptes' ? h`<span class="aide">${r.aide}</span>` : r.type === 'comptes' ? h`<span class="aide">Adresses @acses-asso.com séparées par des virgules.</span>` : ''}</div>`;
+    return h`<div class="reglage-ligne"><label class="lib" for="${id}">${r.libelle}${r.explication && r.type !== 'creneau' ? h`<div class="exp">${r.explication}</div>` : ''}</label><div>${saisie}</div></div>`;
   }
-
   function lireValeursReglages() {
     var o = {};
     $$('#form-reglages [data-cle]').forEach(function (el) {
       var cle = el.getAttribute('data-cle'), type = el.getAttribute('data-type');
       if (type === 'ouinon') o[cle] = el.checked ? 'OUI' : 'NON';
-      else if (type === 'creneau') {
-        var p = $$('[data-p]', el).map(function (i) { return i.value.trim(); });
-        o[cle] = p[0] ? p.join('|') : '';
-      } else if (type === 'dateheure') o[cle] = el.value.replace('T', ' ');
+      else if (type === 'creneau') { var p = $$('[data-p]', el).map(function (i) { return i.value.trim(); }); o[cle] = p[0] ? p.join('|') : ''; }
+      else if (type === 'dateheure') o[cle] = el.value.replace('T', ' ');
       else o[cle] = el.value.trim();
     });
     return o;
   }
-
+  function majEtatReglages() {
+    reglagesModifies = JSON.stringify(lireValeursReglages()) !== reglagesInitial;
+    $$('[data-enregistrer]').forEach(function (b) { b.disabled = !reglagesModifies; b.className = 'btn ' + (b.classList.contains('btn-l') ? 'btn-l ' : 'btn-s ') + (reglagesModifies ? 'btn-action' : ''); });
+    $$('[data-annuler-reglages]').forEach(function (b) { b.disabled = !reglagesModifies; });
+    etatSynchro(reglagesModifies ? 'attention' : '', reglagesModifies ? 'Pensez à enregistrer' : 'Réglages enregistrés');
+  }
   function vueReglages() {
     if (!reglages) {
-      JEF.rendre('#vue', h`<div class="chargement"><span class="rotation"></span>Chargement des réglages...</div>`);
-      JEF.post('admin_reglages').then(function (r) { reglages = r.sections; if (vue === 'reglages') vueReglages(); }).catch(function (e) { JEF.toast(e.message, 'erreur'); });
+      JEF.rendre('#vue', h`${aidePage('reglages')}<div class="chargement"><span class="rotation"></span>Chargement des réglages</div>`);
+      JEF.post('admin_reglages').then(function (r) { reglages = r.sections; if (vue === 'reglages') { vueReglages(); brancherAide(); } }).catch(function (e) { JEF.toast(e.message, 'erreur'); });
       return;
     }
-    reglagesModifies = false;
-    JEF.rendre('#vue', h`
-      <div class="alerte a-info" style="margin-bottom:16px;"><div><b>Les réglages s'appliquent immédiatement</b>Formulaires, prix, documents et envois utilisent ces valeurs dès l'enregistrement. Chaque modification est inscrite au journal. Les identifiants Drive et la connexion Google se règlent dans l'onglet PARAMETRES du classeur.</div></div>
-      <form id="form-reglages" novalidate>
-        <div class="grille g2">${reglages.map(function (s) {
-          return h`<section class="carte" ${brut(/demi-journées|Accès/.test(s.titre) ? 'style="grid-column:1/-1;"' : '')}><h3>${s.titre}</h3>
-            <div class="grille" style="gap:14px;">${s.reglages.map(champReglage)}</div></section>`;
-        })}</div>
-        <div style="position:sticky;bottom:0;margin-top:18px;padding:14px 0;background:linear-gradient(transparent,var(--fond) 30%);display:flex;gap:10px;justify-content:flex-end;align-items:center;">
-          <span class="petit" id="etat-reglages">Aucune modification</span>
-          <button type="button" class="btn" id="annuler-reglages">Annuler</button>
-          <button type="submit" class="btn btn-primaire btn-l" id="enregistrer-reglages" disabled>Enregistrer les réglages</button>
-        </div>
+    JEF.rendre('#actions-contexte', h`<button class="btn btn-s" data-annuler-reglages disabled>Annuler</button> <button class="btn btn-s" data-enregistrer disabled>Enregistrer</button>`);
+    var couleurs = { violet: 'var(--violet)', bleu: 'var(--bleu)', vert: 'var(--vert)', orange: 'var(--orange-acses)', gris: '#94A3B8', rouge: 'var(--rouge)' };
+    JEF.rendre('#vue', h`${aidePage('reglages')}
+      <form id="form-reglages" novalidate class="grille2">${reglages.map(function (s) {
+        return h`<section class="panneau ${s.large ? 'pleine' : ''}" style="border-top:3px solid ${couleurs[s.couleur] || '#94A3B8'};">
+          <div class="panneau-tete"><div><h3>${s.titre}</h3><p class="indice">${s.aide}</p></div>${s.avance ? tag('t-rouge nu', 'Avancé') : ''}</div>
+          ${s.reglages.map(champReglage)}</section>`;
+      })}
+        <div class="pleine" style="position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--fond) 35%);display:flex;justify-content:flex-end;gap:8px;">
+          <button type="button" class="btn btn-l" data-annuler-reglages disabled>Annuler les modifications</button>
+          <button type="submit" class="btn btn-l" data-enregistrer disabled>Enregistrer les réglages</button></div>
       </form>`);
-    var form = $('#form-reglages'), initial = JSON.stringify(lireValeursReglages());
-    function majEtat() {
-      reglagesModifies = JSON.stringify(lireValeursReglages()) !== initial;
-      $('#enregistrer-reglages').disabled = !reglagesModifies;
-      $('#etat-reglages').textContent = reglagesModifies ? 'Modifications non enregistrées' : 'Aucune modification';
-    }
-    form.addEventListener('input', majEtat);
-    form.addEventListener('change', majEtat);
-    $('#annuler-reglages').addEventListener('click', function () { reglagesModifies = false; vueReglages(); });
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      if (!JEF.valider(form)) return;
-      var valeurs = lireValeursReglages();
-      var go = function () {
-        var retablir = JEF.attente($('#enregistrer-reglages'), 'Enregistrement...');
-        JEF.post('admin_reglages_maj', { data: { valeurs: valeurs } }).then(function (r) {
-          retablir();
-          JEF.toast(r.modifies.length ? r.modifies.length + ' réglage(s) enregistré(s)' : 'Aucun changement', 'ok');
-          (r.avertissements || []).forEach(function (a) { JEF.toast(a); });
-          reglages = null; reglagesModifies = false;
-          try { sessionStorage.removeItem('jef_config'); } catch (x) { /* rien */ }
-          charger(true).then(function () { if (vue === 'reglages') vueReglages(); });
-        }).catch(function (err) { retablir(); JEF.toast(err.message, 'erreur'); });
-      };
-      var avant = JSON.parse(initial);
-      if (avant.Mode_Test === 'OUI' && valeurs.Mode_Test === 'NON') {
-        confirmer('Passer en production', 'Les emails partiront aux vrais participants et les formulaires suivront les dates d\'ouverture. Avez-vous supprimé les données de démonstration ?', 'Passer en production', true)
-          .then(function (ok) { if (ok) go(); });
-      } else go();
+    var form = $('#form-reglages');
+    reglagesInitial = JSON.stringify(lireValeursReglages());
+    reglagesModifies = false;
+    form.addEventListener('input', majEtatReglages);
+    form.addEventListener('change', function (e) {
+      if (e.target.matches('.interrupteur input')) e.target.nextElementSibling.textContent = e.target.checked ? 'Oui' : 'Non';
+      majEtatReglages();
     });
+    $$('[data-annuler-reglages]').forEach(function (b) { b.addEventListener('click', function () { reglagesModifies = false; vueReglages(); brancherAide(); etatSynchro('', 'Modifications annulées'); }); });
+    $$('[data-enregistrer]').forEach(function (b) { b.addEventListener('click', function (e) { e.preventDefault(); enregistrerReglages(false); }); });
+    form.addEventListener('submit', function (e) { e.preventDefault(); enregistrerReglages(false); });
+  }
+  function enregistrerReglages(confirme) {
+    var valeurs = lireValeursReglages();
+    var avant = JSON.parse(reglagesInitial);
+    var envoyer = function (conf) {
+      var b = $('#form-reglages [data-enregistrer]');
+      var retablir = JEF.attente(b, 'Enregistrement');
+      etatSynchro('en-cours', 'Enregistrement');
+      JEF.post('admin_reglages_maj', { data: { valeurs: valeurs, confirmer: conf } }).then(function (r) {
+        retablir();
+        JEF.toast(r.modifies.length ? r.modifies.length + ' réglage(s) enregistré(s)' : 'Aucun changement', 'ok');
+        (r.avertissements || []).forEach(function (a) { JEF.toast(a); });
+        reglages = null; reglagesModifies = false;
+        try { sessionStorage.removeItem('jef_config'); } catch (x) { /* rien */ }
+        etatSynchro('', 'Enregistré à ' + heureMaj(new Date()));
+        charger(true);
+      }).catch(function (err) {
+        retablir(); majEtatReglages();
+        if (err.code === 'confirmation') confirmer('Réglage sensible', err.message, 'Confirmer la modification', true).then(function (ok) { if (ok) envoyer(true); });
+        else JEF.toast(err.message, 'erreur');
+      });
+    };
+    if (avant.Mode_Test === 'OUI' && valeurs.Mode_Test === 'NON' && !confirme) {
+      confirmer('Passer en production', 'Les emails partiront aux vrais participants et les formulaires suivront les dates d\'ouverture. Les données de démonstration doivent être supprimées avant.', 'Passer en production', true)
+        .then(function (ok) { if (ok) envoyer(false); });
+    } else envoyer(false);
   }
 
-  // ----- Fiche détaillée (tiroir) ----------------------------------------------
-  function lignesInfos(paires) {
+  // ======================================================================
+  // Journal, mode d'emploi, nouveautés
+  // ======================================================================
+  function vueJournal() {
+    if (!journal) {
+      JEF.rendre('#vue', h`${aidePage('journal')}<div class="chargement"><span class="rotation"></span>Chargement du journal</div>`);
+      JEF.post('admin_journal').then(function (r) { journal = r.journal.map(function (j, i) { j.ID = 'J' + i; return j; }); if (vue === 'journal') { vueJournal(); brancherAide(); } }).catch(function (e) { JEF.toast(e.message, 'erreur'); });
+      return;
+    }
+    var t = tableau('journal', {
+      lignes: journal,
+      colonnes: [
+        { cle: 'date', titre: 'Date', val: function (j) { return JEF.date(j.Date, true); }, tri: function (j) { return new Date(j.Date).getTime() || 0; } },
+        { cle: 'qui', titre: 'Qui', val: function (j) { return j.Utilisateur; } },
+        { cle: 'action', titre: 'Action', val: function (j) { return j.Action; }, rendu: function (j) { return h`<b>${j.Action}</b>`; } },
+        { cle: 'cible', titre: 'Dossier', val: function (j) { return j.Cible; }, rendu: function (j) { return j.Cible ? h`<button class="lien-nom mono" data-op="cible">${j.Cible}</button>` : ''; } },
+        { cle: 'detail', titre: 'Détail', val: function (j) { return j.Detail; }, rendu: function (j) { return h`<span class="sous">${j.Detail}</span>`; } }
+      ],
+      pied: '300 dernières actions',
+      action: function (op, j) { var id = String(j.Cible); var type = id.indexOf('JEF') === 0 ? 'STAG' : id.indexOf('ENT') === 0 || id.indexOf('SOC') === 0 ? 'ENT' : 'PRO'; if (trouver(type, id)) ouvrirFiche(type, id); }
+    });
+    JEF.rendre('#vue', h`${aidePage('journal')}${panneau('Actions du bureau', 'Inscrites automatiquement, non modifiables.', t.html, h`<button class="btn btn-s" id="b-recharger-journal">Recharger</button>`)}`);
+    t.monter();
+    $('#b-recharger-journal').addEventListener('click', function () { journal = null; vueJournal(); brancherAide(); });
+  }
+
+  function vueAide() {
+    JEF.rendre('#vue', h`${aidePage('aide')}<section class="panneau texte-aide">${C.modeEmploi.map(function (s) {
+      return h`<h3>${s.titre}</h3>${s.blocs.map(function (b) {
+        if (b[0] === 'p') return h`<p>${b[1]}</p>`;
+        if (b[0] === 'ol') return h`<ol>${b[1].map(function (x) { return h`<li>${x}</li>`; })}</ol>`;
+        if (b[0] === 'ul') return h`<ul>${b[1].map(function (x) { return h`<li>${x}</li>`; })}</ul>`;
+        if (b[0] === 'legende') return h`<div class="legende-couleurs">${b[1].map(function (x) { return tag(x[0], x[1]); })}</div>`;
+        return '';
+      })}`;
+    })}</section>`);
+  }
+
+  function vueNouveautes() {
+    JEF.rendre('#vue', h`${aidePage('nouveautes')}${C.nouveautes.map(function (n) {
+      return panneau('Version ' + n.version, n.date, h`<ul style="margin:0;padding-left:18px;display:grid;gap:4px;">${n.points.map(function (p) { return h`<li>${p}</li>`; })}</ul>`);
+    })}`);
+  }
+
+  // ======================================================================
+  // Fiches détaillées (tiroir)
+  // ======================================================================
+  function infos(paires) {
     return h`<dl class="infos">${paires.filter(function (p) { return p[1] !== undefined && p[1] !== null && p[1] !== ''; }).map(function (p) { return h`<dt>${p[0]}</dt><dd>${p[1]}</dd>`; })}</dl>`;
   }
 
-  function ouvrirFiche(type, id) {
+  function ouvrirFiche(type, id, rafraichissement) {
     var l = trouver(type, id);
     if (!l) { fermerFiche(); return; }
-    ficheOuverte = { type: type, id: id };
-    var stag = type === 'STAG', p = prefixe(l), visiteur = l.Profil === 'VISITEUR';
-    var boutons = [];
-    if (stag && /[123]/.test(p)) boutons.push(h`<button class="btn btn-s btn-vert" data-op="valider">✓ Valider et envoyer le badge</button>`);
-    if (stag && /[34]/.test(p)) boutons.push(h`<button class="btn btn-s" data-op="payer">€ Marquer payé</button>`);
-    if (stag && p === '8') boutons.push(h`<button class="btn btn-s" data-op="sortir_attente">Admettre (sortir de l'attente)</button>`);
-    if (l.Email) boutons.push(h`<button class="btn btn-s" data-op="badge_envoyer">✉ Envoyer le badge</button>`);
-    boutons.push(h`<button class="btn btn-s" data-op="badge_pdf">🖨 Badge PDF</button>`);
-    if (stag && /[12]/.test(p)) boutons.push(h`<button class="btn btn-s" data-op="lien">Renvoyer le lien du dossier</button>`);
-    if (stag && Number(l.Heures) > 0) boutons.push(h`<button class="btn btn-s" data-op="attestation">Envoyer l'attestation</button>`);
-    if (stag) boutons.push(h`<button class="btn btn-s btn-fantome" data-op="bureau">${JEF.oui(l.Membre_Bureau) ? 'Retirer du Bureau' : 'Marquer membre du Bureau'}</button>`);
-    boutons.push(p === '9' ? h`<button class="btn btn-s" data-op="reactiver">Réactiver</button>` : h`<button class="btn btn-s btn-danger" data-op="annuler">Annuler l'inscription</button>`);
-
-    var champsEdit = stag
-      ? [['Civilite', 'Civilité'], ['Prenom', 'Prénom'], ['Nom', 'Nom'], ['Fonction', 'Fonction'], ['Email', 'Email'], ['Telephone', 'Téléphone'], ['Etablissement', 'Établissement'], ['Email_Formation', 'Email service formation']]
-      : [['Civilite', 'Civilité'], ['Prenom', 'Prénom'], ['Nom', 'Nom'], ['Fonction', 'Fonction'], ['Email', 'Email'], ['Telephone', 'Téléphone'], ['Organisme', 'Organisme']];
-
+    var nouveau = !fiche || fiche.id !== id;
+    fiche = { type: type, id: id };
+    if (type === 'ENT') ficheEntreprise(l); else fichePersonne(type, l);
     var t = $('#tiroir');
-    JEF.rendre(t, h`
-      <header><div style="flex:1;"><div class="petit mono">${l.ID}</div><h2 style="margin:2px 0 6px;">${nomComplet(l)}</h2>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">${stag ? pastilleStatut(l) : brut(JEF._val(pastilleProfil(l)) + JEF._val(pastilleStatut(l, true)))}
-        ${stag && JEF.oui(l.Membre_Bureau) ? h`<span class="pastille nue p-nuit">Bureau</span>` : ''}</div></div>
-        <button class="btn btn-fantome btn-s" id="fermer-fiche" aria-label="Fermer">✕</button></header>
-      <div class="corps">
-        <section><h4>Actions</h4><div style="display:flex;gap:6px;flex-wrap:wrap;" id="fiche-actions">${boutons}</div></section>
-        ${stag ? h`<section><h4>Suivi du dossier</h4>${lignesInfos([
-          ['Inscription', JEF.date(l.Date_Inscription, true)], ['Formule', l.Typologie + ' - ' + JEF.euros(l.Montant_Formation)],
-          ['Repas', JEF.euros(l.Montant_Repas)], ['Total', JEF.euros(l.Montant_Total)],
-          ['Adhésion vérifiée', l.Adherent_Verifie], ['Complété par le service', JEF.date(l.Date_Complement, true)],
-          ['Convention reçue', JEF.date(l.Date_Convention, true)], ['Badge envoyé', JEF.date(l.Badge_Envoye, true)],
-          ['Facture', l.Numero_Facture], ['Payé le', JEF.date(l.Date_Paiement)], ['Attestation', JEF.date(l.Attestation_Envoyee, true)]])}
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-            ${l.Convention_Fichier ? h`<a class="btn btn-s" href="${l.Convention_Fichier}" target="_blank" rel="noopener">📄 Convention signée</a>` : ''}
-            ${l.Dossier_Drive ? h`<a class="btn btn-s" href="${l.Dossier_Drive}" target="_blank" rel="noopener">📁 Dossier Drive</a>` : ''}</div></section>`
-        : h`<section><h4>Badge</h4>${lignesInfos([['Pass', l.Type_Pass + (Number(l.Montant) ? ' - ' + JEF.euros(l.Montant) : '')], ['Société', l.Societe_ID],
-          ['Visite', l.Creneau_Visite], ['Inscription', JEF.date(l.Date_Inscription, true)], ['Badge envoyé', JEF.date(l.Badge_Envoye, true)]])}
-          ${l.Dossier_Drive ? h`<a class="btn btn-s" style="margin-top:10px;" href="${l.Dossier_Drive}" target="_blank" rel="noopener">📁 Dossier Drive</a>` : ''}</section>`}
-        <section><h4>Présence</h4><div style="display:flex;gap:6px;flex-wrap:wrap;">${D.creneaux.map(function (c) {
-          var on = l['Presence_' + c.n];
-          return h`<button class="btn btn-s ${on ? 'btn-vert' : ''}" data-presence="${c.n}" data-on="${on ? 1 : 0}" title="${on ? 'Présent à ' + JEF.heure(on) + ' - cliquer pour retirer' : 'Marquer présent'}">${on ? '✓ ' : ''}${c.libelle}</button>`;
-        })}</div>${stag ? h`<div class="petit" style="margin-top:6px;">${l.Heures || 0} h réalisées</div>` : ''}</section>
-        ${visiteur ? '' : h`<section><h4>Repas</h4><div id="fiche-repas">${casesRepas('r_', l)}</div>
-          <div class="champ" style="margin-top:10px;"><label for="f-regime">Régime alimentaire</label><input id="f-regime" type="text" value="${l.Regime}"></div>
-          <button class="btn btn-s" style="margin-top:10px;" id="enr-repas">Enregistrer les repas</button></section>`}
-        <section><h4>Coordonnées</h4><form id="fiche-form" class="grille g2" novalidate>
-          ${champsEdit.map(function (c) { return h`<div class="champ"><label>${c[1]}</label><input name="${c[0]}" type="${/Email/.test(c[0]) ? 'email' : 'text'}" value="${l[c[0]]}"></div>`; })}
-          ${stag ? h`<div class="champ"><label>Formule</label><select name="Typologie"><option ${brut(l.Typologie === 'Adhérent' ? 'selected' : '')}>Adhérent</option><option ${brut(l.Typologie === 'Non-adhérent' ? 'selected' : '')}>Non-adhérent</option></select></div>` : ''}
-          ${!stag && visiteur ? h`<div class="champ"><label>Visite</label><select name="Creneau_Visite">${D.creneaux.map(function (c) { return h`<option ${brut(c.libelle === l.Creneau_Visite ? 'selected' : '')}>${c.libelle}</option>`; })}</select></div>` : ''}
-          <div class="champ span2"><label>Notes internes</label><textarea name="Notes" style="min-height:60px;">${l.Notes}</textarea></div>
-          <div class="span2"><button class="btn btn-s btn-primaire" type="submit">Enregistrer les coordonnées</button></div></form></section>
-        ${stag ? h`<section><h4>Positionnement</h4>${lignesInfos([['Niveau', l.Niveau], ['Objectifs', l.Objectifs], ['Attentes', l.Attentes], ['Handicap', l.Handicap]])}</section>
-          <section><h4>Informations administratives</h4>${lignesInfos([['Raison sociale', l.Raison_Sociale], ['SIRET', l.SIRET], ['Code NAF', l.Code_NAF],
-            ['Adresse', l.Adresse_Facturation], ['Signataire', l.Signataire], ['Contact', l.Contact_Formation], ['Financement', l.Mode_Financement],
-            ['OPCO / ANFH', l.Nom_OPCO], ['Bon de commande', l.Bon_Commande], ['Partage du QR', l.Partage_Coordonnees]])}</section>` : ''}
-      </div>`);
     t.classList.add('ouvert'); t.setAttribute('aria-hidden', 'false');
     $('#fermer-fiche').addEventListener('click', fermerFiche);
-    $$('#fiche-actions [data-op]').forEach(function (b) { b.addEventListener('click', function () { executer(type, id, b.getAttribute('data-op'), {}, b); }); });
-    $$('[data-presence]', t).forEach(function (b) {
-      b.addEventListener('click', function () { executer(type, id, 'presence', { creneau: b.getAttribute('data-presence'), retirer: b.getAttribute('data-on') === '1' }, b); });
+    avertirFicheOuverte();
+    if (nouveau && !rafraichissement) signalerPresence();
+  }
+
+  function fichePersonne(type, l) {
+    var stag = type === 'STAG', p = prefixe(l), visiteur = l.Profil === 'VISITEUR';
+    var boutons = [];
+    if (stag && /[123]/.test(p)) boutons.push(h`<button class="btn btn-s btn-vert" data-op="valider">Valider le dossier</button>`);
+    if (stag && /[34]/.test(p)) boutons.push(h`<button class="btn btn-s btn-primaire" data-op="payer">Encaisser</button>`);
+    if (stag && p === '8') boutons.push(h`<button class="btn btn-s btn-primaire" data-op="sortir_attente">Admettre</button>`);
+    if (l.Email) boutons.push(h`<button class="btn btn-s ${!stag && !l.Badge_Envoye ? 'btn-action' : ''}" data-op="badge_envoyer">${l.Badge_Envoye ? 'Renvoyer le badge' : 'Envoyer le badge'}</button>`);
+    boutons.push(h`<button class="btn btn-s" data-op="badge_pdf">Ouvrir le badge PDF</button>`);
+    if (stag && /[12]/.test(p)) boutons.push(h`<button class="btn btn-s" data-op="lien">Relancer le service formation</button>`);
+    if (stag && Number(l.Heures) > 0) boutons.push(h`<button class="btn btn-s" data-op="attestation">Envoyer l'attestation</button>`);
+    if (stag && /[45]/.test(p)) boutons.push(h`<button class="btn btn-s" data-op="facture">${l.Numero_Facture ? 'Renvoyer la facture' : 'Envoyer la facture'}</button>`);
+    if (stag && l.Parcours === 'SERVICE' && !l.Date_Positionnement) boutons.push(h`<button class="btn btn-s" data-op="positionnement">Renvoyer le lien de positionnement</button>`);
+    if (stag) boutons.push(h`<button class="btn btn-s" data-op="bureau">${JEF.oui(l.Membre_Bureau) ? 'Retirer du bureau' : 'Marquer membre du bureau'}</button>`);
+    boutons.push(p === '9' ? h`<button class="btn btn-s" data-op="reactiver">Réactiver</button>` : h`<button class="btn btn-s btn-danger" data-op="annuler">Annuler l'inscription</button>`);
+    var ent = !stag && l.Profil === 'EXPOSANT' ? entrepriseDe(l) : null;
+    var champsEdit = stag
+      ? [['Prenom', 'Prénom'], ['Nom', 'Nom'], ['Fonction', 'Fonction'], ['Email', 'Email'], ['Telephone', 'Téléphone'], ['Etablissement', 'Établissement'], ['Email_Formation', 'Email du service formation']]
+      : [['Prenom', 'Prénom'], ['Nom', 'Nom'], ['Fonction', 'Fonction'], ['Email', 'Email'], ['Telephone', 'Téléphone'], ['Organisme', 'Organisme']];
+    JEF.rendre('#tiroir', h`
+      <header><div style="flex:1;"><div class="petit mono">${l.ID}</div><h2 style="margin:2px 0 6px;font-size:18px;">${nomComplet(l)}</h2>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">${stag ? tagStatutStagiaire(l) : [tag('t-gris nu', PROFILS[l.Profil] || l.Profil), tagStatutBadge(l), l.Profil === 'EXPOSANT' ? tagPass(l) : '']}
+        ${stag && JEF.oui(l.Membre_Bureau) ? tag('t-encre nu', 'Bureau') : ''}</div></div>
+        <button class="btn btn-s" id="fermer-fiche" aria-label="Fermer la fiche">Fermer</button></header>
+      <div class="corps">
+        <div id="fiche-partagee"></div>
+        ${stag && l.Convention_Fichier ? h`<section class="bloc-convention ${p === '3' ? 'a-verifier' : ''}">
+          <div><h4>${l.Parcours === 'PERSONNEL' ? 'Contrat de formation signé' : 'Convention signée'}</h4>
+          <div>${p === '3' ? 'Déposé(e) le ' + JEF.date(l.Date_Convention, true) + '. À vérifier avant de valider le dossier.' : 'Déposé(e) le ' + JEF.date(l.Date_Convention, true) + '.'}</div></div>
+          <button class="btn ${p === '3' ? 'btn-action' : ''}" id="voir-convention">${p === '3' ? 'Vérifier et valider' : 'Voir le document'}</button></section>` : ''}
+        ${stag && !l.Convention_Fichier && /[12]/.test(p) ? h`<section class="bloc-convention"><div><h4>Document signé</h4><div>Pas encore déposé. ${l.Parcours === 'PERSONNEL' ? 'Le stagiaire doit signer et déposer son contrat.' : 'Le service formation doit déposer la convention signée.'}</div></div></section>` : ''}
+        <section><h4>Actions</h4><div style="display:flex;gap:6px;flex-wrap:wrap;" id="fiche-actions">${boutons}</div></section>
+        ${stag ? h`<section><h4>Suivi du dossier</h4>${infos([
+          ['Parcours', { STAGIAIRE: 'Le stagiaire s\'est inscrit, son service formation complète', SERVICE: 'Inscrit par le service formation', PERSONNEL: 'Le stagiaire paie lui-même' }[l.Parcours || 'STAGIAIRE']],
+          ['Mode de règlement', l.Mode_Reglement ? l.Mode_Reglement + ', après la formation' : ''],
+          ['Inscription', JEF.date(l.Date_Inscription, true)], ['Formule', l.Typologie + ', ' + JEF.euros(l.Montant_Formation)], ['Repas', JEF.euros(l.Montant_Repas)], ['Total', JEF.euros(l.Montant_Total)],
+          ['Adhésion vérifiée', l.Adherent_Verifie], ['Complété par le service formation', JEF.date(l.Date_Complement, true)], ['Convention reçue', JEF.date(l.Date_Convention, true)],
+          ['Badge envoyé', JEF.date(l.Badge_Envoye, true)], ['Facture', l.Numero_Facture ? l.Numero_Facture + ' du ' + JEF.date(l.Date_Facture) : ''], ['Payé le', JEF.date(l.Date_Paiement)],
+          ['Attestation', JEF.date(l.Attestation_Envoyee, true)]])}
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+            ${l.Convention_Fichier ? h`<a class="btn btn-s" href="${l.Convention_Fichier}" target="_blank" rel="noopener">Document signé dans Drive</a>` : ''}
+            ${l.Dossier_Drive ? h`<a class="btn btn-s" href="${l.Dossier_Drive}" target="_blank" rel="noopener">Dossier Drive</a>` : ''}</div></section>`
+        : h`<section><h4>Badge</h4>${infos([['Entreprise partenaire', ent ? ent.Nom : ''], ['Pass', l.Profil === 'EXPOSANT' ? l.Type_Pass + (Number(l.Montant) ? ', ' + JEF.euros(l.Montant) : '') : ''],
+          ['Visite', l.Creneau_Visite], ['Créé le', JEF.date(l.Date_Inscription, true)], ['Badge envoyé', JEF.date(l.Badge_Envoye, true)]])}
+          ${ent ? h`<button class="btn btn-s" style="margin-top:8px;" data-ouvrir-ent="${ent.ID}">Ouvrir la fiche de ${ent.Nom}</button>` : ''}</section>`}
+        <section><h4>Présence</h4><div>${boutonsPresence(l)}</div>${stag ? h`<div class="indice" style="margin-top:6px;">${l.Heures || 0} h réalisées</div>` : ''}</section>
+        ${visiteur ? '' : h`<section><h4>Repas</h4><div id="fiche-repas">${casesRepas('r_', l)}</div>
+          <div class="champ" style="margin-top:8px;"><label for="f-regime">Régime alimentaire</label><input id="f-regime" type="text" value="${l.Regime || ''}"></div>
+          <button class="btn btn-s btn-primaire" style="margin-top:8px;" id="enr-repas">Enregistrer les repas</button></section>`}
+        <section><h4>Coordonnées</h4><form id="fiche-form" class="grille g2" novalidate>
+          ${champsEdit.map(function (c) { return h`<div class="champ"><label>${c[1]}</label><input name="${c[0]}" type="${/Email/.test(c[0]) ? 'email' : 'text'}" value="${l[c[0]] || ''}"></div>`; })}
+          ${stag ? h`<div class="champ"><label>Formule</label><select name="Typologie"><option ${brut(l.Typologie === 'Adhérent' ? 'selected' : '')}>Adhérent</option><option ${brut(l.Typologie === 'Non-adhérent' ? 'selected' : '')}>Non-adhérent</option></select></div>` : ''}
+          ${visiteur ? h`<div class="champ"><label>Visite</label><select name="Creneau_Visite">${D.creneaux.map(function (c) { return h`<option ${brut(c.libelle === l.Creneau_Visite ? 'selected' : '')}>${c.libelle}</option>`; })}</select></div>` : ''}
+          <div class="champ span2"><label>Notes internes</label><textarea name="Notes" style="min-height:56px;">${l.Notes || ''}</textarea></div>
+          <div class="span2"><button class="btn btn-s btn-primaire" type="submit">Enregistrer les coordonnées</button></div></form></section>
+        ${stag ? h`<section><h4>Positionnement</h4>${!l.Niveau && !l.Objectifs ? h`<p class="indice" style="margin:0 0 6px;">${l.Parcours === 'SERVICE' ? 'Pas encore rempli par le stagiaire, qui a reçu un lien.' : 'Non renseigné.'}</p>` : ''}${infos([['Niveau', l.Niveau], ['Objectifs', l.Objectifs], ['Attentes', l.Attentes], ['Besoin d\'aménagement', l.Handicap]])}</section>
+          <section><h4>Informations administratives</h4>${infos([['Raison sociale', l.Raison_Sociale], ['SIRET', l.SIRET], ['Code NAF', l.Code_NAF], ['Adresse de facturation', l.Adresse_Facturation],
+            ['Signataire', l.Signataire], ['Contact', l.Contact_Formation], ['Financement', l.Mode_Financement], ['OPCO ou ANFH', l.Nom_OPCO], ['Bon de commande', l.Bon_Commande]])}</section>` : ''}
+      </div>`);
+    $$('#fiche-actions [data-op]').forEach(function (b) { b.addEventListener('click', function () { executer(type, l.ID, b.getAttribute('data-op'), {}, b); }); });
+    var vc = $('#voir-convention'); if (vc) vc.addEventListener('click', function () { apercuConvention(l); });
+    $$('#tiroir .pres').forEach(function (b) { b.addEventListener('click', function () { basculerPresence(type, l, b); }); });
+    $$('[data-ouvrir-ent]').forEach(function (b) { b.addEventListener('click', function () { ouvrirFiche('ENT', b.getAttribute('data-ouvrir-ent')); }); });
+    var er = $('#enr-repas');
+    if (er) er.addEventListener('click', function () {
+      var repas = {}; Object.keys(D.repas).forEach(function (c) { repas[c] = $('[name="r_' + c + '"]', $('#tiroir')).checked; });
+      modifier(type, l.ID, { repas: repas, champs: { Regime: $('#f-regime').value } }, er);
     });
-    var enrRepas = $('#enr-repas');
-    if (enrRepas) enrRepas.addEventListener('click', function () {
-      var repas = {}; Object.keys(D.repas).forEach(function (c) { repas[c] = $('[name="r_' + c + '"]', t).checked; });
-      modifier(type, id, { repas: repas, champs: { Regime: $('#f-regime').value } }, enrRepas);
+    $('#fiche-form').addEventListener('submit', function (e) { e.preventDefault(); if (JEF.valider(this)) modifier(type, l.ID, { champs: JEF.lireFormulaire(this) }, $('button[type=submit]', this)); });
+  }
+
+  function ficheEntreprise(e) {
+    var reps = D.badges.filter(function (b) { return b.Entreprise_ID === e.ID; });
+    var actifs = reps.filter(actifBadge);
+    var aEnvoyer = actifs.filter(function (b) { return b.Email && !b.Badge_Envoye; }).length;
+    var active = entrepriseActive(e);
+    JEF.rendre('#tiroir', h`
+      <header><div style="flex:1;"><div class="petit mono">${e.ID}</div><h2 style="margin:2px 0 6px;font-size:18px;">${e.Nom}</h2>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">${active ? tag('t-vert', 'Entreprise partenaire exposante') : tag('t-rouge', 'Annulée')}
+        ${tag(e.Pass_Inclus >= e.Quota ? 't-vert' : 't-gris', e.Pass_Inclus + ' pass inclus sur ' + e.Quota)}</div></div>
+        <button class="btn btn-s" id="fermer-fiche" aria-label="Fermer la fiche">Fermer</button></header>
+      <div class="corps">
+        <div id="fiche-partagee"></div>
+        <section><h4>Actions</h4><div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${active ? h`<button class="btn btn-s btn-primaire" id="e-ajouter">Ajouter un représentant</button>` : ''}
+          ${aEnvoyer ? h`<button class="btn btn-s btn-action" id="e-envoyer">Envoyer les badges (${aEnvoyer})</button>` : ''}
+          <button class="btn btn-s" id="e-modifier">Modifier l'entreprise</button>
+          ${active ? h`<button class="btn btn-s btn-danger" id="e-annuler">Annuler l'entreprise</button>` : h`<button class="btn btn-s" id="e-reactiver">Réactiver</button>`}</div></section>
+        <section><h4>Coordonnées</h4>${infos([['Contact', e.Contact], ['Email', e.Email_Contact], ['Téléphone', e.Telephone_Contact], ['Emplacement exposant', e.Emplacement],
+          ['Pass inclus', e.Quota + (String(e.Quota_Gratuit || '') === '' ? ' (valeur par défaut)' : '')], ['Notes', e.Notes]])}</section>
+        <section><h4>Représentants (${actifs.length})</h4>
+          ${reps.length ? h`<div class="table-defile" style="max-height:none;"><table class="tab"><thead><tr><th>Personne</th><th>Pass</th><th>Repas</th><th>Badge</th><th></th></tr></thead><tbody>
+            ${reps.map(function (b) { return h`<tr data-rep="${b.ID}"><td><button class="lien-nom" data-rep-op="fiche">${nomComplet(b)}</button><div class="sous">${b.Fonction || ''} ${b.Email || 'sans email'}</div></td>
+              <td>${actifBadge(b) ? tagPass(b) : tag('t-rouge', 'Annulé')}</td><td>${repas3(b)}</td><td>${tagStatutBadge(b)}</td>
+              <td style="white-space:nowrap;">${b.Email && actifBadge(b) ? h`<button class="btn btn-s" data-rep-op="badge_envoyer">${b.Badge_Envoye ? 'Renvoyer' : 'Envoyer'}</button>` : ''}<button class="btn btn-s" data-rep-op="badge_pdf">PDF</button></td></tr>`; })}
+          </tbody></table></div>` : h`<p class="indice" style="margin:0;">Aucun représentant pour le moment. Ajoutez-les un par un, ou importez la feuille à compléter depuis la liste des entreprises.</p>`}</section>
+      </div>`);
+    var ajouter = $('#e-ajouter'); if (ajouter) ajouter.addEventListener('click', function () { modaleRepresentant(e); });
+    $('#e-modifier').addEventListener('click', function () { modaleEntreprise(e); });
+    var env = $('#e-envoyer');
+    if (env) env.addEventListener('click', function () {
+      confirmer('Envoyer les badges', aEnvoyer + ' représentant(s) de ' + e.Nom + ' vont recevoir leur badge par email.', 'Envoyer', false).then(function (ok) {
+        if (!ok) return;
+        var retablir = JEF.attente(env, 'Envoi');
+        JEF.post('admin_entreprise', { data: { op: 'envoyer_badges', id: e.ID } }, { delai: 300000 }).then(function (r) { retablir(); JEF.toast(r.envoyes + ' badge(s) envoyé(s)' + (r.restants ? ', ' + r.restants + ' restant(s) : relancez' : ''), 'ok'); charger(true); })
+          .catch(function (err) { retablir(); JEF.toast(err.message, 'erreur'); });
+      });
     });
-    $('#fiche-form').addEventListener('submit', function (e) {
-      e.preventDefault();
-      if (!JEF.valider(this)) return;
-      modifier(type, id, { champs: JEF.lireFormulaire(this) }, $('button[type=submit]', this));
+    var an = $('#e-annuler') || $('#e-reactiver');
+    an.addEventListener('click', function () {
+      var op = an.id === 'e-annuler' ? 'annuler' : 'reactiver';
+      var go = function () { JEF.post('admin_entreprise', { data: { op: op, id: e.ID } }).then(function () { JEF.toast(op === 'annuler' ? 'Entreprise annulée' : 'Entreprise réactivée', 'ok'); charger(true); }).catch(function (err) { JEF.toast(err.message, 'erreur'); }); };
+      if (op === 'annuler') confirmer('Annuler l\'entreprise', 'Plus aucun représentant ne pourra être ajouté. Les badges déjà créés restent valables : annulez-les un par un si besoin.', 'Annuler l\'entreprise', true).then(function (ok) { if (ok) go(); });
+      else go();
+    });
+    $$('#tiroir [data-rep]').forEach(function (tr) {
+      tr.addEventListener('click', function (ev) {
+        var id = tr.getAttribute('data-rep'), b = ev.target.closest('[data-rep-op]');
+        var op = b ? b.getAttribute('data-rep-op') : 'fiche';
+        if (op === 'fiche') ouvrirFiche('PRO', id); else executer('PRO', id, op, {}, b);
+      });
     });
   }
 
-  function fermerFiche() { ficheOuverte = null; var t = $('#tiroir'); t.classList.remove('ouvert'); t.setAttribute('aria-hidden', 'true'); }
+  function fermerFiche() { var etaitOuverte = !!fiche; fiche = null; var t = $('#tiroir'); t.classList.remove('ouvert'); t.setAttribute('aria-hidden', 'true'); if (etaitOuverte) signalerPresence(); }
+
+  // ======================================================================
+  // Actions
+  // ======================================================================
+  var CONFIRMATIONS = {
+    valider: ['Valider le dossier', 'Le badge part au stagiaire, et la facture au service formation si la facturation automatique est active.', 'Valider'],
+    payer: ['Enregistrer le paiement', 'Le dossier passe au statut Payé. La facture acquittée part au service formation si la facturation automatique est active.', 'Encaisser'],
+    annuler: ['Annuler l\'inscription', 'L\'inscription est annulée. Elle reste dans le classeur et peut être réactivée.', 'Annuler l\'inscription', true],
+    attestation: ['Envoyer l\'attestation', 'L\'attestation est créée avec les heures réellement suivies et envoyée par email.', 'Envoyer'],
+    sortir_attente: ['Admettre ce stagiaire', 'Le dossier provisoire et le lien du service formation lui sont envoyés.', 'Admettre'],
+    badge_envoyer: ['Envoyer le badge', 'Le badge est recréé avec les informations actuelles et envoyé par email.', 'Envoyer'],
+    lien: ['Relancer', 'Le lien personnel du dossier est renvoyé au service formation, ou au stagiaire s\'il n\'y a pas d\'adresse.', 'Relancer'],
+    facture: ['Envoyer la facture', 'La facture est créée si besoin et envoyée par email (acquittée si le paiement est enregistré).', 'Envoyer'],
+    positionnement: ['Renvoyer le lien de positionnement', 'Le stagiaire reçoit à nouveau le lien pour remplir son positionnement.', 'Envoyer']
+  };
+  var SUCCES = { valider: 'Dossier validé, badge envoyé', payer: 'Paiement enregistré', badge_envoyer: 'Badge envoyé', lien: 'Lien renvoyé', annuler: 'Inscription annulée',
+    reactiver: 'Inscription réactivée', bureau: 'Statut bureau modifié', attestation: 'Attestation envoyée', presence: 'Présence mise à jour', sortir_attente: 'Stagiaire admis', facture: 'Facture envoyée', positionnement: 'Lien de positionnement envoyé' };
+
+  /** Ouvre une fenêtre tout de suite (sinon le navigateur la bloque), remplie quand le document est prêt. */
+  function preparerFenetre(message) {
+    var w = null;
+    try { w = window.open('', '_blank'); } catch (e) { w = null; }
+    if (w) { try { w.document.title = message; w.document.body.style.font = '14px Segoe UI, sans-serif'; w.document.body.textContent = message + '...'; } catch (e) { /* rien */ } }
+    return w;
+  }
+  function ouvrirPdfBase64(b64, nom, fenetre) {
+    var octets = atob(b64), tab = new Uint8Array(octets.length);
+    for (var i = 0; i < octets.length; i++) tab[i] = octets.charCodeAt(i);
+    var url = URL.createObjectURL(new Blob([tab], { type: 'application/pdf' }));
+    if (fenetre && !fenetre.closed) { fenetre.location.href = url; JEF.toast('Badge ouvert dans un nouvel onglet', 'ok'); return; }
+    ouvrirModale('Badge prêt', h`<p style="margin:0;">Votre navigateur a bloqué l'ouverture automatique. Utilisez un des boutons ci-dessous.</p>`, [
+      { texte: 'Fermer' },
+      { texte: 'Télécharger', action: function () { var a = document.createElement('a'); a.href = url; a.download = nom; document.body.appendChild(a); a.click(); a.remove(); fermerModale(); } },
+      { texte: 'Ouvrir', classe: 'btn-primaire', action: function () { window.open(url, '_blank'); fermerModale(); } }]);
+  }
+  function ouvrirBadgePdf(type, id, fenetre, btn) {
+    var retablir = JEF.attente(btn, 'Préparation');
+    JEF.post('admin_action', { data: { type: type, id: id, op: 'badge_pdf' } }, { delai: 120000 }).then(function (r) {
+      retablir(); ouvrirPdfBase64(r.pdf, r.nom, fenetre);
+    }).catch(function (e) { retablir(); if (fenetre) fenetre.close(); JEF.toast(e.message, 'erreur'); });
+  }
+
+  /** Aperçu du document signé dans le cockpit, avec le bouton Valider à côté. */
+  function apercuConvention(l) {
+    var aValider = prefixe(l) === '3';
+    var titre = (l.Parcours === 'PERSONNEL' ? 'Contrat signé' : 'Convention signée') + ' - ' + nomComplet(l);
+    var url = null;
+    ouvrirModale(titre, h`<div id="apercu-doc" class="apercu-doc"><div class="chargement"><span class="rotation"></span>Chargement du document</div></div>
+      <dl class="infos"><dt>Dossier</dt><dd>${l.ID}</dd><dt>Établissement</dt><dd>${l.Raison_Sociale || l.Etablissement || '-'}</dd><dt>Montant</dt><dd>${JEF.euros(l.Montant_Total)}</dd><dt>Déposé le</dt><dd>${JEF.date(l.Date_Convention, true)}</dd></dl>`,
+      [{ texte: 'Fermer', action: function () { fermerModale(); if (url) URL.revokeObjectURL(url); } },
+        { texte: 'Ouvrir dans un onglet', action: function () { if (url) window.open(url, '_blank'); } }]
+        .concat(aValider ? [{ texte: 'Valider le dossier', classe: 'btn-vert', action: function (z, b) { fermerModale(); executer('STAG', l.ID, 'valider', {}, null, false, true); } }] : []), 'large');
+    JEF.post('admin_action', { data: { type: 'STAG', id: l.ID, op: 'convention' } }, { delai: 60000 }).then(function (r) {
+      var octets = atob(r.fichier), tab = new Uint8Array(octets.length);
+      for (var i = 0; i < octets.length; i++) tab[i] = octets.charCodeAt(i);
+      url = URL.createObjectURL(new Blob([tab], { type: r.type }));
+      var z = $('#apercu-doc'); if (!z) return;
+      if (/^image\//.test(r.type)) JEF.rendre(z, h`<img src="${url}" alt="Document signé">`);
+      else JEF.rendre(z, h`<object data="${url}" type="application/pdf"><p class="indice">L'aperçu n'est pas disponible dans ce navigateur. Utilisez « Ouvrir dans un onglet ».</p></object>`);
+    }).catch(function (e) { var z = $('#apercu-doc'); if (z) JEF.rendre(z, h`<p class="indice">${e.message}</p>`); });
+  }
+
+  function basculerPresence(type, l, btn) {
+    var n = btn.getAttribute('data-n'), on = btn.classList.contains('on');
+    if (n === 'tous' && on) {
+      confirmer('Retirer la présence', 'La présence de ' + nomComplet(l) + ' sera retirée sur toutes les demi-journées.', 'Retirer', true).then(function (ok) { if (ok) { btn.classList.remove('on'); envoyerPresence(type, l, btn, n, true); } });
+      return;
+    }
+    btn.classList.toggle('on', !on);
+    envoyerPresence(type, l, btn, n, on);
+  }
+  function envoyerPresence(type, l, btn, n, on) {
+    JEF.post('admin_action', { data: { type: type, id: l.ID, op: 'presence', creneau: n, retirer: on } }).then(function () {
+      JEF.toast((on ? 'Présence retirée' : 'Présence validée') + ' pour ' + nomComplet(l), 'ok');
+      charger(true);
+    }).catch(function (e) { btn.classList.toggle('on', on); JEF.toast(e.message, 'erreur'); });
+  }
+
+  function executer(type, id, op, extra, btn, forcer, dejaConfirme) {
+    if (op === 'badge_pdf') { ouvrirBadgePdf(type, id, preparerFenetre('Préparation du badge'), btn); return; }
+    var conf = CONFIRMATIONS[op];
+    var lancer = function () {
+      var retablir = JEF.attente(btn, 'En cours');
+      etatSynchro('en-cours', 'Envoi en cours');
+      JEF.post('admin_action', { data: Object.assign({ type: type, id: id, op: op, forcer: !!forcer }, extra) }, { delai: 120000 }).then(function () {
+        retablir(); JEF.toast(SUCCES[op] || 'Fait', 'ok'); charger(true);
+      }).catch(function (e) {
+        retablir(); etatSynchro('', 'À jour');
+        if (e.code === 'confirmation') confirmer('Convention non reçue', e.message, 'Valider quand même', true).then(function (ok) { if (ok) executer(type, id, op, extra, btn, true); });
+        else JEF.toast(e.message, 'erreur');
+      });
+    };
+    if (conf && !forcer && !dejaConfirme) confirmer(conf[0], conf[1] + ' Dossier ' + id + '.', conf[2], conf[3]).then(function (ok) { if (ok) lancer(); });
+    else lancer();
+  }
 
   function modifier(type, id, donnees, btn) {
-    var retablir = JEF.attente(btn, 'Enregistrement...');
+    var retablir = JEF.attente(btn, 'Enregistrement');
     JEF.post('admin_modifier', { data: Object.assign({ type: type, id: id }, donnees) }).then(function (r) {
       retablir(); JEF.toast(r.avertissement || 'Modifications enregistrées', r.avertissement ? '' : 'ok'); charger(true);
     }).catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
   }
 
-  // ----- Actions ---------------------------------------------------------------
-  var CONFIRMATIONS = {
-    valider: ['Valider le dossier', 'Le badge sera envoyé au stagiaire (et la facture si la facturation automatique est active).', 'Valider'],
-    payer: ['Enregistrer le paiement', 'Le dossier passera au statut « Payé ».', 'Confirmer'],
-    annuler: ['Annuler l\'inscription', 'L\'inscription sera annulée. Elle reste dans le classeur et peut être réactivée.', 'Annuler l\'inscription', true],
-    attestation: ['Envoyer l\'attestation', 'L\'attestation sera générée avec les heures réellement suivies et envoyée par email.', 'Envoyer'],
-    sortir_attente: ['Admettre ce stagiaire', 'Le dossier provisoire et le lien du service formation lui seront envoyés.', 'Admettre'],
-    badge_envoyer: ['Envoyer le badge', 'Le badge sera régénéré et envoyé par email.', 'Envoyer'],
-    lien: ['Relancer le service formation', 'Le lien personnel du dossier sera renvoyé par email au service formation (ou au stagiaire).', 'Renvoyer le lien']
-  };
-  var SUCCES = { valider: 'Dossier validé, badge envoyé', payer: 'Paiement enregistré', badge_envoyer: 'Badge envoyé', lien: 'Lien renvoyé', annuler: 'Inscription annulée',
-    reactiver: 'Inscription réactivée', bureau: 'Statut Bureau modifié', attestation: 'Attestation envoyée', presence: 'Présence mise à jour', sortir_attente: 'Stagiaire admis' };
-
-  function executer(type, id, op, extra, btn, forcer) {
-    var conf = CONFIRMATIONS[op];
-    var lancer = function () {
-      var retablir = JEF.attente(btn, '...');
-      JEF.post('admin_action', { data: Object.assign({ type: type, id: id, op: op, forcer: !!forcer }, extra) }, { delai: 120000 }).then(function (r) {
-        retablir();
-        if (r.pdfUrl) { window.open(r.pdfUrl, '_blank', 'noopener'); JEF.toast('Badge ouvert dans un nouvel onglet', 'ok'); }
-        else JEF.toast(SUCCES[op] || 'Fait', 'ok');
-        charger(true);
-      }).catch(function (e) {
-        retablir();
-        if (e.code === 'confirmation') {
-          confirmer('Convention non reçue', e.message, 'Valider quand même', true).then(function (ok) { if (ok) executer(type, id, op, extra, btn, true); });
-        } else JEF.toast(e.message, 'erreur');
-      });
-    };
-    if (conf && !forcer) confirmer(conf[0], conf[1] + ' (' + id + ')', conf[2], conf[3]).then(function (ok) { if (ok) lancer(); });
-    else lancer();
+  // ----- Exports ---------------------------------------------------------------
+  function exporter(kind) {
+    if (kind === 'vue') {
+      if (!tableCourante) { JEF.toast('Cette page n\'a pas de tableau à exporter.', 'erreur'); return; }
+      var cols = tableCourante.cfg.colonnes.filter(function (c) { return c.trier !== false || c.cle === 'presence'; });
+      var lignes = [cols.map(function (c) { return c.titre; })].concat(tableCourante.lignes.map(function (l) { return cols.map(function (c) { return c.val(l); }); }));
+      JEF.telecharger('JEF_' + vue + '_' + new Date().toISOString().slice(0, 10) + '.csv', csvDepuis(lignes));
+      JEF.toast('Tableau exporté', 'ok');
+      return;
+    }
+    etatSynchro('en-cours', 'Préparation de l\'export');
+    JEF.post('admin_export', { data: { kind: kind } }).then(function (r) { JEF.telecharger(r.nom, r.csv); JEF.toast('Export téléchargé', 'ok'); etatSynchro('', 'À jour'); })
+      .catch(function (e) { etatSynchro('erreur', 'Erreur'); JEF.toast(e.message, 'erreur'); });
   }
 
-  // ----- Modales -----------------------------------------------------------------
-  function ouvrirModale(titre, corps, boutons) {
+  // ----- Fenêtres ----------------------------------------------------------------
+  function ouvrirModale(titre, corps, boutons, taille) {
     var m = $('#modale');
+    m.className = 'modale ' + (taille || '');
     JEF.rendre(m, h`<header><h3>${titre}</h3></header><form class="corps" id="modale-corps" novalidate>${corps}</form>
-      <footer>${boutons.map(function (b, i) { return h`<button type="button" class="btn ${b.classe || ''}" data-b="${i}">${b.texte}</button>`; })}</footer>`);
+      <footer>${boutons.map(function (b, i) { return h`<button type="button" class="btn ${b.classe || ''} ${i === 0 && boutons.length > 1 ? 'gauche' : ''}" data-b="${i}">${b.texte}</button>`; })}</footer>`);
     $('#voile').classList.add('ouvert');
     $$('[data-b]', m).forEach(function (el) {
-      el.addEventListener('click', function () {
-        var b = boutons[Number(el.getAttribute('data-b'))];
-        if (b.action) b.action($('#modale-corps'), el); else fermerModale();
-      });
+      el.addEventListener('click', function () { var b = boutons[Number(el.getAttribute('data-b'))]; if (b.action) b.action($('#modale-corps'), el); else fermerModale(); });
     });
     $('#modale-corps').addEventListener('submit', function (e) { e.preventDefault(); });
-    var premier = $('input, select', m); if (premier) premier.focus();
+    var premier = $('input:not([type=checkbox]):not([type=file]), select', m); if (premier) premier.focus();
   }
   function fermerModale() { $('#voile').classList.remove('ouvert'); }
   function confirmer(titre, texte, libelle, danger) {
     return new Promise(function (resoudre) {
       ouvrirModale(titre, h`<p style="margin:0;">${texte}</p>`, [
-        { texte: 'Retour', action: function () { fermerModale(); resoudre(false); } },
+        { texte: 'Annuler', action: function () { fermerModale(); resoudre(false); } },
         { texte: libelle, classe: danger ? 'btn-danger' : 'btn-primaire', action: function () { fermerModale(); resoudre(true); } }]);
     });
   }
 
-  // ----- Navigation et événements globaux ---------------------------------------
-  function aller(v) {
-    if (vue === 'reglages' && reglagesModifies && v !== 'reglages') {
-      confirmer('Modifications non enregistrées', 'Quitter les réglages sans enregistrer ?', 'Quitter', true).then(function (ok) { if (ok) { reglagesModifies = false; aller(v); } });
-      return;
-    }
-    vue = v; fermerFiche(); afficher(); window.scrollTo(0, 0);
+  // ======================================================================
+  // Recherche rapide et événements de la barre
+  // ======================================================================
+  function rechercher(q) {
+    var z = $('#resultats');
+    q = normal(q).trim();
+    if (q.length < 2 || !D) { z.hidden = true; return; }
+    var res = [];
+    D.stagiaires.forEach(function (l) { if (normal([l.ID, l.Nom, l.Prenom, l.Email, l.Etablissement].join(' ')).indexOf(q) !== -1) res.push({ type: 'STAG', id: l.ID, nom: nomComplet(l), info: 'Stagiaire - ' + (l.Etablissement || '') }); });
+    D.badges.forEach(function (b) { if (normal([b.ID, b.Nom, b.Prenom, b.Email, b.Organisme].join(' ')).indexOf(q) !== -1) res.push({ type: 'PRO', id: b.ID, nom: nomComplet(b), info: (PROFILS[b.Profil] || b.Profil) + ' - ' + (b.Organisme || '') }); });
+    D.entreprises.forEach(function (e) { if (normal([e.ID, e.Nom, e.Contact, e.Email_Contact].join(' ')).indexOf(q) !== -1) res.push({ type: 'ENT', id: e.ID, nom: e.Nom, info: 'Entreprise partenaire' }); });
+    res = res.slice(0, 10);
+    JEF.rendre(z, res.length ? res.map(function (r, i) { return h`<button data-r="${i}" class="${i === 0 ? 'actif' : ''}"><b>${r.nom}</b><small>${r.info}</small></button>`; }) : h`<div style="padding:8px;color:var(--texte-2);">Aucun résultat</div>`);
+    z.hidden = false;
+    z._res = res;
+    $$('[data-r]', z).forEach(function (b) { b.addEventListener('click', function () { var r = res[Number(b.getAttribute('data-r'))]; z.hidden = true; $('#recherche').value = ''; ouvrirFiche(r.type, r.id); }); });
   }
-  $$('.barre-laterale [data-vue]').forEach(function (b) { b.addEventListener('click', function () { aller(b.getAttribute('data-vue')); }); });
-  $('#rafraichir').addEventListener('click', function () { journal = null; charger(); });
-  $('#deconnexion').addEventListener('click', JEF.deconnexion);
-  $('#voile').addEventListener('click', function (e) { if (e.target === this) fermerModale(); });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { if ($('#voile').classList.contains('ouvert')) fermerModale(); else fermerFiche(); } });
-  $('#export').addEventListener('change', function () {
-    var kind = this.value, sel = this;
-    if (!kind) return;
-    sel.disabled = true;
-    JEF.post('admin_export', { data: { kind: kind } }).then(function (r) { JEF.telecharger(r.nom, r.csv); JEF.toast('Export téléchargé', 'ok'); })
-      .catch(function (e) { JEF.toast(e.message, 'erreur'); })
-      .finally(function () { sel.value = ''; sel.disabled = false; });
+
+  function basculerMenu(bouton, menu) {
+    var ouvert = !menu.hidden;
+    $$('.deroulant').forEach(function (d) { d.hidden = true; });
+    menu.hidden = ouvert;
+    bouton.setAttribute('aria-expanded', String(!ouvert));
+  }
+
+  $('#recherche').addEventListener('input', function () { rechercher(this.value); });
+  $('#recherche').addEventListener('keydown', function (e) {
+    var z = $('#resultats');
+    if (e.key === 'Escape') { z.hidden = true; this.value = ''; }
+    if (e.key === 'Enter' && z._res && z._res[0]) { var r = z._res[0]; z.hidden = true; this.value = ''; ouvrirFiche(r.type, r.id); }
   });
-  // Actualisation discrète toutes les 2 minutes quand l'onglet est visible.
-  setInterval(function () { if (D && !document.hidden && !ficheOuverte && !$('#voile').classList.contains('ouvert')) charger(true); }, 120000);
+  $('#b-exporter').addEventListener('click', function (e) { e.stopPropagation(); basculerMenu(this, $('#menu-export')); });
+  $('#b-compte').addEventListener('click', function (e) { e.stopPropagation(); basculerMenu(this, $('#menu-compte')); });
+  $('#menu-export').addEventListener('click', function (e) { var b = e.target.closest('[data-export]'); if (b) { this.hidden = true; exporter(b.getAttribute('data-export')); } });
+  $('#menu-compte').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-compte]'); if (!b) return;
+    this.hidden = true;
+    if (b.getAttribute('data-compte') === 'sortir') JEF.deconnexion(); else aller('aide');
+  });
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('.deroulant-zone')) $$('.deroulant').forEach(function (d) { d.hidden = true; });
+    if (!e.target.closest('.recherche')) $('#resultats').hidden = true;
+  });
+  $('#b-imprimer').addEventListener('click', function () { window.print(); });
+  $('#b-actualiser').addEventListener('click', function () { journal = null; if (vue === 'reglages' && !reglagesModifies) reglages = null; charger(); });
+  $('#menu-ouvrir').addEventListener('click', function () { $('#menu').classList.add('ouvert'); });
+  $('#menu-fermer').addEventListener('click', function () { $('#menu').classList.remove('ouvert'); });
+  $('#voile').addEventListener('click', function (e) { if (e.target === this) fermerModale(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { if ($('#voile').classList.contains('ouvert')) fermerModale(); else if (fiche) fermerFiche(); }
+    if (e.key === '/' && document.activeElement === document.body) { e.preventDefault(); $('#recherche').focus(); }
+  });
+  window.addEventListener('beforeunload', function (e) { if (reglagesModifies) { e.preventDefault(); e.returnValue = ''; } });
 
   demarrer();
 })();
