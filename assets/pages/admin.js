@@ -59,6 +59,7 @@
   }
   function estPresent(l) { return D.creneaux.some(function (c) { return !!l['Presence_' + c.n]; }); }
   function estAdmin() { return session && session.role === 'admin'; }
+  function mobile() { return window.matchMedia && window.matchMedia('(max-width: 760px)').matches; }
   /** Présent ou non, point. Un clic marque présent sur toute la formation, un second retire. */
   function boutonsPresence(l) {
     var on = estPresent(l);
@@ -76,7 +77,7 @@
   }
   function aidePage(page) {
     var a = C.aides[page] || { texte: '', points: [] };
-    var ouvert = lireLocal('jef_aide_' + page, true);
+    var ouvert = lireLocal('jef_aide_' + page, !mobile());
     return h`<details class="aide-page" data-aide="${page}" ${brut(ouvert ? 'open' : '')}><summary>Aide de cette page</summary><div class="contenu">
       <p style="margin:0 0 4px;">${a.texte}</p>${a.points.length ? h`<ul>${a.points.map(function (p) { return h`<li>${p}</li>`; })}</ul>` : ''}
       ${a.legende ? h`<div><b>Légende</b>${legende(a.legende)}</div>` : ''}</div></details>`;
@@ -96,7 +97,9 @@
   function tableau(id, cfg) {
     var etat = etatsTables[id] = etatsTables[id] || { tri: cfg.triDefaut || null, sens: cfg.sensDefaut || 1, filtres: {} };
     function visibles() {
+      var g = normal(etat.global || '');
       var liste = cfg.lignes.filter(function (l) {
+        if (g && normal(cfg.colonnes.map(function (c) { return c.val(l); }).join(' ')).indexOf(g) === -1) return false;
         return cfg.colonnes.every(function (c) {
           var f = etat.filtres[c.cle];
           return !f || normal(c.val(l)).indexOf(normal(f)) !== -1;
@@ -118,11 +121,11 @@
       var tb = $('#t-' + id + ' tbody');
       if (!tb) return;
       JEF.rendre(tb, liste.length ? liste.map(function (l) {
-        return h`<tr data-cle="${l.ID}">${cfg.colonnes.map(function (c) { return h`<td class="${c.classe || ''}">${c.rendu ? c.rendu(l) : c.val(l)}</td>`; })}</tr>`;
+        return h`<tr data-cle="${l.ID}">${cfg.colonnes.map(function (c) { return h`<td class="${c.classe || ''}" data-titre="${c.titre}">${c.rendu ? c.rendu(l) : c.val(l)}</td>`; })}</tr>`;
       }) : h`<tr class="vide-l"><td colspan="${cfg.colonnes.length}">${cfg.vide || 'Aucune ligne ne correspond aux filtres.'}</td></tr>`);
       $('#tp-' + id).textContent = liste.length + ' ligne' + (liste.length > 1 ? 's' : '') + (liste.length !== cfg.lignes.length ? ' sur ' + cfg.lignes.length : '');
     }
-    var html = h`<div class="table-defile"><table class="tab" id="t-${id}"><thead>
+    var html = h`<input type="search" class="filtre-global" data-filtre-global value="${etat.global || ''}" placeholder="Filtrer cette liste" aria-label="Filtrer cette liste"><div class="table-defile"><table class="tab" id="t-${id}"><thead>
       <tr>${cfg.colonnes.map(function (c) {
         var actifTri = etat.tri === c.cle;
         return h`<th>${c.trier === false ? c.titre : h`<button class="tri" data-tri="${c.cle}" ${brut(actifTri ? 'data-sens="' + etat.sens + '"' : '')}>${c.titre}<span class="fleche">${actifTri && etat.sens < 0 ? '▼' : '▲'}</span></button>`}</th>`;
@@ -145,6 +148,8 @@
           });
         });
         $$('[data-filtre]', t).forEach(function (i) { i.addEventListener('input', function () { etat.filtres[i.getAttribute('data-filtre')] = i.value; corps(); }); });
+        var fg = t.closest('.table-defile').previousElementSibling;
+        if (fg && fg.hasAttribute('data-filtre-global')) fg.addEventListener('input', function () { etat.global = fg.value; corps(); });
         $('tbody', t).addEventListener('click', function (e) {
           var tr = e.target.closest('tr[data-cle]');
           if (!tr) return;
@@ -175,6 +180,7 @@
     JEF.post('preferences', { data: {} }).then(function (r) { prefs = r.preferences || {}; ecrireLocal('jef_prefs', prefs); if (vue === 'tableau' && D) afficher(); }).catch(function () { /* préférences locales */ });
     $('#connexion').hidden = true;
     $('#app').hidden = false;
+    $('#nav-bas').hidden = false;
     construireMenu();
     construireCompte();
     var depart = (location.hash || '').replace('#', '');
@@ -203,8 +209,8 @@
         ${g.pages.filter(function (p) { return estAdmin() || PAGES_ADMIN.indexOf(p[0]) === -1; }).map(function (p) { return h`<button class="menu-btn" data-vue="${p[0]}">${p[1]}<span class="compteur" id="c-${p[0]}" hidden></span></button>`; })}</div>`;
     }));
     $('#menu-bas').textContent = 'Version ' + C.version;
-    $$('#nav [data-vue]').forEach(function (b) { b.addEventListener('click', function () { aller(b.getAttribute('data-vue')); $('#menu').classList.remove('ouvert'); }); });
-    $('#logo-accueil').addEventListener('click', function (e) { e.preventDefault(); aller('tableau'); $('#menu').classList.remove('ouvert'); });
+    $$('#nav [data-vue]').forEach(function (b) { b.addEventListener('click', function () { aller(b.getAttribute('data-vue')); ouvrirMenu(false); }); });
+    $('#logo-accueil').addEventListener('click', function (e) { e.preventDefault(); aller('tableau'); ouvrirMenu(false); });
   }
 
   function construireCompte() {
@@ -212,6 +218,7 @@
     JEF.rendre(b, h`<span class="avatar" style="background:${couleurDe(session.email)};">${initiales(session.nom || session.email)}</span><span>${String(session.nom && session.nom.indexOf('@') === -1 ? session.nom : session.email.split('@')[0]).split(' ')[0]}</span>`);
     JEF.rendre('#menu-compte', h`<div class="entete-menu"><b>${session.nom || ''}</b><br>${session.email}<br>${estAdmin() ? 'Administrateur' : 'Utilisateur'}</div>
       <a href="scanner.html" target="_blank" rel="noopener">Ouvrir le scanner</a>
+      <button data-compte="installer" ${brut(JEF._invite ? '' : 'hidden')}>Installer l'application</button>
       <button data-compte="aide">Mode d'emploi</button><button data-compte="sortir">Se déconnecter</button>`);
   }
 
@@ -221,6 +228,7 @@
     if (!silencieux) etatSynchro('en-cours', 'Actualisation');
     return JEF.post('admin_liste').then(function (d) {
       D = d;
+      derniereCharge = Date.now();
       etatSynchro(reglagesModifies ? 'attention' : '', reglagesModifies ? 'Pensez à enregistrer' : 'À jour à ' + heureMaj(new Date()));
       majCompteurs();
       afficherBandeaux();
@@ -313,6 +321,8 @@
     $('#titre-vue').textContent = titrePage(vue);
     document.title = titrePage(vue) + ' - Cockpit JEF ACSES';
     $$('#nav [data-vue]').forEach(function (b) { if (b.getAttribute('data-vue') === vue) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+    $$('#nav-bas [data-nav]').forEach(function (b) { var v = b.getAttribute('data-nav'); var actif = v === vue || (v === 'participants' && ['participants', 'stagiaires', 'accompagnants', 'entreprises', 'visiteurs', 'intervenants', 'invites'].indexOf(vue) !== -1); if (actif) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+    var zv = $('#vue'); zv.classList.remove('entree'); void zv.offsetWidth; zv.classList.add('entree');
     tableCourante = null;
     JEF.rendre('#actions-contexte', '');
     if (!D) return;
@@ -1898,7 +1908,8 @@
     if (type === 'ENT') ficheEntreprise(l); else fichePersonne(type, l);
     var t = $('#tiroir');
     t.classList.add('ouvert'); t.setAttribute('aria-hidden', 'false');
-    $('#fermer-fiche').addEventListener('click', fermerFiche);
+    if (!ficheHistorique) { try { history.pushState({ jefFiche: 1 }, ''); ficheHistorique = true; } catch (e) { /* rien */ } }
+    $('#fermer-fiche').addEventListener('click', fermerFicheUtilisateur);
     avertirFicheOuverte();
     if (nouveau && !rafraichissement) signalerPresence();
   }
@@ -2036,7 +2047,11 @@
     });
   }
 
-  function fermerFiche() { var etaitOuverte = !!fiche; fiche = null; var t = $('#tiroir'); t.classList.remove('ouvert'); t.setAttribute('aria-hidden', 'true'); if (etaitOuverte) signalerPresence(); }
+  var ficheHistorique = false;
+  /** Fermeture demandée par la personne : on consomme l'entrée d'historique, le bouton retour reste cohérent. */
+  function fermerFicheUtilisateur() { if (ficheHistorique) history.back(); else fermerFiche(); }
+  window.addEventListener('popstate', function () { if (ficheHistorique) { ficheHistorique = false; fermerFiche(); } });
+  function fermerFiche() { ficheHistorique = false; var etaitOuverte = !!fiche; fiche = null; var t = $('#tiroir'); t.classList.remove('ouvert'); t.setAttribute('aria-hidden', 'true'); if (etaitOuverte) signalerPresence(); }
 
   // ======================================================================
   // Actions
@@ -2214,8 +2229,11 @@
   $('#menu-compte').addEventListener('click', function (e) {
     var b = e.target.closest('[data-compte]'); if (!b) return;
     this.hidden = true;
-    if (b.getAttribute('data-compte') === 'sortir') JEF.deconnexion(); else aller('aide');
+    var c = b.getAttribute('data-compte');
+    if (c === 'sortir') JEF.deconnexion(); else if (c === 'installer') JEF.installer(); else aller('aide');
   });
+  var autonome = JEF.appli('admin.html', function (dispo) { var b = $('#menu-compte [data-compte=installer]'); if (b) b.hidden = !dispo; });
+  if (autonome) document.body.classList.add('autonome');
   document.addEventListener('click', function (e) {
     if (!e.target.closest('.deroulant-zone')) $$('.deroulant').forEach(function (d) { d.hidden = true; });
     if (!e.target.closest('.recherche')) $('#resultats').hidden = true;
@@ -2223,11 +2241,30 @@
   $('#b-imprimer').addEventListener('click', function () { window.print(); });
   $('#b-sur-place').addEventListener('click', function () { if (D) modaleSurPlace(); });
   $('#b-actualiser').addEventListener('click', function () { journal = null; if (vue === 'reglages' && !reglagesModifies) reglages = null; charger(); });
-  $('#menu-ouvrir').addEventListener('click', function () { $('#menu').classList.add('ouvert'); });
-  $('#menu-fermer').addEventListener('click', function () { $('#menu').classList.remove('ouvert'); });
+  function ouvrirMenu(o) { $('#menu').classList.toggle('ouvert', o); document.body.classList.toggle('menu-ouvert', o); }
+  $('#menu-ouvrir').addEventListener('click', function () { ouvrirMenu(true); });
+  $('#menu-fermer').addEventListener('click', function () { ouvrirMenu(false); });
+  $('#voile-menu').addEventListener('click', function () { ouvrirMenu(false); });
+  $('#nav-menu').addEventListener('click', function () { ouvrirMenu(!$('#menu').classList.contains('ouvert')); });
+  $('#nav-plus').addEventListener('click', function () { ouvrirMenu(false); if (D) modaleSurPlace(); });
+  $$('#nav-bas [data-nav]').forEach(function (b) { b.addEventListener('click', function () { ouvrirMenu(false); aller(b.getAttribute('data-nav')); }); });
+  $('#b-cherche').addEventListener('click', function () {
+    var barre = $('.barre'), o = !barre.classList.contains('cherche');
+    barre.classList.toggle('cherche', o); barre.classList.remove('deplie'); this.setAttribute('aria-expanded', String(o));
+    if (o) setTimeout(function () { $('#recherche').focus(); }, 30);
+  });
+  $('#b-plus').addEventListener('click', function () {
+    var barre = $('.barre'), o = !barre.classList.contains('deplie');
+    barre.classList.toggle('deplie', o); barre.classList.remove('cherche'); this.setAttribute('aria-expanded', String(o));
+  });
+  // Retour au premier plan (appli installée, téléphone) : données rafraîchies si elles ont plus d'une minute.
+  var derniereCharge = Date.now();
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && D && Date.now() - derniereCharge > 60000 && !fiche && !$('#voile').classList.contains('ouvert') && !reglagesModifies) { derniereCharge = Date.now(); charger(true); }
+  });
   $('#voile').addEventListener('click', function (e) { if (e.target === this) fermerModale(); });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { if ($('#voile').classList.contains('ouvert')) fermerModale(); else if (fiche) fermerFiche(); }
+    if (e.key === 'Escape') { if ($('#voile').classList.contains('ouvert')) fermerModale(); else if (fiche) fermerFicheUtilisateur(); }
     if (e.key === '/' && document.activeElement === document.body) { e.preventDefault(); $('#recherche').focus(); }
   });
   window.addEventListener('beforeunload', function (e) { if (reglagesModifies) { e.preventDefault(); e.returnValue = ''; } });

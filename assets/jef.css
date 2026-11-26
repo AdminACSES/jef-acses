@@ -477,3 +477,10 @@ input::placeholder, textarea::placeholder { color: #9AA6B8; font-style: italic; 
 .fiche-verif .actions-fiche { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .fiche-verif .actions-fiche .btn { min-width: 0; white-space: normal; text-align: center; }
 .scanner-corps { box-sizing: border-box; width: 100%; }
+
+/* v2.4.1 : scanner en application installée */
+.scanner-app .barre { padding-top: calc(10px + env(safe-area-inset-top)); position: sticky; top: 0; z-index: 20; }
+.scanner-corps { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+.scanner-app button, .scanner-app a, .plein { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.scanner-app .modes button:active { transform: scale(.97); }
+.plein-contenu { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }

@@ -3,7 +3,7 @@
    Modifiable sans toucher à la logique (admin.js).
    ========================================================================== */
 window.JEF_COCKPIT = {
-  version: '2.4.0',
+  version: '2.4.1',
 
   menu: [
     { titre: 'Pilotage', couleur: '#2F6BFF', pages: [['tableau', 'Tableau de bord']] },
@@ -212,6 +212,12 @@ window.JEF_COCKPIT = {
   ],
 
   nouveautes: [
+    { version: '2.4.1', date: '26 novembre 2026', points: [
+      'Cockpit et Scanner deviennent deux applications distinctes, installables depuis Chrome sur ordinateur et sur téléphone.',
+      'Cockpit sur téléphone : barre de navigation en bas avec le bouton + pour l\'inscription sur place, listes en cartes, fiche en plein écran, fenêtres qui montent du bas.',
+      'Le bouton retour du téléphone ferme la fiche ouverte. Les données se rafraîchissent quand on revient dans l\'application.',
+      'Le scanner s\'ouvre même sans réseau une fois installé.'
+    ] },
     { version: '2.4.0', date: '26 novembre 2026', points: [
       'Menu Participants : tous les participants, puis une page par catégorie (stagiaires, accompagnants, exposants, visiteurs, intervenants, invités), chacune avec son bouton Ajouter.',
       'Accompagnants : nouvelle catégorie, ajoutée par le congressiste à l\'inscription ou par le bureau, badge envoyé avec celui de la personne accompagnée.',

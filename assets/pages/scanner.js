@@ -340,6 +340,8 @@
     $('#saisie').focus();
   }
 
+  JEF.appli('scanner.html', function (dispo) { $('#b-installer').hidden = !dispo; });
+  $('#b-installer').addEventListener('click', JEF.installer);
   JEF.$$('[data-mode]').forEach(function (b) { b.addEventListener('click', function () { changerMode(b.getAttribute('data-mode')); }); });
   $('#camera').addEventListener('click', function () { if (cameraActive) arreterCamera(); else demarrerCamera(); });
   $('#synchro').addEventListener('click', synchroniser);

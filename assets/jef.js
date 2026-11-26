@@ -240,6 +240,28 @@
     initialiser();
   };
 
+  // ----- Application installable (Cockpit et Scanner) ------------------------
+  /** Enregistre le service worker pour la page donnée et prépare le bouton « Installer l'application ». */
+  JEF.appli = function (page, surInstallable) {
+    var autonome = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+    if (autonome) document.documentElement.classList.add('autonome');
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+      try { navigator.serviceWorker.register('sw.js', { scope: './' + page }).catch(function () { /* sans service worker, l'appli marche quand même */ }); } catch (e) { /* rien */ }
+    }
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      JEF._invite = e;
+      if (surInstallable) surInstallable(true);
+    });
+    window.addEventListener('appinstalled', function () { JEF._invite = null; if (surInstallable) surInstallable(false); JEF.toast('Application installée', 'ok'); });
+    return autonome;
+  };
+  JEF.installer = function () {
+    if (!JEF._invite) { JEF.toast('Dans Chrome : menu ⋮ puis « Installer l\'application » ou « Ajouter à l\'écran d\'accueil ».'); return; }
+    JEF._invite.prompt();
+    JEF._invite.userChoice.finally(function () { JEF._invite = null; });
+  };
+
   JEF.deconnexion = function () {
     var s = JEF.session();
     JEF.oublierSession();
