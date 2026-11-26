@@ -82,7 +82,32 @@
     adapterParcours(dossier);
     remplirFormulaire(dossier);
     montrer(rep.etape);
+    if (dossier.parcours !== 'PERSONNEL' && rep.etape !== 'attente') {
+      $('#bloc-demande').hidden = false;
+      $('#demande-etat').textContent = dossier.demandeInterne ? '✓ Une demande interne est déjà déposée. Vous pouvez en déposer une version corrigée.' : '';
+    }
   }).catch(function (e) { erreur(e.message); });
+
+  // ----- Demande de formation interne (facultative) -----
+  var demande = null;
+  $('#fichier-demande').addEventListener('change', function () {
+    var f = this.files[0]; demande = null; $('#btn-demande').disabled = true;
+    if (!f) return;
+    if (['application/pdf', 'image/jpeg', 'image/png'].indexOf(f.type) === -1) { JEF.toast('Format non accepté : PDF, JPG ou PNG.', 'erreur'); return; }
+    if (f.size > TAILLE_MAX) { JEF.toast('Fichier trop lourd (8 Mo maximum).', 'erreur'); return; }
+    demande = f; $('#nom-demande').textContent = f.name; $('#btn-demande').disabled = false;
+  });
+  $('#btn-demande').addEventListener('click', function () {
+    if (!demande) return;
+    var retablir = JEF.attente(this, 'Envoi en cours...');
+    var lecteur = new FileReader();
+    lecteur.onload = function () {
+      JEF.post('rh_demande', { data: { id: id, k: k, fichier: { nom: demande.name, type: demande.type, base64: String(lecteur.result).split(',')[1] } } }, { delai: 120000 })
+        .then(function () { retablir(); $('#btn-demande').disabled = true; $('#demande-etat').textContent = '✓ Demande interne déposée et classée dans le dossier.'; JEF.toast('Demande interne déposée.', 'ok'); })
+        .catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+    };
+    lecteur.readAsDataURL(demande);
+  });
 
   $('#form-admin').addEventListener('submit', function (ev) {
     ev.preventDefault();

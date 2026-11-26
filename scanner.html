@@ -16,7 +16,7 @@
     <div class="carte">
       <img class="logo" src="logo-acses.png" alt="ACSES">
       <h1 style="font-size:1.4rem;">Scanner de l'accueil</h1>
-      <p class="petit" style="margin:0;">Connexion avec votre compte <b>@acses-asso.com</b> du bureau.</p>
+      <p class="petit" style="margin:0;">Connectez-vous avec votre compte <b>@acses-asso.com</b>.</p>
       <div id="bouton-google"></div>
       <div id="message-connexion" class="erreur-champ" role="alert" style="min-height:1.2em;"></div>
     </div>
@@ -31,32 +31,47 @@
     </div>
     <div class="scanner-corps">
       <div class="modes" role="tablist" aria-label="Mode du scanner">
-        <button type="button" role="tab" data-mode="accueil" aria-selected="true">Accueil<small>valide la présence</small></button>
-        <button type="button" role="tab" data-mode="verifier" aria-selected="false">Vérifier<small>ouvre la fiche</small></button>
+        <button type="button" role="tab" data-mode="accueil" aria-selected="true" class="mode-accueil"><span class="ico">✅</span>Présence<small>enregistre l'arrivée</small></button>
+        <button type="button" role="tab" data-mode="verifier" aria-selected="false" class="mode-controle"><span class="ico">🔍</span>Contrôle<small>ouvre la fiche, sans pointer</small></button>
       </div>
+      <div class="bandeau-mode" id="bandeau-mode">Mode présence : chaque badge scanné est pointé présent.</div>
       <div class="stats-accueil" id="stats">
         <div><b id="st-presents">0</b><small>présents sur ce créneau</small></div>
         <div><b id="st-session">0</b><small>scans sur cet appareil</small></div>
         <div><b id="st-file">0</b><small>en attente d'envoi</small></div>
       </div>
-      <div id="lecteur"></div>
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn-primaire" id="camera" style="flex:1;">📷 Démarrer la caméra</button>
-        <button class="btn" id="synchro" hidden>⇅ Envoyer la file</button>
+      <div id="zone-lecteur">
+        <div id="lecteur"></div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button class="btn btn-primaire" id="camera" style="flex:1;">📷 Démarrer la caméra</button>
+          <button class="btn" id="synchro" hidden>⇅ Envoyer la file</button>
+        </div>
+        <form class="saisie" id="form-saisie" autocomplete="off" style="margin-top:8px;">
+          <label class="sr" for="saisie">Code du badge</label>
+          <input id="saisie" type="text" placeholder="Douchette ou saisie : JEF2027-012" autocapitalize="characters" spellcheck="false">
+          <button class="btn" type="submit">Valider</button>
+        </form>
       </div>
-      <form class="saisie" id="form-saisie" autocomplete="off">
-        <label class="sr" for="saisie">Code du badge</label>
-        <input id="saisie" type="text" placeholder="Douchette ou saisie : JEF2027-012" autocapitalize="characters" spellcheck="false">
-        <button class="btn" type="submit">Valider</button>
-      </form>
-      <div id="resultat" class="resultat" role="status" aria-live="assertive"></div>
       <div id="fiche" class="fiche-verif" hidden></div>
       <ul class="historique" id="historique"></ul>
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:.8rem;color:#94A3B8;">
-        <span id="utilisateur"></span><button class="btn btn-s btn-fantome" id="deconnexion" style="color:#94A3B8;">Se déconnecter</button>
+      <div class="pied-scanner">
+        <span id="utilisateur"></span>
+        <span><a class="btn btn-s btn-fantome" id="lien-borne" href="scanner.html?borne=1" style="color:#94A3B8;">Mode borne</a>
+        <button class="btn btn-s btn-fantome" id="deconnexion" style="color:#94A3B8;">Se déconnecter</button></span>
       </div>
     </div>
   </div>
+
+  <div id="borne" class="borne" hidden>
+    <img src="logo-acses.png" alt="ACSES" class="borne-logo" id="borne-logo">
+    <h1 id="borne-titre">Bienvenue aux JEF</h1>
+    <p class="borne-consigne">Présentez le QR code de votre badge devant la caméra</p>
+    <div id="lecteur-borne" class="borne-lecteur"></div>
+    <p class="borne-aide">Un souci ? L'équipe de l'accueil est à côté de vous.</p>
+    <button class="borne-sortie" id="borne-sortie" aria-label="Quitter la borne">Quitter</button>
+  </div>
+
+  <div id="plein" class="plein" hidden role="alertdialog" aria-live="assertive" tabindex="-1"></div>
 
   <script src="assets/config.js"></script>
   <script src="assets/jef.js"></script>

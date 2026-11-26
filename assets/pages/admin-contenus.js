@@ -3,13 +3,14 @@
    Modifiable sans toucher à la logique (admin.js).
    ========================================================================== */
 window.JEF_COCKPIT = {
-  version: '2.3.0',
+  version: '2.4.0',
 
   menu: [
     { titre: 'Pilotage', couleur: '#2F6BFF', pages: [['tableau', 'Tableau de bord']] },
-    { titre: 'Formation', couleur: '#6D28D9', pages: [['stagiaires', 'Stagiaires'], ['presences', 'Présences et attestations'], ['qualiopi', 'Qualiopi']] },
-    { titre: 'Entreprises et badges', couleur: '#EB7E0C', pages: [['entreprises', 'Entreprises partenaires'], ['badges', 'Visiteurs et invités']] },
-    { titre: 'Logistique', couleur: '#1E7B45', pages: [['restauration', 'Restauration'], ['jourj', 'Accueil jour J']] },
+    { titre: 'Participants', couleur: '#EB7E0C', pages: [['participants', 'Tous les participants'], ['stagiaires', 'Stagiaires'], ['accompagnants', 'Accompagnants'], ['entreprises', 'Exposants et entreprises'],
+      ['visiteurs', 'Visiteurs'], ['intervenants', 'Intervenants'], ['invites', 'Invités']] },
+    { titre: 'Formation et Qualiopi', couleur: '#6D28D9', pages: [['presences', 'Présences et attestations'], ['questionnaires', 'Questionnaires'], ['qualiopi', 'Qualiopi']] },
+    { titre: 'Organisation', couleur: '#1E7B45', pages: [['programme', 'Programme'], ['invitations', 'Invitations'], ['communication', 'Communication'], ['restauration', 'Restauration'], ['jourj', 'Accueil jour J']] },
     { titre: 'Administration', couleur: '#94A3B8', pages: [['reglages', 'Réglages'], ['acces', 'Accès'], ['journal', 'Journal'], ['aide', 'Mode d\'emploi'], ['nouveautes', 'Quoi de neuf']] }
   ],
 
@@ -58,11 +59,57 @@ window.JEF_COCKPIT = {
         'Au-delà des pass inclus, chaque représentant devient un pass supplémentaire, signalé à facturer.'],
       legende: 'pass'
     },
-    badges: {
-      texte: 'Les badges hors stagiaires et hors exposants : visiteurs de l\'espace exposants, invités de l\'ACSES et intervenants.',
-      points: ['Les visiteurs s\'inscrivent seuls avec le lien d\'invitation. Les invités et intervenants sont créés ici par le bureau.',
-        'Un badge sans email s\'imprime avec le bouton PDF.'],
+    participants: {
+      texte: 'Toutes les personnes qui ont un badge, toutes catégories confondues : stagiaires, accompagnants, exposants, visiteurs, intervenants et invités.',
+      points: ['Les pastilles filtrent par catégorie, par présence ou par badge à envoyer. Les cases sous les titres filtrent chaque colonne.',
+        '« Imprimer les badges affichés » prépare un seul PDF avec les badges de la liste filtrée, 40 au plus.',
+        '« Ajouter une personne » ouvre le formulaire de la catégorie choisie dans les pastilles.'],
       legende: 'badge'
+    },
+    accompagnants: {
+      texte: 'Les accompagnants des congressistes, pour les repas et la soirée de gala. Leur badge part avec celui de la personne accompagnée.',
+      points: ['Le congressiste peut ajouter son accompagnant dans le formulaire d\'inscription. Le bureau peut aussi en ajouter ici.',
+        'Le tarif accompagnant se règle à part, hors convention de formation. « Encaisser » enregistre le paiement.'],
+      legende: 'badge'
+    },
+    visiteurs: {
+      texte: 'Les visiteurs de l\'espace exposants, pour une demi-journée, sans conférences ni repas.',
+      points: ['Ils s\'inscrivent seuls avec le lien d\'invitation, que le bouton « Copier le lien » met dans le presse-papiers.'],
+      legende: 'badge'
+    },
+    intervenants: {
+      texte: 'Les intervenants des journées : état du contact, thème, créneau, logistique et documents reçus.',
+      points: ['« Suivi » met à jour l\'état (à contacter, contacté, confirmé), le thème, l\'hôtel, les frais et les documents.',
+        'Le CV et le support servent de preuves Qualiopi (indicateurs 21 et 19). « Documents manquants » liste ceux à relancer.',
+        'Le conducteur des journées se construit dans Programme.'],
+      legende: 'badge'
+    },
+    invites: {
+      texte: 'Les invités de l\'ACSES. Les invitations institutionnelles et leurs réponses se suivent dans Invitations.',
+      points: ['Un invité est sans repas par défaut. Cochez ceux qui lui sont offerts.'],
+      legende: 'badge'
+    },
+    questionnaires: {
+      texte: 'Les questionnaires Qualiopi intégrés et reliés au badge : test d\'entrée et de fin, évaluation des acquis, satisfaction des congressistes et des entreprises.',
+      points: ['Chaque participant répond depuis son espace, ouvert par le QR « Mon espace participant » de son badge, ou par le lien des emails de rappel et d\'attestation.',
+        'Le test de connaissances est le même à l\'entrée et à la fin : la progression est calculée participant par participant. Ses questions sont à écrire avec les intervenants.',
+        '« Rapport PDF pour l\'audit » dépose le bilan dans le Drive Qualiopi de l\'année et le rattache à l\'indicateur (11 ou 30). Le rapport avec réponses individuelles ajoute le détail par personne.',
+        'Modifiez les questions avant l\'ouverture : après les premières réponses, ajoutez plutôt des questions à la fin.']
+    },
+    programme: {
+      texte: 'Le conducteur des journées, séquence par séquence. Il s\'affiche dans l\'espace participant de chaque badge.',
+      points: ['Ajoutez une ligne par séquence : accueil, conférence, questions, salon, repas, assemblée générale, soirée.', 'Les flèches changent l\'ordre. Pensez à enregistrer.']
+    },
+    invitations: {
+      texte: 'Les invitations institutionnelles : préfecture, ARS, SDIS, FHF, élus. Destinataire, formule, suivi et réponse.',
+      points: ['Quand une invitation est acceptée, « créer les badges » prépare un badge Invité ACSES par personne avec les repas de la formule.',
+        'L\'import accepte un fichier CSV avec au moins une colonne Destinataire.']
+    },
+    communication: {
+      texte: 'Emails groupés par catégorie, relances et bilan de l\'édition.',
+      points: ['Comptez toujours les destinataires avant d\'envoyer. Google limite le nombre d\'emails par jour.',
+        'Les relances automatiques sont désactivées par défaut. « Relancer maintenant » fonctionne quand même.',
+        'Le bilan PDF rassemble les chiffres de l\'édition, pour le bureau et pour l\'assemblée générale.']
     },
     restauration: {
       texte: 'Couverts par repas et par profil, avec les régimes particuliers. L\'export pour le traiteur ne contient aucun nom.',
@@ -109,13 +156,26 @@ window.JEF_COCKPIT = {
         'Envoyez les badges, un par un ou avec « Envoyer les badges » dans la fiche de l\'entreprise.']],
       ['p', 'L\'import montre toujours un aperçu ligne par ligne avant d\'écrire quoi que ce soit. Une entreprise déjà connue est mise à jour, un représentant déjà inscrit n\'est pas recréé.']
     ] },
-    { titre: 'Visiteurs et invités', blocs: [
-      ['p', 'Les visiteurs de l\'espace exposants s\'inscrivent seuls sur jef.acses-asso.com/visiteur.html, pour une demi-journée, sans repas. Leur badge part automatiquement.'],
-      ['p', 'Les invités de l\'ACSES et les intervenants se créent avec « Nouveau badge », avec ou sans repas.']
+    { titre: 'Les participants par catégorie', blocs: [
+      ['p', '« Tous les participants » regroupe toutes les personnes qui ont un badge. Chaque catégorie a ensuite sa page, avec son bouton « Ajouter » déjà réglé sur la bonne catégorie.'],
+      ['ul', ['Visiteurs : ils s\'inscrivent seuls sur jef.acses-asso.com/visiteur.html, pour une demi-journée, sans repas. Leur badge part automatiquement.',
+        'Accompagnants : ajoutés par le congressiste à l\'inscription, ou par le bureau. Tarif à part, hors convention.',
+        'Intervenants : suivi du contact, du thème, de la logistique et des documents (CV, support, photo).',
+        'Invités : sans repas par défaut. Les invitations institutionnelles se suivent dans Invitations.']]
+    ] },
+    { titre: 'Espace participant et questionnaires', blocs: [
+      ['p', 'Chaque badge porte un deuxième QR code « Mon espace participant ». Scanné avec un téléphone, il ouvre une page personnelle : programme, repas et questionnaires du profil. Aucun mot de passe : le lien est signé.'],
+      ['ul', ['Stagiaires : test d\'entrée, test de fin, évaluation des acquis et satisfaction.',
+        'Exposants : satisfaction des entreprises partenaires.', 'Autres profils : satisfaction.']],
+      ['p', 'Les questionnaires s\'ouvrent seuls selon les demi-journées. Les rapports PDF se déposent dans le Drive Qualiopi de l\'année, prêts pour l\'auditeur.']
+    ] },
+    { titre: 'Classement du Drive', blocs: [
+      ['p', 'Chaque édition a son dossier « JEF année » dans le dossier d\'archives : Stagiaires, Badges et Documents de l\'édition. Les rapports Qualiopi vont dans « JEF année » du dossier d\'audit Qualiopi. Les éditions précédentes restent où elles sont.']
     ] },
     { titre: 'Jour J et Qualiopi', blocs: [
-      ['p', 'Ouvrez scanner.html sur un téléphone ou un PC. En mode Accueil, chaque personne est scannée une seule fois, à son arrivée : elle est présente pour toute la formation (un visiteur, pour sa demi-journée). Le scan affiche aussi ses repas.'],
-      ['p', 'En mode Vérifier, le scan ouvre la fiche de la personne : présence, repas, badge envoyé, attestation, avec des boutons pour corriger ou renvoyer.'],
+      ['p', 'Ouvrez scanner.html sur un téléphone ou un PC. En mode Présence, chaque personne est scannée une seule fois, à son arrivée. Le résultat s\'affiche en plein écran : vert, il se ferme seul après 2 secondes. Orange ou rouge, il reste affiché jusqu\'à ce que vous touchiez l\'écran.'],
+      ['p', 'En mode Contrôle, le scan ouvre la fiche de la personne sans pointer sa présence. Le lecteur s\'efface, le bouton « Scanner le suivant » le fait revenir.'],
+      ['p', 'Le mode Borne (lien en bas du scanner) transforme une tablette en borne d\'auto-accueil : les participants scannent eux-mêmes leur badge. Un membre du bureau se connecte d\'abord. Touchez deux fois « Quitter » pour sortir.'],
       ['p', 'Si un financeur exige un émargement par demi-journée, passez le réglage « Un seul scan à l\'arrivée » sur Non.'],
       ['p', 'Sans réseau, le scanner continue : les scans sont gardés sur l\'appareil puis envoyés au retour de la connexion.'],
       ['p', 'Le vendredi à 14 h (réglable), la feuille de présence unique et les attestations partent seules. Une personne non scannée peut être marquée présente depuis le cockpit avant cet envoi.']
@@ -152,6 +212,17 @@ window.JEF_COCKPIT = {
   ],
 
   nouveautes: [
+    { version: '2.4.0', date: '26 novembre 2026', points: [
+      'Menu Participants : tous les participants, puis une page par catégorie (stagiaires, accompagnants, exposants, visiteurs, intervenants, invités), chacune avec son bouton Ajouter.',
+      'Accompagnants : nouvelle catégorie, ajoutée par le congressiste à l\'inscription ou par le bureau, badge envoyé avec celui de la personne accompagnée.',
+      'Questionnaires Qualiopi intégrés et reliés au badge : test d\'entrée et de fin avec progression, évaluation des acquis, satisfaction congressistes et entreprises. Rapports PDF déposés dans le Drive Qualiopi.',
+      'Espace participant ouvert par un deuxième QR code sur le badge : programme, repas, questionnaires.',
+      'Programme des journées, suivi des intervenants, invitations institutionnelles, emails groupés, relances (désactivées par défaut), badges en lot et bilan PDF de l\'édition.',
+      'Scanner refait : mode Présence en plein écran, mode Contrôle qui affiche la fiche, mode Borne d\'auto-accueil.',
+      'Repas compris dans le prix : les cases repas servent à compter les couverts.',
+      'Drive classé par édition : un dossier « JEF année » pour les stagiaires, les badges et les documents.',
+      'Le logo du menu ramène au tableau de bord, et les chiffres clés ouvrent la liste correspondante.'
+    ] },
     { version: '2.3.0', date: '25 novembre 2026', points: [
       'Inscription sur place depuis le cockpit (bouton en haut à droite et sur le tableau de bord) : stagiaire, exposant, invité, intervenant ou visiteur, badge imprimé tout de suite avec le modèle du profil, sans repas par défaut.',
       'Tableau de bord personnalisable : afficher ou masquer chaque widget, changer l\'ordre. Le réglage suit votre compte.',

@@ -28,9 +28,19 @@
     } else if (o.raison === 'avant' && o.date) {
       etat.textContent = '⏳ Ouverture des inscriptions le ' + JEF.date(o.date, true);
       compteARebours(new Date(o.date).getTime(), 'avant l\'ouverture des inscriptions');
+      fermer('Les inscriptions à la formation ouvriront le ' + JEF.date(o.date, true) + '.', 'Ouverture le ' + JEF.date(o.date));
     } else {
       etat.textContent = 'Inscriptions closes';
       if (debut) compteARebours(debut.getTime(), 'avant l\'ouverture des journées');
+      fermer('Les inscriptions à la formation sont closes.', 'Inscriptions closes');
+    }
+    function fermer(texte, bouton) {
+      var b = JEF.$('#bandeau-ferme');
+      JEF.rendre(b, h`<div><b>${texte}</b> Pour toute question ou une demande particulière, écrivez à <a href="mailto:${cfg.contact.email}">${cfg.contact.email}</a>.</div>`);
+      b.hidden = false;
+      var bi = JEF.$('#bouton-inscription');
+      bi.textContent = bouton; bi.classList.remove('btn-orange'); bi.classList.add('btn-blanc', 'inactif'); bi.removeAttribute('href'); bi.setAttribute('aria-disabled', 'true');
+      var c = JEF.$('#carte-stagiaires .lien'); if (c) c.textContent = bouton;
     }
   }).catch(function (e) {
     JEF.$('#etat-inscriptions').textContent = 'Informations momentanément indisponibles.';

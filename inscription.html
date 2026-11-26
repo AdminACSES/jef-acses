@@ -20,6 +20,20 @@
   <main class="conteneur">
     <div id="ferme" class="carte" hidden></div>
 
+    <section class="presentation-formation" id="presentation" hidden>
+      <div class="pf-texte">
+        <span class="pf-sur">Action de formation professionnelle continue</span>
+        <h1><span data-cfg="intitule">Journées d'études et de formation de l'ACSES</span></h1>
+        <p><span data-cfg="dates">10 et 11 juin 2027</span> - <span data-cfg="lieu">Biarritz</span></p>
+      </div>
+      <ul class="pf-points">
+        <li><b><span data-cfg="duree">10</span> h</b><span>de formation sur deux jours</span></li>
+        <li><b>Qualiopi</b><span>organisme certifié, NDA <span data-cfg="nda"></span></span></li>
+        <li><b>Prise en charge</b><span>plan de développement des compétences, ANFH, OPCO</span></li>
+        <li><b>Repas compris</b><span id="pf-repas">déjeuners et soirée de gala</span></li>
+      </ul>
+    </section>
+
     <div class="disposition" id="zone-formulaire" hidden>
       <form id="form" class="carte" novalidate>
         <ol class="stepper" aria-label="Étapes">
@@ -52,9 +66,20 @@
             </div>
           </fieldset>
           <fieldset class="champ" style="margin-top:20px;">
-            <legend class="legende">Repas (facultatifs, à la carte)</legend>
+            <legend class="legende" id="legende-repas">Repas (facultatifs, à la carte)</legend>
+            <p class="petit" id="aide-repas" hidden style="margin:-2px 0 8px;">Compris dans le prix. Décochez ceux auxquels vous ne participerez pas : cela nous aide à commander le bon nombre de couverts.</p>
             <div class="choix c3" id="repas"></div>
           </fieldset>
+          <div class="bloc-accompagnant" style="margin-top:20px;">
+            <label class="option"><input type="checkbox" name="accompagnant" id="accompagnant">
+              <span><span class="titre">Je viens avec un accompagnant</span><small>Conjoint ou proche, pour les repas et la soirée de gala. Réglé à part, hors convention de formation.</small></span><span class="prix" id="prix-acc">160 €</span></label>
+            <div id="zone-accompagnant" class="grille g2" hidden style="margin-top:12px;">
+              <div class="champ"><label class="obligatoire" for="accPrenom">Prénom de l'accompagnant</label><input id="accPrenom" name="accPrenom" type="text" maxlength="80"></div>
+              <div class="champ"><label class="obligatoire" for="accNom">Nom de l'accompagnant</label><input id="accNom" name="accNom" type="text" maxlength="80"></div>
+              <fieldset class="champ span2"><legend class="legende">Repas de l'accompagnant</legend><div class="choix c3" id="acc-repas"></div></fieldset>
+              <div class="champ span2"><label for="accRegime">Régime alimentaire ou allergie de l'accompagnant</label><input id="accRegime" name="accRegime" type="text" maxlength="120"></div>
+            </div>
+          </div>
         </section>
 
         <!-- Étape 2 -->
@@ -107,7 +132,8 @@
         <section data-etape="4" hidden>
           <div data-pour="STAGIAIRE">
             <h2>Votre service formation</h2>
-            <p class="petit">Votre service formation complétera les informations administratives (SIRET, financement, signataire) et déposera la convention signée grâce à un lien personnel.</p>
+            <p class="petit">Votre service formation complétera les informations administratives (financement, signataire) et déposera la convention signée grâce à un lien personnel.</p>
+            <div class="alerte a-info" style="margin-bottom:12px;"><div><b>Votre établissement a une demande de formation interne ?</b> Remplissez-la comme d'habitude et joignez-la au dossier quand vous le transmettez à votre service formation. Il pourra la déposer en ligne avec la convention.</div></div>
             <div class="champ"><label for="emailFormation">Email de votre service formation</label>
               <input id="emailFormation" name="emailFormation" type="email" maxlength="120" placeholder="Ex. formation@etablissement.fr"></div>
             <label class="option" style="margin-top:12px;"><input type="checkbox" name="envoiDirect" id="envoiDirect">

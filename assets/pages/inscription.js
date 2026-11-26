@@ -21,8 +21,11 @@
 
   function valeurs() {
     var v = JEF.lireFormulaire(form);
-    v.repas = {};
+    v.repas = {}; v.accRepas = {};
     $$('input[name^="repas_"]', form).forEach(function (c) { v.repas[c.name.slice(6)] = c.checked; });
+    $$('input[name^="accrepas_"]', form).forEach(function (c) { v.accRepas[c.name.slice(9)] = c.checked; });
+    Object.keys(v).forEach(function (k) { if (/^accrepas_|^repas_/.test(k)) delete v[k]; });
+    if (!v.accompagnant) { v.accPrenom = ''; v.accNom = ''; v.accRegime = ''; v.accRepas = {}; }
     if (v.parcours === 'SERVICE') { v.emailFormation = v.emailFormationSF; v.envoiDirect = true; }
     if (v.parcours === 'PERSONNEL') { v.adresseFacturation = v.adressePerso; v.emailFormation = ''; v.envoiDirect = false; }
     if (v.parcours !== 'PERSONNEL') v.modeReglement = '';
@@ -44,6 +47,10 @@
     });
     $('#emailFormation').required = p === 'STAGIAIRE' && $('#envoiDirect').checked;
     $('#envoyer').textContent = p === 'SERVICE' ? 'Inscrire le stagiaire' : 'Réserver ma place';
+    var acc = $('#accompagnant').checked;
+    $('#zone-accompagnant').hidden = !acc;
+    $('#accPrenom').required = acc; $('#accNom').required = acc;
+    $('[for=accPrenom]').classList.toggle('obligatoire', acc); $('[for=accNom]').classList.toggle('obligatoire', acc);
   }
 
   function majRecap() {
@@ -53,11 +60,18 @@
     var lignes = [h`<dt>Formation ${v.typologie === 'NON_ADHERENT' ? 'non-adhérent' : 'adhérent'}</dt><dd>${JEF.euros(formation)}</dd>`];
     var total = formation, nbRepas = 0;
     Object.keys(cfg.repas).forEach(function (c) {
-      if (v.repas[c]) { nbRepas++; total += cfg.repas[c].tarif; lignes.push(h`<dt>${cfg.repas[c].libelle}</dt><dd>${JEF.euros(cfg.repas[c].tarif)}</dd>`); }
+      if (!v.repas[c]) return;
+      nbRepas++;
+      if (cfg.repasCompris) return;
+      total += cfg.repas[c].tarif; lignes.push(h`<dt>${cfg.repas[c].libelle}</dt><dd>${JEF.euros(cfg.repas[c].tarif)}</dd>`);
     });
-    if (!nbRepas) lignes.push(h`<dt>Repas</dt><dd>Aucun</dd>`);
+    if (cfg.repasCompris) lignes.push(h`<dt>Repas</dt><dd>${nbRepas ? nbRepas + ' compris' : 'Aucun'}</dd>`);
+    else if (!nbRepas) lignes.push(h`<dt>Repas</dt><dd>Aucun</dd>`);
     JEF.rendre('#recap-lignes', lignes);
     $('#recap-total').textContent = JEF.euros(total);
+    var zAcc = $('#recap-acc');
+    if (!zAcc) { zAcc = document.createElement('p'); zAcc.id = 'recap-acc'; zAcc.className = 'petit'; $('#places').before(zAcc); }
+    zAcc.textContent = v.accompagnant ? 'Accompagnant : ' + JEF.euros(cfg.tarifs.accompagnant) + ', réglé à part.' : '';
     $('#bloc-regime').hidden = !nbRepas;
   }
 
@@ -76,6 +90,7 @@
   $('#suivant').addEventListener('click', function () { if (JEF.valider(etapeCourante())) allerA(etape + 1); });
   $('#precedent').addEventListener('click', function () { allerA(etape - 1); });
   $('#envoiDirect').addEventListener('change', adapterParcours);
+  $('#accompagnant').addEventListener('change', adapterParcours);
   form.addEventListener('change', function (e) { if (e.target.name === 'parcours') adapterParcours(); majRecap(); });
   form.addEventListener('input', function () {
     majRecap();
@@ -144,7 +159,9 @@
         Il complète les informations administratives puis dépose la convention signée avec ce lien personnel :</div>
       </div>
       <div class="lien-copie"><input type="text" readonly value="${rep.lien}" aria-label="Lien du dossier"><button class="btn" type="button" id="copier">Copier</button></div>
-      <p class="petit" style="margin-top:18px;">Vous recevrez votre badge d'accès dès la validation de la convention par le bureau de l'ACSES.</p>
+      <p class="petit" style="margin-top:14px;">Si votre établissement utilise une demande de formation interne, joignez-la au dossier. Votre service formation pourra la déposer avec la convention.</p>
+      <p class="petit">Vous recevrez votre badge d'accès dès la validation de la convention par le bureau de l'ACSES.</p>
+      ${rep.accompagnant ? h`<p class="petit">Votre accompagnant est enregistré (${rep.accompagnant}). Son badge partira avec le vôtre.</p>` : ''}
       <a class="btn" href="./" style="margin-top:8px;">Retour à l'accueil</a>`);
     $('#copier').addEventListener('click', function () { JEF.copier(rep.lien); });
     r.scrollIntoView({ behavior: 'smooth' });
@@ -170,11 +187,24 @@
     $('#zone-formulaire').hidden = false;
     $('#prix-adh').textContent = JEF.euros(c.tarifs.adherent);
     $('#prix-nonadh').textContent = JEF.euros(c.tarifs.nonAdherent);
-    JEF.rendre('#repas', Object.keys(c.repas).map(function (code) {
-      var r = c.repas[code];
-      return h`<label class="option"><input type="checkbox" name="repas_${code}">
-        <span><span class="titre">${r.libelle}</span></span><span class="prix">${JEF.euros(r.tarif)}</span></label>`;
-    }));
+    $('#presentation').hidden = false;
+    $('#prix-acc').textContent = JEF.euros(c.tarifs.accompagnant);
+    if (c.repasCompris) {
+      $('#legende-repas').textContent = 'Repas compris dans le prix';
+      $('#aide-repas').hidden = false;
+    } else {
+      $('#pf-repas').closest('li').hidden = true;
+    }
+    $('#pf-repas').textContent = Object.keys(c.repas).map(function (k) { return c.repas[k].libelle; }).join(', ');
+    var caseRepas = function (prefixe, avecPrix) {
+      return Object.keys(c.repas).map(function (code) {
+        var r = c.repas[code];
+        return h`<label class="option"><input type="checkbox" name="${prefixe}${code}" ${JEF.brut(c.repasCompris ? 'checked' : '')}>
+          <span><span class="titre">${r.libelle}</span>${c.repasCompris ? h`<small>Compris</small>` : ''}</span>${avecPrix && !c.repasCompris ? h`<span class="prix">${JEF.euros(r.tarif)}</span>` : ''}</label>`;
+      });
+    };
+    JEF.rendre('#repas', caseRepas('repas_', true));
+    JEF.rendre('#acc-repas', caseRepas('accrepas_', false));
     restaurerBrouillon();
     adapterParcours();
     majRecap();

@@ -1,13 +1,16 @@
 /* ==========================================================================
-   Scanner de l'accueil : caméra ou douchette, présence, mode Vérifier (fiche et actions),
-   fonctionnement hors connexion avec file d'attente synchronisée.
+   Scanner : mode Présence (fenêtre plein écran après chaque scan), mode Contrôle
+   (fiche de la personne, sans pointer), mode Borne d'auto-accueil (scanner.html?borne=1).
+   Fonctionne hors connexion avec une file d'attente synchronisée.
    ========================================================================== */
 (function () {
   'use strict';
   var h = JEF.h, $ = JEF.$;
   var CLE_FILE = 'jef_file_scans', CLE_LISTE = 'jef_liste_accueil';
+  var BORNE = /[?&]borne=1/.test(location.search);
   var personnes = {}, creneaux = [], file = [], scansSession = 0, enCours = false, dernier = { code: '', t: 0 };
-  var camera = null, cameraActive = false, minuteurEffacement = null, horsLigne = false, mode = 'accueil';
+  var camera = null, cameraActive = false, cameraEnPause = false, horsLigne = false, mode = 'accueil';
+  var pleinOuvert = false, minuteurPlein = null;
   var REPAS_LIB = { JM: 'Jeudi midi', GALA: 'Gala', VM: 'Vendredi midi' };
 
   // ----- Persistance locale -------------------------------------------------
@@ -37,43 +40,74 @@
   function bip(type) {
     try {
       audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-      var notes = type === 'ok' ? [880] : type === 'deja' ? [660, 660] : [220];
+      var notes = type === 'ok' ? [880] : type === 'deja' ? [660, 660] : [220, 180];
       notes.forEach(function (f, i) {
         var o = audio.createOscillator(), g = audio.createGain();
         o.frequency.value = f; o.connect(g); g.connect(audio.destination);
         var t = audio.currentTime + i * 0.18;
-        g.gain.setValueAtTime(0.15, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+        g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
         o.start(t); o.stop(t + 0.16);
       });
     } catch (e) { /* audio indisponible */ }
-    if (navigator.vibrate) navigator.vibrate(type === 'ok' ? 80 : type === 'deja' ? [60, 60, 60] : 300);
+    if (navigator.vibrate) navigator.vibrate(type === 'ok' ? 80 : type === 'deja' ? [60, 60, 60] : [300, 100, 300]);
   }
 
-  // ----- Affichage du résultat ----------------------------------------------
+  // ----- Fenêtre plein écran ------------------------------------------------
   var VERDICTS = {
-    OK: ['ok', '✅ ACCÈS VALIDÉ'], DEJA: ['deja', '⚠️ DÉJÀ ENREGISTRÉ'], HORS_LIGNE: ['ok', '✅ ENREGISTRÉ HORS LIGNE'],
-    ANNULE: ['ko', '⛔ INSCRIPTION ANNULÉE'], FAUX: ['ko', '⛔ BADGE NON VALIDE'], INCONNU: ['ko', '⛔ BADGE INCONNU'], HORS_CRENEAU: ['deja', '⏸ AUCUNE DEMI-JOURNÉE EN COURS']
+    OK: ['ok', '✅', 'Présence enregistrée'], DEJA: ['deja', '⚠️', 'Déjà enregistré'], HORS_LIGNE: ['ok', '✅', 'Enregistré hors ligne'],
+    ANNULE: ['ko', '⛔', 'Inscription annulée'], FAUX: ['ko', '⛔', 'Badge non valide'], INCONNU: ['ko', '⛔', 'Badge inconnu'], HORS_CRENEAU: ['deja', '⏸', 'Aucune demi-journée en cours']
+  };
+  var VERDICTS_BORNE = {
+    OK: 'Bienvenue !', DEJA: 'Vous êtes déjà enregistré, bonne journée', HORS_LIGNE: 'Bienvenue !',
+    ANNULE: 'Merci de vous présenter à l\'accueil', FAUX: 'Merci de vous présenter à l\'accueil', INCONNU: 'Merci de vous présenter à l\'accueil', HORS_CRENEAU: 'Merci de vous présenter à l\'accueil'
   };
 
-  function afficher(r) {
-    var v = VERDICTS[r.resultat] || ['ko', r.resultat];
+  function ouvrirPlein(r) {
+    var v = VERDICTS[r.resultat] || ['ko', '⛔', r.resultat];
     var p = r.personne;
-    var el = $('#resultat');
-    el.className = 'resultat visible ' + v[0];
-    JEF.rendre(el, h`<div class="verdict">${v[1]}</div>
-      ${p ? h`<div class="qui">${p.prenom} ${p.nom}</div>
-        <div>${p.organisme}</div>
-        <span class="profil" style="background:${p.couleur};color:${p.texte || '#fff'};">${p.profil}</span>
-        ${p.creneauVisite ? h`<div style="margin-top:6px;">Visite : ${p.creneauVisite} - sans repas</div>`
-          : h`<div class="repas">${Object.keys(p.repas || {}).map(function (c) { return h`<span class="${p.repas[c] ? 'on' : ''}">${({ JM: 'Jeudi midi', GALA: 'Gala', VM: 'Vendredi midi' })[c]}</span>`; })}</div>`}`
-        : h`<div style="margin-top:6px;">${r.message || ''}</div>`}
-      ${(r.alertes || []).length ? h`<div class="alertes">${r.alertes.join(' - ')}</div>` : ''}
-      ${p && r.message ? h`<div style="margin-top:6px;">${r.message}</div>` : ''}`);
-    bip(v[0] === 'ok' ? 'ok' : v[0]);
-    clearTimeout(minuteurEffacement);
-    minuteurEffacement = setTimeout(function () { el.className = 'resultat'; }, 7000);
+    var z = $('#plein');
+    var repas = p && !p.creneauVisite ? Object.keys(p.repas || {}).map(function (c) { return h`<span class="${p.repas[c] ? 'on' : ''}">${REPAS_LIB[c]}</span>`; }) : '';
+    var fermeSeul = v[0] === 'ok' || BORNE;
+    z.className = 'plein ' + v[0] + (BORNE ? ' borne-plein' : '');
+    JEF.rendre(z, h`<div class="plein-contenu">
+      <div class="plein-icone">${v[1]}</div>
+      <div class="plein-verdict">${BORNE ? VERDICTS_BORNE[r.resultat] || v[2] : v[2]}</div>
+      ${p ? h`<div class="plein-qui">${p.prenom} ${p.nom}</div>
+        ${p.organisme ? h`<div class="plein-org">${p.organisme}</div>` : ''}
+        <span class="plein-profil" style="background:${p.couleur};color:${p.texte || '#fff'};">${p.profil}</span>
+        ${p.creneauVisite ? h`<div class="plein-info">Visite : ${p.creneauVisite} - sans repas</div>` : h`<div class="plein-repas">${repas}</div>`}`
+        : h`<div class="plein-info">${BORNE ? '' : r.message || ''}</div>`}
+      ${!BORNE && (r.alertes || []).length ? h`<div class="plein-alertes">${r.alertes.join(' - ')}</div>` : ''}
+      ${!BORNE && p && r.message ? h`<div class="plein-info">${r.message}</div>` : ''}
+      ${BORNE && r.resultat === 'OK' && p && /Stagiaire|Bureau/.test(p.profil) ? h`<div class="plein-info">Avant la première conférence, faites votre test d'entrée : scannez le QR « Mon espace participant » de votre badge avec votre téléphone.</div>` : ''}
+      <div class="plein-bas">${fermeSeul ? h`<span class="plein-barre"><i></i></span>` : h`<b>Touchez l'écran pour continuer</b>`}</div>
+    </div>`);
+    z.hidden = false;
+    pleinOuvert = true;
+    try { z.focus(); } catch (e) { /* rien */ }
+    bip(v[0]);
+    clearTimeout(minuteurPlein);
+    if (fermeSeul) {
+      var duree = BORNE ? (v[0] === 'ok' ? 3500 : 6000) : 2000;
+      var barre = $('.plein-barre i', z);
+      if (barre) { barre.style.animationDuration = duree + 'ms'; }
+      minuteurPlein = setTimeout(fermerPlein, duree);
+    }
+    historiser(v, p, r);
+  }
+
+  function fermerPlein() {
+    clearTimeout(minuteurPlein);
+    $('#plein').hidden = true;
+    pleinOuvert = false;
+    dernier = { code: dernier.code, t: Date.now() - 2500 }; // le même badge peut être relu 1,5 s après
+    if (!BORNE) { try { $('#saisie').focus(); } catch (e) { /* rien */ } }
+  }
+
+  function historiser(v, p, r) {
+    if (BORNE) return;
     var li = document.createElement('li');
-    JEF.rendre(li, h`<b>${v[0] === 'ok' ? '✅' : v[0] === 'deja' ? '⚠️' : '⛔'}</b> ${p ? p.prenom + ' ' + p.nom : (r.id || 'Inconnu')}<span>${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>`);
+    JEF.rendre(li, h`<b>${v[1]}</b> ${p ? p.prenom + ' ' + p.nom : (r.id || 'Inconnu')}<span>${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>`);
     var hist = $('#historique');
     hist.insertBefore(li, hist.firstChild);
     while (hist.children.length > 12) hist.lastChild.remove();
@@ -89,34 +123,59 @@
     var id = idLocal(texte);
     var p = personnes[id];
     var n = Number($('#creneau').value);
-    if (!id) { afficher({ resultat: 'INCONNU', message: 'Ce QR Code n\'est pas un badge JEF.' }); return; }
-    if (p && p['p' + n]) { afficher({ resultat: 'DEJA', personne: p, alertes: ['Mode hors ligne'] }); return; }
+    if (!id) { ouvrirPlein({ resultat: 'INCONNU', message: 'Ce QR Code n\'est pas un badge JEF.' }); return; }
+    if (p && p['p' + n]) { ouvrirPlein({ resultat: 'DEJA', personne: p, alertes: ['Mode hors ligne'] }); return; }
     file.push({ cle: Date.now() + '-' + Math.random().toString(36).slice(2, 7), qr: texte, horodatage: new Date().toISOString(), creneau: n });
     ecrireLocal(CLE_FILE, file);
     if (p) { p['p' + n] = true; ecrireLocal(CLE_LISTE, Object.keys(personnes).map(function (k) { return personnes[k]; })); }
-    afficher({ resultat: 'HORS_LIGNE', personne: p, id: id, alertes: p ? ['Signature vérifiée à la reconnexion'] : ['Badge absent de la liste locale : vérifier l\'identité'] });
+    ouvrirPlein({ resultat: 'HORS_LIGNE', personne: p, id: id, alertes: p ? ['Signature vérifiée à la reconnexion'] : ['Badge absent de la liste locale : vérifier l\'identité'] });
   }
 
-  // ----- Mode Vérifier : fiche de la personne et actions -------------------
+  // ----- Mode Contrôle : le lecteur s'efface, la fiche s'affiche -------------
+  function pauseCamera() {
+    if (!camera || !cameraActive || cameraEnPause) return;
+    try { camera.pause(true); cameraEnPause = true; } catch (e) { /* ancienne version : on laisse tourner */ }
+  }
+  function repriseCamera() {
+    if (!camera || !cameraActive || !cameraEnPause) return;
+    try { camera.resume(); } catch (e) { /* rien */ }
+    cameraEnPause = false;
+  }
+
   function verifier(texte) {
     enCours = true;
+    pauseCamera();
+    $('#zone-lecteur').hidden = true;
     var z = $('#fiche');
     z.hidden = false;
     JEF.rendre(z, h`<div class="chargement" style="color:#0B2540;"><span class="rotation"></span>Recherche de la fiche</div>`);
     JEF.post('verifier', { data: { qr: texte } }, { delai: 20000 }).then(function (r) {
       etat(true);
-      if (!r.trouve) { bip('ko'); JEF.rendre(z, h`<div class="alerte-fiche ko">${r.message}</div>`); return; }
+      if (!r.trouve) { bip('ko'); JEF.rendre(z, h`<div class="alerte-fiche ko">${r.message}</div>${boutonSuivant()}`); brancherSuivant(); return; }
       bip('ok');
       afficherFiche(r.fiche);
     }).catch(function (e) {
       if (e.reseau) etat(false);
-      JEF.rendre(z, h`<div class="alerte-fiche ko">${e.reseau ? 'Pas de réseau : la vérification demande une connexion.' : e.message}</div>`);
+      JEF.rendre(z, h`<div class="alerte-fiche ko">${e.reseau ? 'Pas de réseau : le contrôle demande une connexion.' : e.message}</div>${boutonSuivant()}`);
+      brancherSuivant();
     }).finally(function () { enCours = false; });
+  }
+
+  function boutonSuivant() { return h`<button class="btn btn-l btn-orange suivant" data-suivant>📷 Scanner le suivant</button>`; }
+  function brancherSuivant() { JEF.$$('[data-suivant]', $('#fiche')).forEach(function (b) { b.addEventListener('click', suivant); }); }
+  function suivant() {
+    $('#fiche').hidden = true;
+    $('#zone-lecteur').hidden = false;
+    dernier = { code: '', t: 0 };
+    repriseCamera();
+    try { $('#saisie').focus(); } catch (e) { /* rien */ }
+    window.scrollTo(0, 0);
   }
 
   function afficherFiche(f) {
     var z = $('#fiche');
-    JEF.rendre(z, h`<div class="entete-fiche"><div><div class="qui">${f.prenom} ${f.nom}</div><div>${f.fonction}${f.fonction && f.organisme ? ' - ' : ''}${f.organisme}</div></div>
+    JEF.rendre(z, h`${boutonSuivant()}
+      <div class="entete-fiche"><div><div class="qui">${f.prenom} ${f.nom}</div><div>${f.fonction}${f.fonction && f.organisme ? ' - ' : ''}${f.organisme}</div></div>
         <span class="profil" style="background:${f.couleur};color:${f.texte || '#fff'};">${f.profil}</span></div>
       ${f.annule ? h`<div class="alerte-fiche ko">Inscription annulée</div>` : ''}
       ${f.aRegulariser ? h`<div class="alerte-fiche">Inscrit sur place : convention et facture à régulariser</div>` : ''}
@@ -133,6 +192,7 @@
         ${f.type === 'STAG' && f.present ? h`<button class="btn" data-a="attestation">Envoyer l'attestation</button>` : ''}
         <a class="btn" href="admin.html#fiche=${encodeURIComponent(f.id)}" target="_blank" rel="noopener">Ouvrir dans le cockpit</a>
       </div>`);
+    brancherSuivant();
     JEF.$$('[data-a]', z).forEach(function (b) {
       b.addEventListener('click', function () { action(f, b.getAttribute('data-a'), b); });
     });
@@ -164,16 +224,17 @@
   function changerMode(m) {
     mode = m;
     JEF.$$('[data-mode]').forEach(function (b) { b.setAttribute('aria-selected', String(b.getAttribute('data-mode') === m)); });
+    $('#app').classList.toggle('controle', m === 'verifier');
     $('#stats').hidden = m === 'verifier';
-    $('#fiche').hidden = true;
-    $('#resultat').className = 'resultat';
-    $('#saisie').placeholder = m === 'verifier' ? 'Scanner ou saisir le badge à vérifier' : 'Douchette ou saisie : JEF2027-012';
-    $('#saisie').focus();
+    $('#bandeau-mode').textContent = m === 'verifier' ? 'Mode contrôle : la fiche s\'ouvre, la présence n\'est pas pointée.' : 'Mode présence : chaque badge scanné est pointé présent.';
+    suivant();
+    $('#saisie').placeholder = m === 'verifier' ? 'Scanner ou saisir le badge à contrôler' : 'Douchette ou saisie : JEF2027-012';
   }
 
   function traiter(texte) {
     texte = String(texte || '').trim();
-    if (!texte || enCours) return;
+    if (!texte || enCours || pleinOuvert) return;
+    if (mode === 'verifier' && !$('#fiche').hidden) return;
     if (texte === dernier.code && Date.now() - dernier.t < 4000) return;
     dernier = { code: texte, t: Date.now() };
     if (mode === 'verifier') { verifier(texte); return; }
@@ -183,10 +244,10 @@
     JEF.post('scan', { data: { qr: texte, creneau: n } }, { delai: 15000 }).then(function (r) {
       etat(true);
       if (r.personne && personnes[r.personne.id] && (r.resultat === 'OK' || r.resultat === 'DEJA')) personnes[r.personne.id]['p' + n] = true;
-      afficher(r);
+      ouvrirPlein(r);
     }).catch(function (e) {
       if (e.reseau || /trop de temps|Connexion impossible/.test(e.message)) { etat(false); enregistrerHorsLigne(texte); }
-      else afficher({ resultat: 'INCONNU', message: e.message });
+      else ouvrirPlein({ resultat: 'INCONNU', message: e.message });
     }).finally(function () { enCours = false; majStats(); });
   }
 
@@ -209,16 +270,16 @@
   window.addEventListener('offline', function () { etat(false); });
 
   // ----- Caméra --------------------------------------------------------------
-  function demarrerCamera() {
-    if (typeof Html5Qrcode === 'undefined') { JEF.toast('Lecteur QR indisponible.', 'erreur'); return; }
-    camera = camera || new Html5Qrcode('lecteur', { verbose: false });
-    camera.start({ facingMode: 'environment' }, { fps: 12, qrbox: function (l, h2) { var c = Math.floor(Math.min(l, h2) * 0.72); return { width: c, height: c }; } },
+  function demarrerCamera(cible, facing) {
+    if (typeof Html5Qrcode === 'undefined') { JEF.toast('Lecteur QR indisponible.', 'erreur'); return Promise.resolve(); }
+    camera = camera || new Html5Qrcode(cible || 'lecteur', { verbose: false });
+    return camera.start({ facingMode: facing || 'environment' }, { fps: 12, qrbox: function (l, h2) { var c = Math.floor(Math.min(l, h2) * 0.72); return { width: c, height: c }; } },
       function (texte) { traiter(texte); }, function () { /* image sans QR */ })
-      .then(function () { cameraActive = true; $('#camera').textContent = '⏹ Arrêter la caméra'; })
-      .catch(function (e) { JEF.toast('Caméra inaccessible : ' + (e && e.message ? e.message : e) + '. Utilisez la saisie ou une douchette.', 'erreur'); });
+      .then(function () { cameraActive = true; cameraEnPause = false; if (!BORNE) $('#camera').textContent = '⏹ Arrêter la caméra'; })
+      .catch(function (e) { JEF.toast(BORNE ? 'Caméra inaccessible. Branchez une douchette ou autorisez la caméra, puis rechargez la page.' : 'Caméra inaccessible : ' + (e && e.message ? e.message : e) + '. Utilisez la saisie ou une douchette.', 'erreur'); });
   }
   function arreterCamera() {
-    if (camera && cameraActive) camera.stop().then(function () { cameraActive = false; $('#camera').textContent = '📷 Démarrer la caméra'; });
+    if (camera && cameraActive) camera.stop().then(function () { cameraActive = false; cameraEnPause = false; $('#camera').textContent = '📷 Démarrer la caméra'; });
   }
 
   // ----- Démarrage -----------------------------------------------------------
@@ -246,11 +307,35 @@
     majStats();
   }
 
+  /** Borne : écran d'accueil simplifié, caméra frontale si la tablette en a une. */
+  function ouvrirBorne() {
+    $('#borne').hidden = false;
+    document.body.classList.add('mode-borne');
+    JEF.config().then(function (c) { if (c && c.intitule) $('#borne-titre').textContent = 'Bienvenue aux ' + c.intitule; }).catch(function () { /* titre par défaut */ });
+    demarrerCamera('lecteur-borne', 'user');
+    try { if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(function () { /* refus */ }); } catch (e) { /* rien */ }
+    // Douchette USB branchée sur la borne : elle tape le code puis Entrée.
+    var tampon = '', dernierTouche = 0;
+    document.addEventListener('keydown', function (e) {
+      if (Date.now() - dernierTouche > 400) tampon = '';
+      dernierTouche = Date.now();
+      if (e.key === 'Enter') { if (tampon.length > 5) traiter(tampon); tampon = ''; return; }
+      if (e.key.length === 1) tampon += e.key;
+    });
+    $('#borne-sortie').addEventListener('click', function () {
+      var b = $('#borne-sortie');
+      if (b.dataset.arme) { location.href = 'scanner.html'; return; }
+      b.dataset.arme = '1'; b.textContent = 'Toucher encore pour quitter';
+      setTimeout(function () { delete b.dataset.arme; b.textContent = 'Quitter'; }, 3000);
+    });
+  }
+
   function ouvrirApp(s) {
     $('#connexion').hidden = true;
+    file = lireLocal(CLE_FILE, []);
+    if (BORNE) { ouvrirBorne(); chargerListe().then(function () { if (file.length) synchroniser(); }); return; }
     $('#app').hidden = false;
     $('#utilisateur').textContent = s.email + ' (' + (s.role === 'admin' ? 'administrateur' : 'utilisateur') + ')';
-    file = lireLocal(CLE_FILE, []);
     chargerListe().then(function () { if (file.length) synchroniser(); });
     $('#saisie').focus();
   }
@@ -260,6 +345,8 @@
   $('#synchro').addEventListener('click', synchroniser);
   $('#creneau').addEventListener('change', majStats);
   $('#deconnexion').addEventListener('click', JEF.deconnexion);
+  $('#plein').addEventListener('click', fermerPlein);
+  document.addEventListener('keydown', function (e) { if (pleinOuvert && (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); fermerPlein(); } });
   $('#form-saisie').addEventListener('submit', function (e) {
     e.preventDefault();
     var v = $('#saisie').value; $('#saisie').value = '';
