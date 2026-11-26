@@ -3,7 +3,7 @@
    Modifiable sans toucher à la logique (admin.js).
    ========================================================================== */
 window.JEF_COCKPIT = {
-  version: '2.4.1',
+  version: '2.4.2',
 
   menu: [
     { titre: 'Pilotage', couleur: '#2F6BFF', pages: [['tableau', 'Tableau de bord']] },
@@ -212,6 +212,9 @@ window.JEF_COCKPIT = {
   ],
 
   nouveautes: [
+    { version: '2.4.2', date: '26 novembre 2026', points: [
+      'Les mises à jour du site s\'affichent tout de suite, sans vider le cache du navigateur.'
+    ] },
     { version: '2.4.1', date: '26 novembre 2026', points: [
       'Cockpit et Scanner deviennent deux applications distinctes, installables depuis Chrome sur ordinateur et sur téléphone.',
       'Cockpit sur téléphone : barre de navigation en bas avec le bouton + pour l\'inscription sur place, listes en cartes, fiche en plein écran, fenêtres qui montent du bas.',
