@@ -6,9 +6,15 @@
   <meta name="robots" content="noindex, nofollow">
   <meta name="referrer" content="no-referrer">
   <meta name="theme-color" content="#0B1220">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Scanner JEF">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; frame-src https://accounts.google.com/gsi/; connect-src https://script.google.com https://script.googleusercontent.com https://accounts.google.com/gsi/; img-src 'self' data: blob: https://*.googleusercontent.com; media-src 'self' blob: mediastream:; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; base-uri 'none'; form-action 'none'; object-src 'none'">
   <title>Scanner accueil - JEF ACSES</title>
-  <link rel="icon" href="logo-acses.png">
+  <link rel="icon" href="icones/scanner-192.png">
+  <link rel="apple-touch-icon" href="icones/scanner-180-maskable.png">
+  <link rel="manifest" href="scanner.webmanifest">
   <link rel="stylesheet" href="assets/jef.css">
 </head>
 <body>
@@ -56,7 +62,8 @@
       <ul class="historique" id="historique"></ul>
       <div class="pied-scanner">
         <span id="utilisateur"></span>
-        <span><a class="btn btn-s btn-fantome" id="lien-borne" href="scanner.html?borne=1" style="color:#94A3B8;">Mode borne</a>
+        <span><button class="btn btn-s btn-fantome" id="b-installer" hidden style="color:#FDBA74;">Installer l'application</button>
+        <a class="btn btn-s btn-fantome" id="lien-borne" href="scanner.html?borne=1" style="color:#94A3B8;">Mode borne</a>
         <button class="btn btn-s btn-fantome" id="deconnexion" style="color:#94A3B8;">Se déconnecter</button></span>
       </div>
     </div>

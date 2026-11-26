@@ -1,0 +1,266 @@
+/* ==========================================================================
+   Textes du cockpit : menu, aide de chaque page, mode d'emploi, quoi de neuf.
+   Modifiable sans toucher à la logique (admin.js).
+   ========================================================================== */
+window.JEF_COCKPIT = {
+  version: '2.4.1',
+
+  menu: [
+    { titre: 'Pilotage', couleur: '#2F6BFF', pages: [['tableau', 'Tableau de bord']] },
+    { titre: 'Participants', couleur: '#EB7E0C', pages: [['participants', 'Tous les participants'], ['stagiaires', 'Stagiaires'], ['accompagnants', 'Accompagnants'], ['entreprises', 'Exposants et entreprises'],
+      ['visiteurs', 'Visiteurs'], ['intervenants', 'Intervenants'], ['invites', 'Invités']] },
+    { titre: 'Formation et Qualiopi', couleur: '#6D28D9', pages: [['presences', 'Présences et attestations'], ['questionnaires', 'Questionnaires'], ['qualiopi', 'Qualiopi']] },
+    { titre: 'Organisation', couleur: '#1E7B45', pages: [['programme', 'Programme'], ['invitations', 'Invitations'], ['communication', 'Communication'], ['restauration', 'Restauration'], ['jourj', 'Accueil jour J']] },
+    { titre: 'Administration', couleur: '#94A3B8', pages: [['reglages', 'Réglages'], ['acces', 'Accès'], ['journal', 'Journal'], ['aide', 'Mode d\'emploi'], ['nouveautes', 'Quoi de neuf']] }
+  ],
+
+  legendes: {
+    dossier: [['t-violet', 'En attente du service formation'], ['t-orange', 'À faire par le bureau'], ['t-bleu', 'Validé, paiement attendu'], ['t-vert', 'Terminé'], ['t-rouge', 'Annulé']],
+    badge: [['t-orange', 'Badge à envoyer'], ['t-vert', 'Badge envoyé'], ['t-rouge', 'Annulé']],
+    pass: [['t-vert', 'Pass inclus'], ['t-orange', 'Pass supplémentaire à facturer']],
+    presence: [['pres-on', 'Présent'], ['pres', 'Pas encore enregistré, cliquer pour valider']]
+  },
+
+  aides: {
+    tableau: {
+      texte: 'Vue d\'ensemble de l\'édition. Les cartes orange signalent ce qui attend une action du bureau : un clic ouvre directement la bonne liste.',
+      points: ['« Personnaliser le tableau de bord », en haut, permet de masquer des widgets et de changer leur ordre. Le réglage suit votre compte.','Les chiffres se mettent à jour à chaque actualisation, et seuls toutes les deux minutes.', 'Le tableau des repas donne les couverts par jour, à transmettre au traiteur.']
+    },
+    stagiaires: {
+      texte: 'Tous les dossiers de formation. Cliquez sur un nom pour ouvrir la fiche complète.',
+      points: ['Les pastilles en haut filtrent la liste. Sous chaque titre de colonne, une case permet de filtrer, et un clic sur le titre trie.',
+        'Le bouton de la dernière colonne propose l\'action utile à l\'étape du dossier. « Vérifier et valider » affiche la convention signée, avec le bouton Valider à côté.',
+        'Le bouton de présence marque le stagiaire présent en un clic. Un second clic retire la présence.'],
+      legende: 'dossier'
+    },
+    qualiopi: {
+      texte: 'Préparation des audits Qualiopi : les 33 indicateurs du référentiel, l\'état de chaque justificatif et les fichiers du Drive qui le prouvent.',
+      points: ['Cliquez sur un indicateur pour changer son état, rattacher des fichiers du Drive Qualiopi ou un lien, et noter ce qu\'il faut dire à l\'auditeur.',
+        'Les indicateurs propres à l\'alternance, à l\'apprentissage ou aux formations certifiantes sont marqués non applicables. Vous pouvez changer ce choix.',
+        'Les lignes « Plateforme » sont calculées automatiquement à partir des inscriptions : positionnements, convocations, présences, attestations.',
+        'Les exemples de justificatifs sont des propositions, à valider par le bureau avec le guide de lecture officiel.']
+    },
+    acces: {
+      texte: 'Les comptes du bureau qui peuvent se connecter au cockpit et au scanner. Réservé aux administrateurs.',
+      points: ['Tous les comptes sont utilisateurs. Cochez Administrateur pour donner aussi l\'accès aux Réglages et à cet onglet.',
+        'La croix au bout de la ligne retire l\'accès. La personne est déconnectée aussitôt.',
+        'Vous ne pouvez pas retirer votre propre accès administrateur : demandez à un autre administrateur.']
+    },
+    presences: {
+      texte: 'Présent ou absent, attestations et feuille de présence unique.',
+      points: ['Le scanner enregistre la présence à l\'arrivée. Ici, un clic sur « Marquer présent » rattrape un oubli, un second clic retire la présence.',
+        'Les attestations partent seules à la date prévue dans les réglages, avec les heures réellement suivies.'],
+      legende: 'presence'
+    },
+    entreprises: {
+      texte: 'Les entreprises partenaires exposantes et les badges de leurs représentants. Tout est géré par le bureau, il n\'y a pas d\'inscription en ligne.',
+      points: ['Premier temps, créez les entreprises, une par une ou par import. On ne sait pas encore qui viendra.',
+        'Second temps, ajoutez les représentants dans la fiche de l\'entreprise, ou en masse avec la feuille à compléter que le cockpit prépare.',
+        'Au-delà des pass inclus, chaque représentant devient un pass supplémentaire, signalé à facturer.'],
+      legende: 'pass'
+    },
+    participants: {
+      texte: 'Toutes les personnes qui ont un badge, toutes catégories confondues : stagiaires, accompagnants, exposants, visiteurs, intervenants et invités.',
+      points: ['Les pastilles filtrent par catégorie, par présence ou par badge à envoyer. Les cases sous les titres filtrent chaque colonne.',
+        '« Imprimer les badges affichés » prépare un seul PDF avec les badges de la liste filtrée, 40 au plus.',
+        '« Ajouter une personne » ouvre le formulaire de la catégorie choisie dans les pastilles.'],
+      legende: 'badge'
+    },
+    accompagnants: {
+      texte: 'Les accompagnants des congressistes, pour les repas et la soirée de gala. Leur badge part avec celui de la personne accompagnée.',
+      points: ['Le congressiste peut ajouter son accompagnant dans le formulaire d\'inscription. Le bureau peut aussi en ajouter ici.',
+        'Le tarif accompagnant se règle à part, hors convention de formation. « Encaisser » enregistre le paiement.'],
+      legende: 'badge'
+    },
+    visiteurs: {
+      texte: 'Les visiteurs de l\'espace exposants, pour une demi-journée, sans conférences ni repas.',
+      points: ['Ils s\'inscrivent seuls avec le lien d\'invitation, que le bouton « Copier le lien » met dans le presse-papiers.'],
+      legende: 'badge'
+    },
+    intervenants: {
+      texte: 'Les intervenants des journées : état du contact, thème, créneau, logistique et documents reçus.',
+      points: ['« Suivi » met à jour l\'état (à contacter, contacté, confirmé), le thème, l\'hôtel, les frais et les documents.',
+        'Le CV et le support servent de preuves Qualiopi (indicateurs 21 et 19). « Documents manquants » liste ceux à relancer.',
+        'Le conducteur des journées se construit dans Programme.'],
+      legende: 'badge'
+    },
+    invites: {
+      texte: 'Les invités de l\'ACSES. Les invitations institutionnelles et leurs réponses se suivent dans Invitations.',
+      points: ['Un invité est sans repas par défaut. Cochez ceux qui lui sont offerts.'],
+      legende: 'badge'
+    },
+    questionnaires: {
+      texte: 'Les questionnaires Qualiopi intégrés et reliés au badge : test d\'entrée et de fin, évaluation des acquis, satisfaction des congressistes et des entreprises.',
+      points: ['Chaque participant répond depuis son espace, ouvert par le QR « Mon espace participant » de son badge, ou par le lien des emails de rappel et d\'attestation.',
+        'Le test de connaissances est le même à l\'entrée et à la fin : la progression est calculée participant par participant. Ses questions sont à écrire avec les intervenants.',
+        '« Rapport PDF pour l\'audit » dépose le bilan dans le Drive Qualiopi de l\'année et le rattache à l\'indicateur (11 ou 30). Le rapport avec réponses individuelles ajoute le détail par personne.',
+        'Modifiez les questions avant l\'ouverture : après les premières réponses, ajoutez plutôt des questions à la fin.']
+    },
+    programme: {
+      texte: 'Le conducteur des journées, séquence par séquence. Il s\'affiche dans l\'espace participant de chaque badge.',
+      points: ['Ajoutez une ligne par séquence : accueil, conférence, questions, salon, repas, assemblée générale, soirée.', 'Les flèches changent l\'ordre. Pensez à enregistrer.']
+    },
+    invitations: {
+      texte: 'Les invitations institutionnelles : préfecture, ARS, SDIS, FHF, élus. Destinataire, formule, suivi et réponse.',
+      points: ['Quand une invitation est acceptée, « créer les badges » prépare un badge Invité ACSES par personne avec les repas de la formule.',
+        'L\'import accepte un fichier CSV avec au moins une colonne Destinataire.']
+    },
+    communication: {
+      texte: 'Emails groupés par catégorie, relances et bilan de l\'édition.',
+      points: ['Comptez toujours les destinataires avant d\'envoyer. Google limite le nombre d\'emails par jour.',
+        'Les relances automatiques sont désactivées par défaut. « Relancer maintenant » fonctionne quand même.',
+        'Le bilan PDF rassemble les chiffres de l\'édition, pour le bureau et pour l\'assemblée générale.']
+    },
+    restauration: {
+      texte: 'Couverts par repas et par profil, avec les régimes particuliers. L\'export pour le traiteur ne contient aucun nom.',
+      points: ['Les repas se modifient personne par personne dans sa fiche.', 'Les prix se règlent dans Réglages, rubrique Tarifs.']
+    },
+    jourj: {
+      texte: 'Tout ce qu\'il faut pour l\'accueil des 2 jours.',
+      points: ['Le scanner fonctionne au téléphone (caméra) ou sur PC (douchette). Il garde les scans en cas de coupure et les envoie au retour du réseau.',
+        'La veille, téléchargez la liste des participants (Exporter) pour avoir une copie hors connexion.']
+    },
+    reglages: {
+      texte: 'Tous les paramètres de l\'édition, au même endroit. Les changements s\'appliquent dès l\'enregistrement et sont inscrits au journal.',
+      points: ['Le bouton Enregistrer passe en orange tant que des modifications ne sont pas enregistrées.',
+        'Les rubriques Avancé touchent aux dossiers Drive et à la connexion : chaque valeur est vérifiée, et une confirmation est demandée.']
+    },
+    journal: { texte: 'Qui a fait quoi et quand. Chaque action du bureau y est inscrite automatiquement.', points: [] },
+    aide: { texte: 'Le fonctionnement complet de la plateforme, étape par étape.', points: [] },
+    nouveautes: { texte: 'Les changements de chaque version.', points: [] }
+  },
+
+  modeEmploi: [
+    { titre: 'Se repérer', blocs: [
+      ['p', 'Le menu à gauche regroupe les pages par thème. En haut, la barre reste visible : titre de la page, recherche rapide, boutons Imprimer, Exporter et Actualiser, état de la synchronisation, personnes connectées et votre compte.'],
+      ['p', 'Chaque page commence par une aide repliable avec la légende des couleurs. Elle reste ouverte ou fermée comme vous l\'avez laissée.'],
+      ['p', 'Partout, un nom est cliquable et ouvre sa fiche. La recherche rapide trouve une personne, une entreprise ou un numéro de dossier.']
+    ] },
+    { titre: 'Les trois façons de s\'inscrire', blocs: [
+      ['p', 'Le formulaire commence par « Qui remplit ce formulaire ? ». La suite dépend de la réponse.'],
+      ['ul', ['Le stagiaire, avec un service formation. Le stagiaire réserve sa place. Son service formation reçoit un lien personnel, complète la partie administrative et dépose la convention signée.',
+        'Le service formation ou un secrétariat. Il remplit tout en une fois, reçoit la convention et la dépose signée, tout de suite ou plus tard. Le stagiaire reçoit un lien pour remplir lui-même son positionnement.',
+        'Le stagiaire qui paie lui-même. Il reçoit un contrat de formation à signer et déposer. Il a 14 jours pour se rétracter et paie après la formation. Sa facture part automatiquement avec l\'attestation.']]
+    ] },
+    { titre: 'Un dossier stagiaire de bout en bout', blocs: [
+      ['ol', ['Inscription sur le site. Statut « Pré-inscrit » ou « Dossier complété », étiquette violette.',
+        'Le document signé (convention ou contrat) est déposé en ligne. Statut « Convention reçue », étiquette orange : à vous de jouer. Vous recevez un email avec le bouton « Vérifier et valider ».',
+        'Ce bouton ouvre la fiche et le document signé. Vérifiez-le, puis cliquez sur Valider. Le badge part au stagiaire et la facture au service formation. Statut « Validé », étiquette bleue.',
+        'À réception du règlement, vous cliquez sur Encaisser. La facture acquittée part. Statut « Payé », étiquette verte.']],
+      ['p', 'Un dossier sans document signé depuis 10 jours apparaît sur le tableau de bord. Le bouton Relancer renvoie le lien.']
+    ] },
+    { titre: 'Entreprises partenaires exposantes', blocs: [
+      ['p', 'Les badges exposants sont gérés uniquement par le bureau, en deux temps.'],
+      ['ol', ['Créez les entreprises : bouton « Nouvelle entreprise », ou « Importer » avec le modèle à télécharger (une ligne par entreprise).',
+        'Quand les entreprises vous donnent leurs noms, ajoutez les représentants dans la fiche de l\'entreprise. Pour aller vite, téléchargez la feuille à compléter : elle contient une ligne par pass inclus de chaque entreprise. Remplissez-la dans Excel puis importez-la.',
+        'Envoyez les badges, un par un ou avec « Envoyer les badges » dans la fiche de l\'entreprise.']],
+      ['p', 'L\'import montre toujours un aperçu ligne par ligne avant d\'écrire quoi que ce soit. Une entreprise déjà connue est mise à jour, un représentant déjà inscrit n\'est pas recréé.']
+    ] },
+    { titre: 'Les participants par catégorie', blocs: [
+      ['p', '« Tous les participants » regroupe toutes les personnes qui ont un badge. Chaque catégorie a ensuite sa page, avec son bouton « Ajouter » déjà réglé sur la bonne catégorie.'],
+      ['ul', ['Visiteurs : ils s\'inscrivent seuls sur jef.acses-asso.com/visiteur.html, pour une demi-journée, sans repas. Leur badge part automatiquement.',
+        'Accompagnants : ajoutés par le congressiste à l\'inscription, ou par le bureau. Tarif à part, hors convention.',
+        'Intervenants : suivi du contact, du thème, de la logistique et des documents (CV, support, photo).',
+        'Invités : sans repas par défaut. Les invitations institutionnelles se suivent dans Invitations.']]
+    ] },
+    { titre: 'Espace participant et questionnaires', blocs: [
+      ['p', 'Chaque badge porte un deuxième QR code « Mon espace participant ». Scanné avec un téléphone, il ouvre une page personnelle : programme, repas et questionnaires du profil. Aucun mot de passe : le lien est signé.'],
+      ['ul', ['Stagiaires : test d\'entrée, test de fin, évaluation des acquis et satisfaction.',
+        'Exposants : satisfaction des entreprises partenaires.', 'Autres profils : satisfaction.']],
+      ['p', 'Les questionnaires s\'ouvrent seuls selon les demi-journées. Les rapports PDF se déposent dans le Drive Qualiopi de l\'année, prêts pour l\'auditeur.']
+    ] },
+    { titre: 'Classement du Drive', blocs: [
+      ['p', 'Chaque édition a son dossier « JEF année » dans le dossier d\'archives : Stagiaires, Badges et Documents de l\'édition. Les rapports Qualiopi vont dans « JEF année » du dossier d\'audit Qualiopi. Les éditions précédentes restent où elles sont.']
+    ] },
+    { titre: 'Jour J et Qualiopi', blocs: [
+      ['p', 'Ouvrez scanner.html sur un téléphone ou un PC. En mode Présence, chaque personne est scannée une seule fois, à son arrivée. Le résultat s\'affiche en plein écran : vert, il se ferme seul après 2 secondes. Orange ou rouge, il reste affiché jusqu\'à ce que vous touchiez l\'écran.'],
+      ['p', 'En mode Contrôle, le scan ouvre la fiche de la personne sans pointer sa présence. Le lecteur s\'efface, le bouton « Scanner le suivant » le fait revenir.'],
+      ['p', 'Le mode Borne (lien en bas du scanner) transforme une tablette en borne d\'auto-accueil : les participants scannent eux-mêmes leur badge. Un membre du bureau se connecte d\'abord. Touchez deux fois « Quitter » pour sortir.'],
+      ['p', 'Si un financeur exige un émargement par demi-journée, passez le réglage « Un seul scan à l\'arrivée » sur Non.'],
+      ['p', 'Sans réseau, le scanner continue : les scans sont gardés sur l\'appareil puis envoyés au retour de la connexion.'],
+      ['p', 'Le vendredi à 14 h (réglable), la feuille de présence unique et les attestations partent seules. Une personne non scannée peut être marquée présente depuis le cockpit avant cet envoi.']
+    ] },
+    { titre: 'Inscription sur place', blocs: [
+      ['p', 'Le bouton orange « + Inscription sur place », en haut à droite, sert le jour J pour une personne arrivée sans inscription. Choisissez le profil : il détermine le modèle du badge.'],
+      ['ul', ['Aucun repas n\'est coché par défaut. Cochez ceux que la personne prend.',
+        'Le badge s\'ouvre aussitôt pour l\'impression. Avec un email, il peut aussi être envoyé.',
+        'Un stagiaire inscrit sur place a un vrai dossier, validé d\'office et compté pour l\'attestation. La convention et la facture se régularisent ensuite depuis sa fiche.']]
+    ] },
+    { titre: 'Qualiopi et audits', blocs: [
+      ['p', 'L\'onglet Qualiopi liste les 33 indicateurs du référentiel. Pour chacun, indiquez l\'état du justificatif et rattachez les fichiers du Drive Qualiopi. Le jour de l\'audit, tout est au même endroit.'],
+      ['p', 'Le dossier Drive doit être partagé avec le compte qui fait tourner la plateforme, sinon la liste des fichiers ne s\'affiche pas.']
+    ] },
+    { titre: 'Profils et accès', blocs: [
+      ['ul', ['Utilisateur : tout le cockpit et le scanner, sans les Réglages ni les Accès. C\'est le profil de tous les membres du bureau.',
+        'Administrateur : utilisateur, plus les Réglages et l\'onglet Accès.',
+        'Un administrateur ajoute ou retire un compte dans l\'onglet Accès. L\'effet est immédiat.']]
+    ] },
+    { titre: 'Couleurs des étiquettes', blocs: [
+      ['legende', [['t-vert', 'Terminé ou OK'], ['t-orange', 'À faire ou bientôt'], ['t-rouge', 'Annulé, refusé ou en retard'], ['t-violet', 'En attente d\'un tiers ou mode spécial'], ['t-bleu', 'Prévu']]]
+    ] },
+    { titre: 'En cas de problème', blocs: [
+      ['ul', ['« Session expirée » : reconnectez-vous, la session dure 4 heures.',
+        'Un badge ne s\'ouvre pas : autorisez les fenêtres pour jef.acses-asso.com, ou utilisez le bouton Télécharger qui s\'affiche.',
+        'Une erreur technique affiche une référence. Notez-la : elle permet de retrouver le détail dans les journaux d\'Apps Script.',
+        'Un chiffre semble faux : cliquez sur Actualiser, les données sont peut-être anciennes de quelques minutes.']]
+    ] },
+    { titre: 'Données personnelles', blocs: [
+      ['ul', ['Les besoins liés au handicap et les régimes alimentaires sont des données de santé : ne les copiez pas hors de la plateforme.',
+        'L\'export traiteur ne contient que des nombres de couverts.',
+        'Après l\'événement, le menu du classeur permet d\'anonymiser les visiteurs.']]
+    ] }
+  ],
+
+  nouveautes: [
+    { version: '2.4.1', date: '26 novembre 2026', points: [
+      'Cockpit et Scanner deviennent deux applications distinctes, installables depuis Chrome sur ordinateur et sur téléphone.',
+      'Cockpit sur téléphone : barre de navigation en bas avec le bouton + pour l\'inscription sur place, listes en cartes, fiche en plein écran, fenêtres qui montent du bas.',
+      'Le bouton retour du téléphone ferme la fiche ouverte. Les données se rafraîchissent quand on revient dans l\'application.',
+      'Le scanner s\'ouvre même sans réseau une fois installé.'
+    ] },
+    { version: '2.4.0', date: '26 novembre 2026', points: [
+      'Menu Participants : tous les participants, puis une page par catégorie (stagiaires, accompagnants, exposants, visiteurs, intervenants, invités), chacune avec son bouton Ajouter.',
+      'Accompagnants : nouvelle catégorie, ajoutée par le congressiste à l\'inscription ou par le bureau, badge envoyé avec celui de la personne accompagnée.',
+      'Questionnaires Qualiopi intégrés et reliés au badge : test d\'entrée et de fin avec progression, évaluation des acquis, satisfaction congressistes et entreprises. Rapports PDF déposés dans le Drive Qualiopi.',
+      'Espace participant ouvert par un deuxième QR code sur le badge : programme, repas, questionnaires.',
+      'Programme des journées, suivi des intervenants, invitations institutionnelles, emails groupés, relances (désactivées par défaut), badges en lot et bilan PDF de l\'édition.',
+      'Scanner refait : mode Présence en plein écran, mode Contrôle qui affiche la fiche, mode Borne d\'auto-accueil.',
+      'Repas compris dans le prix : les cases repas servent à compter les couverts.',
+      'Drive classé par édition : un dossier « JEF année » pour les stagiaires, les badges et les documents.',
+      'Le logo du menu ramène au tableau de bord, et les chiffres clés ouvrent la liste correspondante.'
+    ] },
+    { version: '2.3.0', date: '25 novembre 2026', points: [
+      'Inscription sur place depuis le cockpit (bouton en haut à droite et sur le tableau de bord) : stagiaire, exposant, invité, intervenant ou visiteur, badge imprimé tout de suite avec le modèle du profil, sans repas par défaut.',
+      'Tableau de bord personnalisable : afficher ou masquer chaque widget, changer l\'ordre. Le réglage suit votre compte.',
+      'Présence : présent ou absent, un seul bouton.',
+      'Nouvel onglet Qualiopi pour préparer les audits : 33 indicateurs, état des justificatifs, fichiers du Drive rattachés.',
+      'Profils utilisateur et administrateur, et nouvel onglet Accès pour ajouter ou retirer un membre du bureau.',
+      'Scanner : mode Vérifier, qui ouvre la fiche de la personne pour marquer la présence, renvoyer le badge ou l\'attestation.',
+      'Réglages des présences et de Qualiopi modifiables directement depuis ces pages, pour les administrateurs.'
+    ] },
+    { version: '2.2.0', date: '25 novembre 2026', points: [
+      'Inscription : la première question « Qui remplit ce formulaire ? » adapte la suite. Stagiaire, service formation ou secrétariat, ou stagiaire qui paie lui-même.',
+      'Un service formation peut inscrire un stagiaire en une fois et déposer la convention aussitôt. Le stagiaire reçoit un lien pour son positionnement.',
+      'Stagiaire qui paie lui-même : contrat de formation, 14 jours de rétractation, règlement par virement ou chèque après la formation.',
+      'Inscriptions fermées : annoncé dès l\'ouverture de la page, avec l\'adresse de contact.',
+      'Civilité retirée, positionnement et SIRET facultatifs, exemples de saisie plus lisibles.',
+      'Nom de la personne dans les noms de fichiers et dans l\'objet des emails.',
+      'Email « convention à valider » : le bouton ouvre la fiche et le document signé, avec Valider à côté.',
+      'Scanner : un seul scan à l\'arrivée vaut pour les 2 jours. Attestations le vendredi à 14 h.'
+    ] },
+    { version: '2.1.0', date: '25 novembre 2026', points: [
+      'Nouvelle interface du cockpit : menu par thèmes, barre fixe avec recherche rapide, aide et légende sur chaque page.',
+      'Personnes connectées affichées en haut à droite, et avertissement si quelqu\'un a la même fiche ouverte.',
+      'Présences validables d\'un clic dans les listes.',
+      'Le badge s\'ouvre directement dans le navigateur, sans passer par Drive.',
+      'Entreprises partenaires gérées par le bureau, avec import en deux temps : les entreprises, puis les représentants.',
+      'Tableau de bord enrichi : actions à faire, repas par jour, financement, établissements, besoins d\'aménagement.',
+      'Tous les paramètres sont réglables depuis l\'onglet Réglages, avec explications et vérifications.',
+      'Mode d\'emploi et page Quoi de neuf.'
+    ] },
+    { version: '2.0.0', date: '24 novembre 2026', points: [
+      'Nouvelle plateforme sécurisée : connexion Google, données protégées, badges signés.',
+      'Dépôt en ligne de la convention signée, repas à la carte, présences par demi-journée, attestations automatiques.'
+    ] }
+  ]
+};

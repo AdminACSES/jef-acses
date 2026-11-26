@@ -1,0 +1,22 @@
+{
+  "id": "/admin.html",
+  "name": "Cockpit JEF ACSES",
+  "short_name": "Cockpit JEF",
+  "description": "Cockpit du bureau de l'ACSES pour les Journées d'études et de formation.",
+  "lang": "fr",
+  "start_url": "/admin.html",
+  "scope": "/admin.html",
+  "display": "standalone",
+  "background_color": "#F6F8FB",
+  "theme_color": "#0B2540",
+  "icons": [
+    { "src": "/icones/cockpit-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icones/cockpit-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icones/cockpit-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icones/cockpit-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Tous les participants", "url": "/admin.html#participants", "icons": [{ "src": "/icones/cockpit-192.png", "sizes": "192x192" }] },
+    { "name": "Stagiaires", "url": "/admin.html#stagiaires", "icons": [{ "src": "/icones/cockpit-192.png", "sizes": "192x192" }] }
+  ]
+}
