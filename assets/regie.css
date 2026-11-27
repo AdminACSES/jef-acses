@@ -21,7 +21,7 @@ body.regie .connexion { background: #16081A; }
 .rg-btn-fort:hover { background: #9D174D; }
 .rg-btn-danger { background: #7F1D1D; border-color: #B91C1C; margin-top: 8px; }
 .rg-mini { padding: 3px 8px; font-size: 12px; }
-.rg-grille { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; padding: 14px 16px 28px; }
+.rg-grille { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr); gap: 14px; padding: 14px 16px 28px; }
 .rg-col { display: grid; gap: 14px; align-content: start; }
 .rg-carte { background: #23102A; border: 1px solid #3D2246; border-radius: 14px; padding: 14px 16px; }
 .rg-carte-tete { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -77,7 +77,56 @@ body.regie .connexion { background: #16081A; }
 .rg-aide ol { margin: 10px 0 6px; padding-left: 20px; display: grid; gap: 6px; }
 .rg-aide p { margin: 0; color: #C9B5CE; }
 .rg-aide kbd { background: #F5EEF6; color: #23102A; border-radius: 4px; padding: 0 5px; font-size: 12px; font-weight: 700; }
-@media (max-width: 900px) {
-  .rg-grille { grid-template-columns: 1fr; }
+
+
+/* v2.7 : pilote de l'écran, souffleur, modération */
+.rg-pilote { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 16px; background: #1C0B22; border-bottom: 1px solid #3D2246; }
+.rg-pilote-lib { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #C9B5CE; font-weight: 700; }
+.rg-segments { display: inline-flex; background: #2E1636; border: 1px solid #5A3364; border-radius: 12px; padding: 3px; gap: 3px; }
+.rg-segments button { font: inherit; font-weight: 700; color: #E9D5EE; background: none; border: 0; border-radius: 9px; padding: 8px 14px; cursor: pointer; }
+.rg-segments button:hover { background: #3D1F47; }
+.rg-segments button.actif { background: #DB2777; color: #fff; box-shadow: 0 4px 14px rgba(219, 39, 119, .4); }
+.rg-mini-ecran { flex: 1; min-width: 200px; font-size: 13px; color: #fff; background: #0B2540; border: 1px solid #2575B3; border-radius: 10px; padding: 8px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rg-onglets { display: none; }
+.rg-pastille { background: #DB2777; color: #fff; border-radius: 999px; font-size: 11px; font-weight: 800; padding: 1px 7px; margin-left: 4px; }
+.rg-temps b.depasse { color: #F87171; }
+.rg-actions-seq { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.rg-tag { font-size: 12px; background: #2E1636; border-radius: 999px; padding: 4px 10px; color: #E9D5EE; }
+.rg-conducteur li { cursor: pointer; }
+.rg-conducteur li.choisie { outline: 2px solid #F472B6; }
+.rg-groupe { font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; color: #F9A8D4; font-weight: 800; margin: 12px 0 4px; }
+.rg-groupe-seq { color: #FDBA74; }
+.rg-anim.faite { opacity: .6; }
+.rg-live { background: #2E1636; border: 1px solid #F472B6; border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+.rg-live-tete { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 8px; } .rg-live-tete span { color: #C9B5CE; white-space: nowrap; }
+.rg-live-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; } .rg-live-actions .rg-btn-danger { margin-top: 0; }
+.rg-souffleur { margin-top: 10px; background: #FEF3C7; color: #78350F; border-radius: 10px; padding: 8px 10px; font-size: 13.5px; line-height: 1.45; }
+.rg-souffleur b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #92400E; margin-bottom: 2px; }
+.rg-sond.bonne span { color: #86EFAC; font-weight: 800; } .rg-sond.bonne i { background: #22C55E; }
+.rg-qa-ouvrir { display: grid; gap: 8px; margin: 10px 0; }
+.rg-qa-ouvrir input[type=text] { background: #2E1636; color: #fff; border: 1px solid #5A3364; border-radius: 9px; padding: 8px 10px; font: inherit; }
+.rg-case { display: flex; gap: 8px; align-items: center; color: #E9D5EE; }
+.rg-serie { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid #3D2246; } .rg-serie small { display: block; color: #C9B5CE; }
+.rg-qa-outils { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; } .rg-qa-outils .rg-btn-danger { margin-top: 0; }
+.rg-qq { display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: center; background: #2A1431; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; }
+.rg-qq small { display: block; color: #C9B5CE; font-size: 12px; margin-top: 2px; }
+.rg-qq.une { background: #4A1D3F; outline: 2px solid #FDBA74; }
+.rg-votes { color: #F9A8D4; font-size: 16px; text-align: center; }
+.rg-qq-btns { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.rg-ok { background: #065F46; border-color: #10B981; }
+.rg-plie summary { cursor: pointer; color: #C9B5CE; margin: 10px 0 6px; }
+@media (max-width: 1100px) {
+  .rg-grille { grid-template-columns: 1fr; padding-bottom: 80px; }
+  .rg-col { display: none; }
+  body[data-col=deroule] .rg-col[data-col=deroule], body[data-col=anims] .rg-col[data-col=anims], body[data-col=qa] .rg-col[data-col=qa] { display: grid; }
+  .rg-onglets { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: #23102A; border-top: 1px solid #3D2246; padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); gap: 6px; }
+  .rg-onglets button { flex: 1; font: inherit; font-weight: 700; color: #E9D5EE; background: #2E1636; border: 1px solid #5A3364; border-radius: 10px; padding: 10px 4px; }
+  .rg-onglets button.actif { background: #DB2777; border-color: #DB2777; color: #fff; }
+}
+@media (max-width: 700px) {
+  .rg-barre { gap: 6px; padding: 8px 10px; } .rg-titre small, #rg-copier, #rg-aide-clavier { display: none; }
+  .rg-horloge { font-size: 20px; } .rg-barre select { min-width: 0; max-width: 150px; }
+  .rg-pilote { padding: 8px 10px; } .rg-pilote-lib { display: none; } .rg-segments { width: 100%; } .rg-segments button { flex: 1; padding: 8px 4px; font-size: 13px; }
   .rg-maintenant h2 { font-size: 22px; } .rg-temps b { font-size: 38px; } .rg-chrono-temps { font-size: 48px; }
+  .rg-qq { grid-template-columns: 28px 1fr; } .rg-qq-btns { grid-column: 1 / -1; justify-content: flex-start; }
 }

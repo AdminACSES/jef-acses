@@ -3,22 +3,32 @@
    Modifiable sans toucher à la logique (admin.js).
    ========================================================================== */
 window.JEF_COCKPIT = {
-  version: '2.6.0',
+  version: '2.7.0',
 
   // Cinq espaces séparés, même connexion et même serveur. Chaque espace ne montre que ses pages.
+  // Cinq espaces (les tuiles du bandeau). Chaque espace a ses onglets (ses pages).
   menu: [
-    { id: 'inscriptions', titre: 'Inscriptions et adhésions', ico: '👥', couleur: '#EB7E0C', texte: 'Dossiers, entreprises, paiements, badges et emails.',
-      pages: [['tableau', 'Tableau de bord'], ['participants', 'Tous les participants'], ['stagiaires', 'Stagiaires'], ['accompagnants', 'Accompagnants'], ['entreprises', 'Exposants et entreprises'],
-        ['visiteurs', 'Visiteurs'], ['invites', 'Invités'], ['invitations', 'Invitations'], ['communication', 'Communication'], ['restauration', 'Restauration']] },
-    { id: 'programme', titre: 'Programme et intervenants', ico: '🗓️', couleur: '#1E7B45', texte: 'Conducteur des journées, intervenants, rétroplanning.',
-      pages: [['programme', 'Programme'], ['intervenants', 'Intervenants'], ['taches', 'Rétroplanning']] },
-    { id: 'jourj', titre: 'Jour J et régie', ico: '🎬', couleur: '#BE185D', texte: 'Accueil, scanner, présences, animation, régie et écran.',
-      pages: [['jourj', 'Accueil jour J'], ['presences', 'Présences et attestations'], ['animation', 'Animation en direct']] },
-    { id: 'qualiopi', titre: 'Qualiopi', ico: '✅', couleur: '#6D28D9', texte: 'Questionnaires, indicateurs, dossier d\'audit.',
-      pages: [['qualiopi', 'Qualiopi'], ['questionnaires', 'Questionnaires']] },
-    { id: 'administration', titre: 'Administration', ico: '⚙️', couleur: '#94A3B8', texte: 'Réglages, éditions, accès, journal, aide.',
-      pages: [['reglages', 'Réglages'], ['editions', 'Éditions et historique'], ['acces', 'Accès'], ['journal', 'Journal'], ['aide', 'Mode d\'emploi'], ['nouveautes', 'Quoi de neuf']] }
+    { id: 'inscriptions', titre: 'Inscriptions', court: 'Inscriptions', ico: '👥', couleur: '#EB7E0C', texte: 'Participants, entreprises, paiements, badges',
+      pages: [['tableau', 'Tableau de bord'], ['participants', 'Tous'], ['stagiaires', 'Stagiaires'], ['accompagnants', 'Accompagnants'], ['entreprises', 'Exposants'],
+        ['visiteurs', 'Visiteurs'], ['invites', 'Invités'], ['invitations', 'Invitations'], ['communication', 'Emails'], ['restauration', 'Repas']] },
+    { id: 'programme', titre: 'Programme', court: 'Programme', ico: '🗓️', couleur: '#0E9F6E', texte: 'Planning des deux jours, intervenants, rétroplanning',
+      pages: [['programme', 'Planning'], ['intervenants', 'Intervenants'], ['taches', 'Rétroplanning']] },
+    { id: 'jourj', titre: 'Jour J et régie', court: 'Jour J', ico: '🎬', couleur: '#DB2777', texte: 'Accueil, animations, questions de la salle',
+      pages: [['jourj', 'Accueil'], ['animation', 'Animations'], ['questions_salle', 'Questions de la salle'], ['presences', 'Présences']] },
+    { id: 'qualiopi', titre: 'Qualiopi', court: 'Qualiopi', ico: '✅', couleur: '#7C3AED', texte: 'Questionnaires, indicateurs, dossier d\'audit',
+      pages: [['qualiopi', 'Indicateurs'], ['questionnaires', 'Résultats des questionnaires'], ['q_reglages', 'Réglage des questionnaires']] },
+    { id: 'administration', titre: 'Administration', court: 'Admin', ico: '⚙️', couleur: '#2575B3', texte: 'Réglages, éditions, accès, aide',
+      pages: [['reglages', 'Réglages'], ['editions', 'Éditions'], ['acces', 'Accès'], ['journal', 'Journal'], ['aide', 'Mode d\'emploi'], ['nouveautes', 'Quoi de neuf']] }
   ],
+
+  // Pictogrammes des espaces (traits, 24 x 24), dessinés pour le cockpit.
+  icones: {
+    inscriptions: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="11" r="2.4"/><path d="M5.6 16.6c.8-1.7 2-2.5 3.4-2.5s2.6.8 3.4 2.5"/><path d="M15 10h3.2M15 13.2h3.2"/>',
+    programme: '<rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.8v3.4M16 2.8v3.4"/><path d="M7.5 13.5h4M7.5 17h7"/><circle cx="16.5" cy="14.5" r=".9"/>',
+    jourj: '<rect x="2.5" y="4" width="19" height="13" rx="2.5"/><path d="M10.2 8.3v5.4l4.4-2.7z"/><path d="M8 21h8M12 17v4"/>',
+    qualiopi: '<path d="M12 2.8l7.2 3v5.3c0 4.6-3.1 8.5-7.2 10.1-4.1-1.6-7.2-5.5-7.2-10.1V5.8z"/><path d="M8.6 12.1l2.4 2.4 4.5-4.8"/>',
+    administration: '<path d="M4 6.5h9M17 6.5h3M4 12h3M11 12h9M4 17.5h11M19 17.5h1"/><circle cx="15" cy="6.5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17.5" r="2"/>'
+  },
 
   legendes: {
     dossier: [['t-violet', 'En attente du service formation'], ['t-orange', 'À faire par le bureau'], ['t-bleu', 'Validé, paiement attendu'], ['t-vert', 'Terminé'], ['t-rouge', 'Annulé']],
@@ -29,9 +39,20 @@ window.JEF_COCKPIT = {
 
   aides: {
     portail: {
-      texte: 'Le point de départ du cockpit. Chaque tuile ouvre un espace avec seulement ses pages. Le chiffre orange signale ce qui attend une action.',
-      points: ['Le menu de gauche ne montre que l\'espace ouvert. Le bouton « Tous les espaces », en haut du menu, ramène ici.',
+      texte: 'Une tuile, c\'est un espace. Un onglet, c\'est une page de cet espace. Les cinq tuiles restent en haut de toutes les pages.',
+      points: ['Le chiffre orange d\'une tuile signale ce qui attend une action dans cet espace.',
         'La régie et le scanner s\'ouvrent dans leur propre fenêtre et s\'installent comme des applications.']
+    },
+    q_reglages: {
+      texte: 'Quand chaque questionnaire s\'ouvre, et ses questions. Les résultats sont dans l\'onglet « Résultats des questionnaires ».',
+      points: ['AUTO suit les demi-journées des Réglages. OUVERT ou FERMÉ force l\'état, par exemple pour faire répondre en salle plus tôt.',
+        'En mode test, tout est ouvert pour les essais.',
+        'Les questions de l\'évaluation des acquis viennent des objectifs du Planning : une question par objectif, regroupées par jour.']
+    },
+    questions_salle: {
+      texte: 'Les questions posées par la salle, une série par présentation. La modération en direct se fait dans la régie.',
+      points: ['Chaque participant, quel que soit son profil, pose ses questions depuis son espace. Il peut demander l\'anonymat à l\'écran, son nom reste dans l\'archive.',
+        'Une série fermée reste consultable ici, avec l\'auteur, les votes et la suite donnée. Le bouton PDF la range dans le Drive Qualiopi.']
     },
     taches: {
       texte: 'Le rétroplanning de l\'édition : ce qu\'il faut faire avant, pendant et après les journées, avec une échéance et un responsable.',
@@ -121,6 +142,13 @@ window.JEF_COCKPIT = {
         'Modifiez les questions avant l\'ouverture : après les premières réponses, ajoutez plutôt des questions à la fin.']
     },
     animation: {
+      texte: 'Les animations du public : nuage de mots, sondage, étoiles, quiz, note, questionnaires. On les prépare ici, on les lance depuis la régie.',
+      points: ['La bibliothèque propose 18 animations prêtes, inspirées des séances 2026. Cochez, ajoutez, puis ajustez le texte.',
+        'Rattachez une animation à une séquence du planning : la régie la propose au bon moment.',
+        'Un quiz garde sa bonne réponse secrète jusqu\'à ce que la régie la dévoile.',
+        'Après la séance, le bouton PDF classe les résultats dans le Drive Qualiopi.']
+    },
+    animation_ancien: {
       texte: 'Nuage de mots, sondage, note et questions de la salle, affichés en direct sur l\'écran. Le public répond depuis son téléphone, avec le QR « Mon espace » de son badge.',
       points: ['Ouvrez l\'écran de projection sur l\'ordinateur relié au vidéoprojecteur (bouton en haut). Il n\'a pas besoin de connexion Google.',
         '« Lancer » affiche la question sur tous les téléphones et sur l\'écran. Une seule animation est en direct à la fois.',
@@ -128,8 +156,11 @@ window.JEF_COCKPIT = {
         'Après la séance, le bouton PDF classe les résultats dans le Drive Qualiopi. Slido reste possible en secours.']
     },
     programme: {
-      texte: 'Le conducteur des journées, séquence par séquence. Il s\'affiche dans l\'espace participant de chaque badge.',
-      points: ['Ajoutez une ligne par séquence : accueil, conférence, questions, salon, repas, assemblée générale, soirée.', 'Les flèches changent l\'ordre. Pensez à enregistrer.']
+      texte: 'Le planning des deux jours. Chaque séquence relie son intervenant, son support, sa salle, ses animations et ses questions. La régie et l\'espace participant le reprennent.',
+      points: ['Un clic sur le nom de l\'intervenant ouvre sa fiche. « Support » ouvre sa présentation, déposée dans son espace ou collée dans le planning.',
+        '« Régie » ouvre la régie directement sur cette séquence.',
+        '« Modifier le planning » passe en saisie : une carte par séquence, flèches pour l\'ordre, puis Enregistrer.',
+        'L\'objectif de chaque conférence crée la question de l\'évaluation des acquis du jour.']
     },
     invitations: {
       texte: 'Les invitations institutionnelles : préfecture, ARS, SDIS, FHF, élus. Destinataire, formule, suivi et réponse.',
@@ -165,6 +196,13 @@ window.JEF_COCKPIT = {
     { titre: 'Les cinq espaces', blocs: [
       ['p', 'Le cockpit s\'ouvre sur un portail à cinq tuiles. Chaque espace ne montre que ses pages : Inscriptions et adhésions, Programme et intervenants, Jour J et régie, Qualiopi, Administration.'],
       ['p', 'Tout reste relié : une inscription apparaît aussitôt au scanner, un objectif du programme crée la question de l\'évaluation des acquis. Le découpage sert à ne voir que ce dont on a besoin.']
+    ] },
+    { titre: 'Les questions de la salle', blocs: [
+      ['p', 'Au début de chaque présentation, la régie ouvre une série de questions. Tout le monde (stagiaires, exposants, visiteurs, intervenants, invités) pose ses questions depuis son espace et vote pour celles des autres.'],
+      ['ol', ['Avec la modération, chaque question attend une validation de la régie avant d\'être visible.',
+        'Les questions validées se classent par votes. « À la une » en affiche une en grand sur l\'écran.',
+        'Pendant le temps d\'échange, marquez les questions répondues.',
+        'À la fin, « Fermer la série ». Elle reste archivée avec l\'auteur de chaque question, et part en PDF dans le Drive Qualiopi.']]
     ] },
     { titre: 'La régie du jour J', blocs: [
       ['p', 'Ouvrez la régie (regie.html) sur l\'ordinateur relié au vidéoprojecteur. Elle affiche la séquence en cours, la suivante et le temps restant, d\'après le Programme.'],
@@ -273,7 +311,7 @@ window.JEF_COCKPIT = {
   ],
 
   nouveautes: [
-    { version: '2.6.0', date: '27 novembre 2026', points: [
+    { version: '2.7.0', date: '27 novembre 2026', points: [
       'Questionnaires sur le modèle JEF 2026 : test d\'entrée et de fin, évaluation des acquis par jour construite avec les objectifs du Programme, courte satisfaction en fin de dernier jour, enquête des entreprises partenaires pour les seuls exposants.',
       'Questionnaires modernes sur téléphone : une question par écran, échelles du moins bon (à gauche) au meilleur (à droite), récapitulatif avant l\'envoi, réponses gardées sur le téléphone si le réseau sature.',
       'Animation en direct : nuage de mots, sondage, note, questions de la salle et lancement des questionnaires, avec un écran de projection. Slido reste possible en secours.',

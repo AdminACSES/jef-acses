@@ -15,8 +15,8 @@
   <link rel="icon" href="icones/cockpit-192.png">
   <link rel="apple-touch-icon" href="icones/cockpit-180-maskable.png">
   <link rel="manifest" href="cockpit.webmanifest">
-  <link rel="stylesheet" href="assets/jef.css?v=2.6.0">
-  <link rel="stylesheet" href="assets/cockpit.css?v=2.6.0">
+  <link rel="stylesheet" href="assets/jef.css?v=2.7.0">
+  <link rel="stylesheet" href="assets/cockpit.css?v=2.7.0">
 </head>
 <body class="cockpit">
   <div id="connexion" class="connexion">
@@ -40,6 +40,7 @@
     <div class="zone">
       <header class="barre">
         <button class="btn btn-s btn-menu" id="menu-ouvrir" aria-label="Ouvrir le menu">☰</button>
+        <a href="#portail" class="marque-barre" id="marque-barre" title="Accueil du cockpit"><img src="logo-acses.png" alt="Accueil du cockpit"></a>
         <h1 id="titre-vue">Tableau de bord</h1>
         <button class="btn btn-s btn-mobile" id="b-cherche" aria-label="Rechercher" aria-expanded="false">🔍</button>
         <button class="btn btn-s btn-mobile" id="b-plus" aria-label="Autres actions" aria-expanded="false">⋯</button>
@@ -71,6 +72,8 @@
           <div class="deroulant" id="menu-compte" hidden></div>
         </div>
       </header>
+      <nav class="espaces" id="espaces" aria-label="Espaces du cockpit"></nav>
+      <nav class="onglets-esp" id="onglets" aria-label="Pages de l'espace"></nav>
       <div id="bandeaux" aria-live="polite"></div>
       <main id="vue" class="page"><div class="chargement"><span class="rotation"></span>Chargement</div></main>
     </div>
@@ -88,10 +91,10 @@
   <aside class="tiroir" id="tiroir" aria-label="Fiche détaillée" aria-hidden="true"></aside>
   <div class="voile" id="voile"><div class="modale" id="modale" role="dialog" aria-modal="true"></div></div>
 
-  <script src="assets/config.js?v=2.6.0"></script>
-  <script src="assets/jef.js?v=2.6.0"></script>
+  <script src="assets/config.js?v=2.7.0"></script>
+  <script src="assets/jef.js?v=2.7.0"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="assets/pages/admin-contenus.js?v=2.6.0"></script>
-  <script src="assets/pages/admin.js?v=2.6.0"></script>
+  <script src="assets/pages/admin-contenus.js?v=2.7.0"></script>
+  <script src="assets/pages/admin.js?v=2.7.0"></script>
 </body>
 </html>

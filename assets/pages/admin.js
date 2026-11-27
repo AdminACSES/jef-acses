@@ -185,6 +185,7 @@
     construireMenu();
     construireCompte();
     $('#logo-accueil').addEventListener('click', function (e) { e.preventDefault(); aller('portail'); ouvrirMenu(false); });
+    $('#marque-barre').addEventListener('click', function (e) { e.preventDefault(); aller('portail'); });
     var depart = (location.hash || '').replace('#', '');
     var ficheDemandee = depart.indexOf('fiche=') === 0 ? decodeURIComponent(depart.slice(6)) : '';
     var typeDemande = /^JEF/.test(ficheDemandee) ? 'STAG' : (/^ENT/.test(ficheDemandee) ? 'ENT' : 'PRO');
@@ -228,9 +229,20 @@
         ${g.id === 'jourj' ? h`<a class="menu-btn menu-externe" href="regie.html" target="_blank" rel="noopener">Régie ↗</a><a class="menu-btn menu-externe" href="scanner.html" target="_blank" rel="noopener">Scanner ↗</a>` : ''}</div>`);
     }
     $('#menu-bas').textContent = 'Version ' + C.version;
-    $$('#nav [data-vue]').forEach(function (b) { b.addEventListener('click', function () { aller(b.getAttribute('data-vue')); ouvrirMenu(false); }); });
-    $$('#nav [data-espace]').forEach(function (b) { b.addEventListener('click', function () { ouvrirEspace(b.getAttribute('data-espace')); ouvrirMenu(false); }); });
+    // Bandeau des espaces (tuiles) et onglets de l'espace ouvert
+    JEF.rendre('#espaces', C.menu.map(function (x) {
+      return h`<button class="tuile-esp ${x === g ? 'actif' : ''}" data-espace="${x.id}" style="--c:${x.couleur};" ${brut(x === g ? 'aria-current="true"' : '')}>
+        <span class="tuile-esp-ico">${pictogramme(x.id)}</span><span class="tuile-esp-txt"><b><span class="long">${x.titre}</span><span class="court">${x.court}</span></b><small>${x.texte}</small></span><span class="compteur-esp" id="ce-${x.id}" hidden></span></button>`; }));
+    JEF.rendre('#onglets', g ? h`<div class="onglets-rail" style="--c:${g.couleur};">${pagesVisibles(g).map(function (p) {
+      return h`<button class="onglet-esp" data-vue="${p[0]}">${p[1]}<span class="compteur" id="co-${p[0]}" hidden></span></button>`; })}
+      ${g.id === 'jourj' ? h`<a class="onglet-esp externe" href="regie.html" target="_blank" rel="noopener">Régie ↗</a><a class="onglet-esp externe" href="scanner.html" target="_blank" rel="noopener">Scanner ↗</a>` : ''}</div>` : '');
+    $('#onglets').hidden = !g;
+    $$('#nav [data-vue], #onglets [data-vue]').forEach(function (b) { b.addEventListener('click', function () { aller(b.getAttribute('data-vue')); ouvrirMenu(false); }); });
+    $$('#nav [data-espace], #espaces [data-espace]').forEach(function (b) { b.addEventListener('click', function () { ouvrirEspace(b.getAttribute('data-espace')); ouvrirMenu(false); }); });
     if (D) majCompteurs();
+  }
+  function pictogramme(id, taille) {
+    return brut('<svg viewBox="0 0 24 24" width="' + (taille || 24) + '" height="' + (taille || 24) + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (C.icones[id] || '') + '</svg>');
   }
   function ouvrirEspace(id) {
     var g = C.menu.filter(function (x) { return x.id === id; })[0];
@@ -267,7 +279,9 @@
   function majCompteurs() {
     var n = { stagiaires: D.stagiaires.filter(function (l) { return prefixe(l) === '3'; }).length,
       entreprises: D.badges.filter(function (b) { return b.Profil === 'EXPOSANT' && actifBadge(b) && b.Email && !b.Badge_Envoye; }).length };
-    Object.keys(n).forEach(function (k) { var c = $('#c-' + k); if (c) { c.hidden = !n[k]; c.textContent = n[k]; } });
+    Object.keys(n).forEach(function (k) { ['#c-', '#co-'].forEach(function (pfx) { var c = $(pfx + k); if (c) { c.hidden = !n[k]; c.textContent = n[k]; } }); });
+    var parEsp = { inscriptions: n.stagiaires + n.entreprises + D.stagiaires.filter(function (l) { return prefixe(l) === '4'; }).length, administration: D.reglages.modeTest ? 1 : 0 };
+    C.menu.forEach(function (g) { var c = $('#ce-' + g.id); if (c) { c.hidden = !parEsp[g.id]; c.textContent = parEsp[g.id] || ''; } });
   }
 
   // ----- Bandeaux ----------------------------------------------------------
@@ -327,7 +341,10 @@
   // ======================================================================
   // Navigation
   // ======================================================================
+  var TITRES_LONGS = { participants: 'Tous les participants', entreprises: 'Exposants et entreprises', communication: 'Emails groupés', restauration: 'Restauration', programme: 'Planning des journées',
+    jourj: 'Accueil du jour J', animation: 'Animations en direct', presences: 'Présences et attestations', qualiopi: 'Indicateurs Qualiopi', editions: 'Éditions et historique' };
   function titrePage(v) {
+    if (TITRES_LONGS[v]) return TITRES_LONGS[v];
     var t = v === 'portail' ? 'Cockpit JEF' : 'Cockpit';
     C.menu.forEach(function (g) { g.pages.forEach(function (p) { if (p[0] === v) t = p[1]; }); });
     return t;
@@ -351,7 +368,7 @@
     document.body.setAttribute('data-espace', esp ? esp.id : 'portail');
     $('#titre-vue').textContent = titrePage(vue);
     document.title = titrePage(vue) + ' - Cockpit JEF ACSES';
-    $$('#nav [data-vue]').forEach(function (b) { if (b.getAttribute('data-vue') === vue) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+    $$('#nav [data-vue], #onglets [data-vue]').forEach(function (b) { if (b.getAttribute('data-vue') === vue) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
     $$('#nav-bas [data-nav]').forEach(function (b) { var v = b.getAttribute('data-nav'); var actif = v === vue || (v === 'participants' && ['participants', 'stagiaires', 'accompagnants', 'entreprises', 'visiteurs', 'intervenants', 'invites'].indexOf(vue) !== -1); if (actif) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
     var zv = $('#vue'); zv.classList.remove('entree'); void zv.offsetWidth; zv.classList.add('entree');
     tableCourante = null;
@@ -361,7 +378,7 @@
       accompagnants: function () { vueCategorie('accompagnants'); }, visiteurs: function () { vueCategorie('visiteurs'); }, intervenants: function () { vueCategorie('intervenants'); }, invites: function () { vueCategorie('invites'); },
       questionnaires: vueQuestionnaires, programme: vueProgramme, animation: vueAnimation, invitations: vueInvitations, communication: vueCommunication,
       restauration: vueRestauration, jourj: vueJourJ, reglages: vueReglages, journal: vueJournal, aide: vueAide, nouveautes: vueNouveautes,
-      portail: vuePortail, taches: vueTaches, editions: vueEditions }[vue] || vuePortail;
+      portail: vuePortail, taches: vueTaches, editions: vueEditions, q_reglages: vueQReglages, questions_salle: vueQuestionsSalle }[vue] || vuePortail;
     f();
     brancherAide();
     $$('#vue [data-sur-place]').forEach(function (b) { b.addEventListener('click', function () { modaleSurPlace(); }); });
@@ -1019,28 +1036,33 @@
   // ======================================================================
   function vuePortail() {
     var st = D.stagiaires, badges = D.badges.filter(actifBadge), tous = st.filter(actif).concat(badges);
-    var aValider = st.filter(function (l) { return prefixe(l) === '3'; }).length;
-    var aEncaisser = st.filter(function (l) { return prefixe(l) === '4'; }).length;
-    var presents = tous.filter(estPresent).length;
+    var aValider = st.filter(function (l) { return prefixe(l) === '3'; }).length, aEncaisser = st.filter(function (l) { return prefixe(l) === '4'; }).length;
     var chiffres = {
-      inscriptions: [st.filter(actif).length + ' stagiaire(s), ' + badges.length + ' badge(s)', aValider + aEncaisser],
-      programme: [badges.filter(function (b) { return b.Profil === 'INTERVENANT'; }).length + ' intervenant(s)', 0],
-      jourj: [presents + ' présent(s) sur ' + tous.length, 0],
-      qualiopi: ['33 indicateurs suivis', 0],
-      administration: [D.reglages.modeTest ? 'Mode test actif' : 'Édition ' + (D.annee || ''), D.reglages.modeTest ? 1 : 0]
+      inscriptions: [st.filter(actif).length, 'stagiaires', badges.length + (badges.length > 1 ? ' autres badges' : ' autre badge')],
+      programme: [badges.filter(function (b) { return b.Profil === 'INTERVENANT'; }).length, 'intervenants', 'Planning, supports, rétroplanning'],
+      jourj: [tous.filter(estPresent).length, 'présents', 'sur ' + tous.length + ' attendus'],
+      qualiopi: [33, 'indicateurs', 'Questionnaires et dossier d\'audit'],
+      administration: [D.annee || '', 'édition', D.reglages.modeTest ? 'Mode test actif' : 'Inscriptions en production']
     };
-    JEF.rendre('#vue', h`${aidePage('portail')}
+    var heure = new Date().getHours(), salut = heure < 18 ? 'Bonjour' : 'Bonsoir';
+    var prenom = String(session.nom && session.nom.indexOf('@') === -1 ? session.nom : session.email.split('@')[0]).split(' ')[0];
+    var attente = [];
+    if (aValider) attente.push([aValider + ' convention' + (aValider > 1 ? 's' : '') + ' à valider', 'stagiaires', 'valider']);
+    if (aEncaisser) attente.push([aEncaisser + ' paiement' + (aEncaisser > 1 ? 's' : '') + ' attendu' + (aEncaisser > 1 ? 's' : ''), 'stagiaires', 'encaisser']);
+    JEF.rendre('#vue', h`<div class="accueil-tete"><h2>${salut} ${prenom}</h2><p>Journées d'études et de formation ${D.annee || ''}. Choisissez un espace.</p></div>
       <div class="portail">${C.menu.map(function (g) {
-        var pages = pagesVisibles(g), c = chiffres[g.id] || ['', 0];
-        return h`<section class="tuile-espace" style="--c:${g.couleur};">
-          <button class="tuile-tete" data-espace-tuile="${g.id}"><span class="tuile-ico">${g.ico}</span><span><b>${g.titre}</b><small>${g.texte}</small></span>${c[1] ? h`<span class="tuile-alerte">${c[1]}</span>` : ''}</button>
-          <div class="tuile-chiffre">${c[0]}</div>
-          <div class="tuile-pages">${pages.map(function (p) { return h`<button class="puce-filtre" data-aller="${p[0]}">${p[1]}</button>`; })}
-            ${g.id === 'jourj' ? h`<a class="puce-filtre" href="regie.html" target="_blank" rel="noopener">Régie ↗</a><a class="puce-filtre" href="scanner.html" target="_blank" rel="noopener">Scanner ↗</a>` : ''}</div>
-        </section>`;
-      })}</div>`);
+        var c = chiffres[g.id] || ['', '', ''];
+        return h`<button class="grande-tuile" data-espace-tuile="${g.id}" style="--c:${g.couleur};">
+          <span class="gt-ico">${pictogramme(g.id, 40)}</span>
+          <span class="gt-titre">${g.titre}</span><span class="gt-texte">${g.texte}</span>
+          <span class="gt-chiffre"><b>${c[0]}</b> ${c[1]}<small>${c[2]}</small></span>
+          <span class="gt-ouvrir">Ouvrir →</span></button>`;
+      })}
+        <a class="grande-tuile gt-appli" href="regie.html" target="_blank" rel="noopener" style="--c:#16081A;"><span class="gt-ico">${pictogramme('jourj', 40)}</span><span class="gt-titre">Régie</span><span class="gt-texte">Application du jour J : écran, animations, questions</span><span class="gt-ouvrir">Ouvrir la régie ↗</span></a>
+      </div>
+      ${attente.length ? panneau('En attente de vous', '', h`<div class="attente-liste">${attente.map(function (a) { return h`<button class="btn btn-s btn-action" data-aller-filtre="${a[1] + ':' + a[2]}">${a[0]}</button>`; })}</div>`) : ''}`);
     $$('[data-espace-tuile]').forEach(function (b) { b.addEventListener('click', function () { ouvrirEspace(b.getAttribute('data-espace-tuile')); }); });
-    $$('#vue [data-aller]').forEach(function (b) { b.addEventListener('click', function () { aller(b.getAttribute('data-aller')); }); });
+    $$('#vue [data-aller-filtre]').forEach(function (b) { b.addEventListener('click', function () { var x = b.getAttribute('data-aller-filtre').split(':'); filtresPages[x[0]] = x[1]; aller(x[0]); }); });
   }
 
   // ======================================================================
@@ -1189,6 +1211,73 @@
           }).catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
         } }]);
     });
+  }
+
+  // ======================================================================
+  // Qualiopi : réglage des questionnaires
+  // ======================================================================
+  var qReglages = null;
+  function vueQReglages() {
+    if (!qReglages) {
+      JEF.rendre('#vue', h`${aidePage('q_reglages')}<div class="chargement"><span class="rotation"></span>Chargement des questionnaires</div>`);
+      JEF.post('module', { data: { op: 'q_reglages' } }).then(function (r) { qReglages = r; if (vue === 'q_reglages') { vueQReglages(); brancherAide(); } }).catch(function (e) { JEF.toast(e.message, 'erreur'); });
+      return;
+    }
+    var R = qReglages, admin = estAdmin();
+    var lib = { AUTO: 'Automatique', OUVERT: 'Ouvert', FERME: 'Fermé' };
+    JEF.rendre('#vue', h`${aidePage('q_reglages')}
+      ${R.modeTest ? h`<div class="bandeau b-violet"><span class="texte"><b>Mode test actif</b> : tous les questionnaires sont ouverts, quels que soient ces réglages.</span></div>` : ''}
+      ${R.programmeSansObjectif ? h`<div class="bandeau b-orange"><span class="texte">Aucun objectif dans le Planning : l'évaluation des acquis utilise les questions de secours.</span><button class="btn btn-s" data-aller="programme">Ouvrir le planning</button></div>` : ''}
+      <div class="q-reglages">${R.reglages.map(function (g) {
+        return h`<section class="q-reglage">
+          <div class="q-reglage-tete"><div><h3>${g.titre}</h3><p class="indice">${g.aide}</p></div>
+            <div class="segments" role="radiogroup" aria-label="${'Ouverture : ' + g.titre}">${['AUTO', 'OUVERT', 'FERME'].map(function (v) {
+              return h`<button class="segment ${g.valeur === v ? 'actif' : ''}" data-cle="${g.cle}" data-valeur="${v}" role="radio" aria-checked="${g.valeur === v}" ${brut(admin ? '' : 'disabled')}>${lib[v]}</button>`; })}</div></div>
+          <div class="q-reglage-liste">${g.questionnaires.map(function (q) {
+            return h`<div class="q-etat"><span class="pastille-etat ${q.etat.ouvert ? 'on' : ''}"></span><b>${q.titre}</b><small>${q.etat.ouvert ? 'Ouvert maintenant' : q.etat.raison || 'Fermé'} - ${q.questions} question(s) - ${q.reponses} réponse(s)</small></div>`; })}</div>
+          <div class="q-reglage-pied">${g.cle === 'Q_ACQUIS' ? h`<button class="btn btn-s" data-aller="programme">Objectifs dans le planning</button><button class="btn btn-s" data-lot="SATISFACTION">Questions de satisfaction</button><button class="btn btn-s" data-lot="ACQUIS">Questions de secours</button>` : h`<button class="btn btn-s" data-lot="${g.lot}">Modifier les questions</button>`}</div>
+        </section>`;
+      })}</div>
+      ${admin ? '' : h`<p class="indice">Seul un administrateur change l'ouverture.</p>`}`);
+    $$('[data-cle]').forEach(function (b) { b.addEventListener('click', function () {
+      var retablir = JEF.attente(b, '');
+      JEF.post('module', { data: { op: 'q_param_maj', cle: b.getAttribute('data-cle'), valeur: b.getAttribute('data-valeur') } }).then(function (r) { retablir(); qReglages = r; listeQ = null; vueQReglages(); brancherAide(); JEF.toast('Réglage enregistré', 'ok'); })
+        .catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+    }); });
+    $$('[data-lot]').forEach(function (b) { b.addEventListener('click', function () { modaleQuestions(b.getAttribute('data-lot')); }); });
+    $$('#vue [data-aller]').forEach(function (b) { b.addEventListener('click', function () { aller(b.getAttribute('data-aller')); }); });
+  }
+
+  // ======================================================================
+  // Questions de la salle : séries et archives (la modération se fait dans la régie)
+  // ======================================================================
+  var qaSalle = null, qaArchive = {};
+  function vueQuestionsSalle() {
+    if (!qaSalle) {
+      JEF.rendre('#vue', h`${aidePage('questions_salle')}<div class="chargement"><span class="rotation"></span>Chargement des questions</div>`);
+      JEF.post('module', { data: { op: 'qa_lire' } }).then(function (r) { qaSalle = r; if (vue === 'questions_salle') { vueQuestionsSalle(); brancherAide(); } }).catch(function (e) { JEF.toast(e.message, 'erreur'); });
+      return;
+    }
+    var Q = qaSalle, ouverte = Q.serie;
+    JEF.rendre('#vue', h`${aidePage('questions_salle')}
+      <div class="qa-tete ${ouverte ? 'on' : ''}">${ouverte ? h`<span class="point"></span><div><b>Questions ouvertes : ${ouverte.titre}</b><small>${Q.questions.length} question(s), ${Q.questions.filter(function (q) { return q.etat === 'En attente'; }).length} à modérer</small></div>` : h`<div><b>Aucune série ouverte</b><small>On ouvre les questions depuis la régie, au début de chaque présentation.</small></div>`}
+        <span style="flex:1;"></span><a class="btn btn-primaire" href="regie.html" target="_blank" rel="noopener">Modérer dans la régie ↗</a></div>
+      ${panneau('Séries de questions', 'Une série par présentation. Un clic affiche ses questions.', Q.series.length ? h`<div class="qa-series">${Q.series.slice().reverse().map(function (x) {
+        return h`<div class="qa-serie" data-serie="${x.id}"><div><b>${x.titre}</b><small>${x.etat}${x.ouverte ? ' - ouverte le ' + x.ouverte : ''}${x.fermee ? ', fermée le ' + x.fermee : ''} - ${x.questions} question(s)${x.moderation ? '' : ' - sans modération'}</small></div>
+          <span class="qa-serie-actions"><button class="btn btn-s" data-voir="${x.id}">Voir</button>${x.questions ? h`<button class="btn btn-s" data-pdf-qa="${x.id}" title="Archive PDF classée dans le Drive Qualiopi">PDF</button>` : ''}</span>
+          ${qaArchive[x.id] ? h`<div class="qa-archive">${qaArchive[x.id].map(function (q) { return h`<div class="qa-q"><b>${q.votes}</b><span>${q.texte}<small>${q.nom}${q.organisme ? ', ' + q.organisme : ''}${q.anonyme ? ' (anonyme à l\'écran)' : ''} - ${q.etat}</small></span></div>`; })}${qaArchive[x.id].length ? '' : h`<p class="indice">Aucune question.</p>`}</div>` : ''}</div>`;
+      })}</div>` : h`<p class="indice">Aucune série pour l'instant.</p>`)}`);
+    $$('[data-voir]').forEach(function (b) { b.addEventListener('click', function () {
+      var id = b.getAttribute('data-voir');
+      if (qaArchive[id]) { delete qaArchive[id]; vueQuestionsSalle(); brancherAide(); return; }
+      var retablir = JEF.attente(b, '');
+      JEF.post('module', { data: { op: 'qa_archives', id: id } }).then(function (r) { retablir(); qaArchive[id] = r.questions; vueQuestionsSalle(); brancherAide(); }).catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+    }); });
+    $$('[data-pdf-qa]').forEach(function (b) { b.addEventListener('click', function () {
+      var fenetre = preparerFenetre('Préparation de l\'archive'), retablir = JEF.attente(b, 'Création du PDF');
+      JEF.post('module', { data: { op: 'qa_rapport', id: b.getAttribute('data-pdf-qa') } }, { delai: 300000 }).then(function (r) { retablir(); ouvrirPdfBase64(r.pdf, r.nom, fenetre); JEF.toast('Archive classée dans le Drive Qualiopi', 'ok'); })
+        .catch(function (e) { retablir(); if (fenetre) fenetre.close(); JEF.toast(e.message, 'erreur'); });
+    }); });
   }
 
   // ======================================================================
@@ -1776,7 +1865,60 @@
 
   // ----- Programme des journées ------------------------------------------------
   var programme = null;
+  var progMode = 'planning';
   function vueProgramme() {
+    if (programme && progMode === 'edition') { vueProgrammeEdition(); return; }
+    if (programme) { vuePlanning(); return; }
+    vueProgrammeEdition();
+  }
+  /** Planning des deux jours : tout est relié (intervenant, support, salle, animations, questions, régie). */
+  var COULEURS_TYPE = { Accueil: '#64748B', Conférence: '#2575B3', Questions: '#DB2777', Salon: '#EB7E0C', Repas: '#0E9F6E', 'Assemblée générale': '#7C3AED', Soirée: '#B45309', Autre: '#94A3B8' };
+  function vuePlanning() {
+    var P = programme, ints = {};
+    (P.intervenants || []).forEach(function (b) { ints[b.id] = b; });
+    var jours = P.lignes.map(function (l) { return l.jour; }).filter(function (j, i, a) { return a.indexOf(j) === i; });
+    var fin = function (l) {
+      var m = String(l.duree || '').toLowerCase().replace(/\s/g, '').match(/^(\d{1,2})[h:](\d{0,2})/), min = m ? Number(m[1]) * 60 + (Number(m[2]) || 0) : (parseInt(l.duree, 10) || 0);
+      var hm = String(l.heure || '').replace('h', ':').split(':'); if (!min || hm.length < 2) return '';
+      var t = Number(hm[0]) * 60 + Number(hm[1]) + min; return ('0' + Math.floor(t / 60) % 24).slice(-2) + ':' + ('0' + t % 60).slice(-2);
+    };
+    var libJour = function (j) { return /^\d{4}-\d{2}-\d{2}$/.test(j) ? new Date(j + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : (j || 'Sans date'); };
+    var nbObj = P.lignes.filter(function (l) { return l.objectif; }).length, nbSup = P.lignes.filter(function (l) { return l.lienSupport || (ints[l.intervenantId] || {}).support; }).length;
+    JEF.rendre('#vue', h`${aidePage('programme')}
+      <div class="plan-tete"><div class="chiffres plan-chiffres">
+        <div class="chiffre"><div class="lib">Séquences</div><div class="val">${P.lignes.length}</div></div>
+        <div class="chiffre"><div class="lib">Objectifs pédagogiques</div><div class="val">${nbObj}</div></div>
+        <div class="chiffre"><div class="lib">Supports reçus</div><div class="val">${nbSup}</div></div></div>
+        <div class="plan-actions"><button class="btn btn-primaire" id="plan-editer">✎ Modifier le planning</button><a class="btn" href="regie.html" target="_blank" rel="noopener">Ouvrir la régie ↗</a><button class="btn" id="prog-pdf">Programme PDF</button></div></div>
+      ${P.lignes.length ? h`<div class="planning" style="--n:${jours.length};">${jours.map(function (j) {
+        return h`<section class="plan-jour"><h3>${libJour(j)}</h3>${P.lignes.map(function (l, i) { return [l, i]; }).filter(function (x) { return x[0].jour === j; }).map(function (x) {
+          var l = x[0], b = ints[l.intervenantId], support = l.lienSupport || (b && b.support), couleur = COULEURS_TYPE[l.type] || '#94A3B8', serie = (P.series || {})[l.id], nbAnim = (P.animations || {})[l.id] || 0;
+          return h`<article class="plan-seq" style="--t:${couleur};">
+            <div class="plan-heure"><b>${l.heure || '--:--'}</b>${fin(l) ? h`<small>${fin(l)}</small>` : ''}</div>
+            <div class="plan-corps">
+              <div class="plan-type">${l.type}${l.salle ? ' - ' + l.salle : ''}</div>
+              <div class="plan-theme">${l.theme || 'Séquence sans titre'}</div>
+              ${b ? h`<button class="plan-interv" data-interv="${b.id}">🎤 ${b.nom}${b.organisme ? ' - ' + b.organisme : ''}</button>` : (l.intervenants ? h`<div class="plan-interv-texte">🎤 ${l.intervenants}</div>` : '')}
+              ${l.objectif ? h`<div class="plan-obj">🎯 ${l.objectif}</div>` : ''}
+              <div class="plan-liens">
+                ${support ? h`<a class="plan-lien" href="${support}" target="_blank" rel="noopener">📎 Support</a>` : (b ? h`<span class="plan-lien manque">📎 Support attendu</span>` : '')}
+                ${nbAnim ? h`<button class="plan-lien" data-aller="animation">✨ ${nbAnim} animation${nbAnim > 1 ? 's' : ''}</button>` : ''}
+                ${serie ? h`<button class="plan-lien" data-aller="questions_salle">🙋 Questions ${serie.etat === 'Ouverte' ? '(ouvertes)' : ''}</button>` : ''}
+                ${l.id ? h`<a class="plan-lien" href="${'regie.html#seq=' + l.id}" target="_blank" rel="noopener">🎬 Régie</a>` : ''}
+              </div></div></article>`;
+        })}</section>`;
+      })}</div>` : h`<div class="vide-grand"><p>Le planning est vide.</p><button class="btn btn-primaire" id="plan-editer2">Construire le planning</button></div>`}`);
+    var editer = function () { progMode = 'edition'; vueProgramme(); brancherAide(); };
+    [$('#plan-editer'), $('#plan-editer2')].forEach(function (b) { if (b) b.addEventListener('click', editer); });
+    $$('[data-interv]').forEach(function (b) { b.addEventListener('click', function () { var x = trouver('PRO', b.getAttribute('data-interv')); if (x) modaleIntervenant(x); }); });
+    $$('#vue [data-aller]').forEach(function (b) { b.addEventListener('click', function () { aller(b.getAttribute('data-aller')); }); });
+    var pdf = $('#prog-pdf'); if (pdf) pdf.addEventListener('click', function () {
+      var fenetre = preparerFenetre('Préparation du programme'), retablir = JEF.attente(pdf, 'Création du programme PDF');
+      JEF.post('module', { data: { op: 'programme_pdf' } }, { delai: 300000 }).then(function (r) { retablir(); ouvrirPdfBase64(r.pdf, r.nom, fenetre); qualiopi = null; JEF.toast('Programme classé dans le Drive Qualiopi (indicateurs 5 et 6)', 'ok'); })
+        .catch(function (e) { retablir(); if (fenetre) fenetre.close(); JEF.toast(e.message, 'erreur'); });
+    });
+  }
+  function vueProgrammeEdition() {
     if (!programme) {
       JEF.rendre('#vue', h`${aidePage('programme')}<div class="chargement"><span class="rotation"></span>Chargement du programme</div>`);
       JEF.post('module', { data: { op: 'programme_lire' } }).then(function (r) { programme = r; if (vue === 'programme') { vueProgramme(); brancherAide(); } }).catch(function (e) { JEF.toast(e.message, 'erreur'); });
@@ -1808,11 +1950,15 @@
                 <div class="champ span2"><label>Objectif pédagogique <span class="indice">(un verbe d'action : expliquer, identifier, analyser...)</span></label><input data-k="objectif" type="text" value="${l.objectif}" placeholder="Ex. Identifier les risques des panneaux photovoltaïques pour sécuriser leur intégration"></div>
                 <div class="champ"><label>Intervenants affichés</label><input data-k="intervenants" type="text" value="${l.intervenants}" placeholder="Rempli seul si un intervenant est choisi"></div>
                 <div class="champ"><label>Description</label><input data-k="description" type="text" value="${l.description}"></div>
-              </div><input data-k="notes" type="hidden" value="${l.notes}"></div>`;
+                <div class="champ"><label>Salle</label><input data-k="salle" type="text" value="${l.salle || ''}" placeholder="Ex. Auditorium"></div>
+                <div class="champ"><label>Lien du support <span class="indice">(sinon celui déposé par l'intervenant)</span></label><input data-k="lienSupport" type="url" value="${l.lienSupport || ''}" placeholder="https://..."></div>
+                <div class="champ span2"><label>Consignes pour la régie</label><input data-k="notes" type="text" value="${l.notes}" placeholder="Ex. micro main, vidéo à 10:20, ouvrir les questions"></div>
+              </div><input data-k="id" type="hidden" value="${l.id || ''}"></div>`;
           })}</div>
           <datalist id="prog-jours">${jours.map(function (j) { return h`<option value="${j}">`; })}</datalist>
           <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;"><button class="btn btn-s" id="prog-ajout">+ Ajouter une séquence</button><span style="flex:1;"></span><button class="btn btn-s btn-primaire" id="prog-enr">Enregistrer le programme</button></div>`,
-        h`<button class="btn btn-s" id="prog-pdf">Créer et classer le programme PDF</button><button class="btn btn-s" data-aller="questionnaires">Voir l'évaluation des acquis</button>`)}`);
+        h`<button class="btn btn-s" id="prog-planning">← Voir le planning</button><button class="btn btn-s" id="prog-pdf">Créer et classer le programme PDF</button>`)}`);
+    $('#prog-planning').addEventListener('click', function () { lire(); progMode = 'planning'; vueProgramme(); brancherAide(); });
     var lire = function () {
       programme.lignes = $$('#prog-lignes .prog-carte').map(function (tr) { var o = {}; $$('[data-k]', tr).forEach(function (el) { o[el.getAttribute('data-k')] = el.value.trim(); }); return o; });
     };
@@ -1831,13 +1977,13 @@
     }); });
     $('#prog-ajout').addEventListener('click', function () {
       lire(); var der = programme.lignes[programme.lignes.length - 1] || {};
-      programme.lignes.push({ jour: der.jour || jours[0] || '', heure: '', duree: '', theme: '', description: '', intervenants: '', type: 'Conférence', diaporama: '', notes: '', objectif: '', intervenantId: '' });
+      programme.lignes.push({ jour: der.jour || jours[0] || '', heure: '', duree: '', theme: '', description: '', intervenants: '', type: 'Conférence', diaporama: '', notes: '', objectif: '', intervenantId: '', id: '', salle: der.salle || '', lienSupport: '' });
       vueProgramme();
       var c = $$('#prog-lignes .prog-carte'); if (c.length) c[c.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
     $('#prog-enr').addEventListener('click', function () {
       lire(); var b = $('#prog-enr'), retablir = JEF.attente(b, 'Enregistrement du programme');
-      JEF.post('module', { data: { op: 'programme_maj', lignes: programme.lignes } }).then(function (r) { retablir(); programme = r; listeQ = null; resultatsQ = {}; JEF.toast('Programme enregistré, évaluation des acquis mise à jour', 'ok'); vueProgramme(); })
+      JEF.post('module', { data: { op: 'programme_maj', lignes: programme.lignes } }).then(function (r) { retablir(); programme = r; listeQ = null; resultatsQ = {}; animation = null; progMode = 'planning'; JEF.toast('Planning enregistré, évaluation des acquis mise à jour', 'ok'); vueProgramme(); })
         .catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
     });
     $('#prog-pdf').addEventListener('click', function () {
@@ -1850,7 +1996,7 @@
 
   // ----- Animation en direct (impulsions) ----------------------------------------
   var animation = null, apercuMinuteur = null;
-  var TYPES_IMP = { nuage: ['☁️', 'Nuage de mots'], sondage: ['📊', 'Sondage'], note: ['⭐', 'Note de 0 à 10'], questions: ['🙋', 'Questions de la salle'], questionnaire: ['📝', 'Lancer un questionnaire'] };
+  var TYPES_IMP = { nuage: ['☁️', 'Nuage de mots'], sondage: ['📊', 'Sondage'], etoiles: ['⭐', 'Étoiles de 1 à 5'], quiz: ['🎯', 'Quiz à dévoiler'], note: ['🔟', 'Note de 0 à 10'], questionnaire: ['📝', 'Lancer un questionnaire'], questions: ['🙋', 'Questions (ancien format)'] };
   function vueAnimation() {
     clearInterval(apercuMinuteur);
     if (!animation) {
@@ -1879,7 +2025,7 @@
           })}</div>`);
         })}
         ${A.impulsions.length ? '' : h`<p class="indice">Aucune animation préparée. Ajoutez-en une, ou créez les animations conseillées.</p>`}
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;"><button class="btn btn-primaire" id="anim-ajout">+ Nouvelle animation</button>${A.impulsions.length ? '' : h`<button class="btn" id="anim-modeles">Créer les animations conseillées</button>`}</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;"><button class="btn btn-primaire" id="anim-ajout">+ Nouvelle animation</button><button class="btn" id="anim-modeles">📚 Bibliothèque d'animations prêtes</button></div></div>
         <div>${panneau('Aperçu de l\'écran', 'Mis à jour toutes les 3 secondes.', h`<div id="anim-apercu" class="anim-apercu"><p class="indice">Lancez une animation pour voir les réponses arriver.</p></div>`)}</div>
       </div>`);
     $('#anim-copier').addEventListener('click', function () { JEF.copier(A.ecran); });
@@ -1892,7 +2038,7 @@
         .catch(function (e) { retablir(); if (fenetre) fenetre.close(); JEF.toast(e.message, 'erreur'); });
     }); });
     $('#anim-ajout').addEventListener('click', function () { modaleImpulsion(null); });
-    var mo = $('#anim-modeles'); if (mo) mo.addEventListener('click', function () { creerModelesImp(mo); });
+    var mo = $('#anim-modeles'); if (mo) mo.addEventListener('click', function () { modaleBibliotheque(mo); });
     if (A.active) { apercuImp(); apercuMinuteur = setInterval(function () { if (vue !== 'animation') { clearInterval(apercuMinuteur); return; } if (!document.hidden) apercuImp(); }, 3000); }
   }
   function lancerImp(id, btn) {
@@ -1909,10 +2055,14 @@
       if (i.type === 'nuage') corps = h`<div class="mini-nuage">${(i.mots || []).map(function (m) { var max = i.mots[0][1]; return h`<span style="font-size:${12 + Math.round(m[1] / max * 18)}px;">${m[0]}</span>`; })}</div>`;
       else if (i.type === 'sondage') corps = h`<div class="barres">${i.comptes.map(function (c) { return h`<div class="l"><span>${c[0]}</span><div class="b"><i style="width:${i.n ? Math.round(c[1] / i.n * 100) : 0}%;background:var(--bleu-2);"></i></div><b>${c[1]}</b></div>`; })}</div>`;
       else if (i.type === 'note') corps = h`<div class="val" style="font-size:34px;font-weight:800;">${i.moyenne === null ? '-' : i.moyenne} <small style="font-size:14px;">/ 10</small></div>`;
+      else if (i.type === 'etoiles') corps = h`<div class="val" style="font-size:34px;font-weight:800;">${i.moyenne === null ? '-' : String(i.moyenne).replace('.', ',')} <small style="font-size:14px;">/ 5</small></div>`;
+      else if (i.type === 'quiz') corps = h`<div class="barres">${i.comptes.map(function (c) { return h`<div class="l"><span>${c[0]}${i.revele && c[0] === i.bonne ? ' ✓' : ''}</span><div class="b"><i style="width:${i.n ? Math.round(c[1] / i.n * 100) : 0}%;background:${i.revele && c[0] === i.bonne ? 'var(--vert)' : 'var(--bleu-2)'};"></i></div><b>${c[1]}</b></div>`; })}</div>
+        ${i.revele ? '' : h`<button class="btn btn-s btn-action" id="anim-reveler">Dévoiler la bonne réponse</button>`}`;
       else if (i.type === 'questions') corps = h`<div class="anim-questions">${(i.questions || []).map(function (q) { return h`<div class="${q.repondue ? 'repondue' : ''}"><b>${q.votes}</b><span>${q.texte}</span>
           <button class="btn btn-s" data-qrep="${q.id}">${q.repondue ? 'Rouvrir' : 'Répondue'}</button><button class="btn btn-s" data-qmasq="${q.id}" aria-label="Masquer">✕</button></div>`; })}${(i.questions || []).length ? '' : h`<p class="indice">Pas encore de question.</p>`}</div>`;
       else corps = h`<div class="val" style="font-size:34px;font-weight:800;">${i.n} <small style="font-size:14px;">/ ${i.attendus} réponses</small></div>`;
       JEF.rendre(z, h`<div class="anim-q">${i.type === 'questionnaire' ? i.titreQuestionnaire : i.question}</div><div class="indice">${i.type === 'questionnaire' ? '' : i.n + ' participant(s)'}</div>${corps}`);
+      var rv = $('#anim-reveler', z); if (rv) rv.onclick = function () { JEF.post('module', { data: { op: 'imp_reveler' } }).then(apercuImp).catch(function (e) { JEF.toast(e.message, 'erreur'); }); };
       $$('[data-qrep]', z).forEach(function (b) { b.onclick = function () { JEF.post('module', { data: { op: 'imp_moderer', question: b.getAttribute('data-qrep'), action: 'repondue' } }).then(apercuImp); }; });
       $$('[data-qmasq]', z).forEach(function (b) { b.onclick = function () { JEF.post('module', { data: { op: 'imp_moderer', question: b.getAttribute('data-qmasq'), action: 'masquer' } }).then(apercuImp); }; });
     }).catch(function () { /* l'aperçu réessaie seul */ });
@@ -1920,10 +2070,12 @@
   function modaleImpulsion(i) {
     i = i || { type: 'nuage', moment: 'Ouverture', question: '', choix: '', code: '' };
     ouvrirModale(i.id ? 'Modifier l\'animation' : 'Nouvelle animation', h`
-      <fieldset class="champ"><legend class="legende">Type</legend><div class="choix-types">${Object.keys(TYPES_IMP).map(function (t) {
+      <fieldset class="champ"><legend class="legende">Type</legend><div class="choix-types">${Object.keys(TYPES_IMP).filter(function (t) { return t !== 'questions' || i.type === 'questions'; }).map(function (t) {
         return h`<label class="option puce"><input type="radio" name="type" value="${t}" ${brut(t === i.type ? 'checked' : '')}><span class="titre">${TYPES_IMP[t][0]} ${TYPES_IMP[t][1]}</span></label>`; })}</div></fieldset>
       <div class="champ" id="imp-bloc-q"><label class="obligatoire" for="imp-q">Question affichée</label><input id="imp-q" name="question" type="text" maxlength="300" value="${i.question}" placeholder="Ex. Un mot pour décrire votre métier"></div>
       <div class="champ" id="imp-bloc-choix"><label for="imp-choix">Choix (séparés par |)</label><input id="imp-choix" name="choix" type="text" value="${i.choix}" placeholder="Ex. CHU|CH|Clinique|EHPAD"></div>
+      <div class="champ" id="imp-bloc-bonne"><label for="imp-bonne">Bonne réponse <span class="indice">(écrite comme l'un des choix, dévoilée par la régie)</span></label><input id="imp-bonne" name="bonne" type="text" value="${i.bonne || ''}"></div>
+      <div class="champ"><label for="imp-seq">Séquence du planning <span class="indice">(la régie la propose au bon moment)</span></label><select id="imp-seq" name="sequence"><option value="">Aucune</option>${(animation.sequences || []).map(function (q) { return h`<option value="${q.id}" ${brut(q.id === i.sequence ? 'selected' : '')}>${q.libelle}</option>`; })}</select></div>
       <div class="champ" id="imp-bloc-code"><label for="imp-code">Questionnaire à lancer</label><select id="imp-code" name="code">${animation.questionnaires.map(function (q) { return h`<option value="${q.code}" ${brut(q.code === i.code ? 'selected' : '')}>${q.titre}</option>`; })}</select>
         <span class="aide">L'écran affiche « Sortez votre badge, scannez le QR Mon espace » avec le compteur de réponses. Sur les téléphones, un bouton ouvre directement le questionnaire.</span></div>
       <div class="champ"><label for="imp-moment">Moment</label><select id="imp-moment" name="moment">${animation.moments.map(function (m) { return h`<option ${brut(m === i.moment ? 'selected' : '')}>${m}</option>`; })}</select></div>`,
@@ -1937,23 +2089,30 @@
       var retablir = JEF.attente(btn, 'Enregistrement');
       JEF.post('module', { data: d }).then(function (r) { fermerModale(); animation = r; vueAnimation(); }).catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
     } }]);
-    function adapter() { var t = ($('#modale input[name=type]:checked') || {}).value; $('#imp-bloc-q').hidden = t === 'questionnaire'; $('#imp-bloc-choix').hidden = t !== 'sondage'; $('#imp-bloc-code').hidden = t !== 'questionnaire'; }
+    function adapter() { var t = ($('#modale input[name=type]:checked') || {}).value; $('#imp-bloc-q').hidden = t === 'questionnaire'; $('#imp-bloc-choix').hidden = t !== 'sondage' && t !== 'quiz'; $('#imp-bloc-bonne').hidden = t !== 'quiz'; $('#imp-bloc-code').hidden = t !== 'questionnaire'; }
     $$('#modale input[name=type]').forEach(function (r) { r.addEventListener('change', adapter); }); adapter();
   }
-  function creerModelesImp(btn) {
-    var modeles = [
-      { type: 'nuage', moment: 'Ouverture', question: 'En un mot, votre métier de chargé de sécurité aujourd\'hui ?' },
-      { type: 'sondage', moment: 'Ouverture', question: 'Vous venez d\'un...', choix: 'CHU|Centre hospitalier|Clinique|EHPAD|Autre' },
-      { type: 'questionnaire', moment: 'Ouverture', code: 'ENTREE' },
-      { type: 'questions', moment: 'Conférence', question: 'Vos questions à l\'intervenant' },
-      { type: 'questionnaire', moment: 'Clôture', code: 'FIN' },
-      { type: 'note', moment: 'Clôture', question: 'Quelle note donnez-vous à ces journées ?' },
-      { type: 'nuage', moment: 'Clôture', question: 'Ce que vous retenez, en un mot' }
-    ];
-    var retablir = JEF.attente(btn, 'Création');
-    modeles.reduce(function (p, m) { return p.then(function () { return JEF.post('module', { data: Object.assign({ op: 'imp_maj' }, m) }); }); }, Promise.resolve())
-      .then(function (r) { retablir(); animation = r; vueAnimation(); JEF.toast('7 animations créées, modifiables', 'ok'); })
-      .catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+  /** Bibliothèque d'animations prêtes : on coche, on ajoute. Celles déjà créées sont signalées. */
+  function modaleBibliotheque(btn) {
+    var retablir = JEF.attente(btn, 'Ouverture');
+    JEF.post('module', { data: { op: 'imp_biblio' } }).then(function (r) {
+      retablir();
+      var parMoment = {}, ordre = [];
+      r.modeles.forEach(function (m) { if (!parMoment[m.moment]) { parMoment[m.moment] = []; ordre.push(m.moment); } parMoment[m.moment].push(m); });
+      ouvrirModale('Bibliothèque d\'animations', h`<p class="indice" style="margin:0 0 8px;">Inspirée des séances des JEF 2026. Cochez, ajoutez, puis modifiez le texte si besoin.</p>
+        ${ordre.map(function (mo) { return h`<fieldset class="biblio-groupe"><legend>${mo}</legend>${parMoment[mo].map(function (m) {
+          var t = TYPES_IMP[m.type] || ['', m.type];
+          return h`<label class="biblio-ligne ${m.present ? 'present' : ''}"><input type="checkbox" name="b-${m.code}" value="${m.code}" ${brut(m.present ? 'disabled' : '')}><span class="biblio-ico">${t[0]}</span><span><b>${m.question}</b><small>${t[1]}${m.choix ? ' : ' + m.choix.split('|').join(', ') : ''}${m.present ? ' - déjà créée' : ''}</small></span></label>`;
+        })}</fieldset>`; })}`, [
+        { texte: 'Tout cocher', action: function (z) { $$('input[type=checkbox]:not(:disabled)', z).forEach(function (c) { c.checked = true; }); } },
+        { texte: 'Ajouter la sélection', classe: 'btn-primaire', action: function (z, b) {
+          var codes = $$('input[type=checkbox]:checked', z).map(function (c) { return c.value; });
+          if (!codes.length) { JEF.toast('Cochez au moins une animation.', 'erreur'); return; }
+          var ret = JEF.attente(b, 'Création');
+          JEF.post('module', { data: { op: 'imp_biblio_ajouter', codes: codes } }, { delai: 120000 }).then(function (x) { ret(); fermerModale(); animation = x; vueAnimation(); JEF.toast(codes.length + ' animation(s) ajoutée(s)', 'ok'); })
+            .catch(function (e) { ret(); JEF.toast(e.message, 'erreur'); });
+        } }], 'large');
+    }).catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
   }
 
   // ----- Invitations institutionnelles -----------------------------------------

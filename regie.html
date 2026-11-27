@@ -14,8 +14,8 @@
   <link rel="icon" href="icones/regie-192.png">
   <link rel="apple-touch-icon" href="icones/regie-180-maskable.png">
   <link rel="manifest" href="regie.webmanifest">
-  <link rel="stylesheet" href="assets/jef.css?v=2.6.0">
-  <link rel="stylesheet" href="assets/regie.css?v=2.6.0">
+  <link rel="stylesheet" href="assets/jef.css?v=2.7.0">
+  <link rel="stylesheet" href="assets/regie.css?v=2.7.0">
 </head>
 <body class="regie">
   <div id="connexion" class="connexion">
@@ -37,61 +37,77 @@
       <div class="rg-horloge" id="rg-horloge">--:--</div>
       <span class="rg-etat" id="rg-etat"><i></i>En ligne</span>
       <span class="rg-espace"></span>
-      <button class="rg-btn rg-btn-fort" id="rg-ecran" title="Ouvre l'écran dans une seconde fenêtre, à glisser sur le vidéoprojecteur">📺 Ouvrir l'écran de projection</button>
-      <button class="rg-btn" id="rg-copier">Copier le lien de l'écran</button>
+      <button class="rg-btn rg-btn-fort" id="rg-ecran" title="Ouvre l'écran dans une seconde fenêtre, à glisser sur le vidéoprojecteur">📺 Écran de projection</button>
+      <button class="rg-btn" id="rg-copier" title="Copier le lien de l'écran">🔗</button>
+      <button class="rg-btn" id="rg-aide-clavier" title="Raccourcis clavier">⌨</button>
       <button class="rg-btn" id="rg-installer" hidden>Installer</button>
-      <a class="rg-btn" href="admin.html#animation" target="_blank" rel="noopener">Cockpit ↗</a>
+      <a class="rg-btn" href="admin.html#animation" target="_blank" rel="noopener" title="Cockpit">Cockpit ↗</a>
     </header>
 
+    <nav class="rg-pilote" aria-label="Ce que voit la salle">
+      <span class="rg-pilote-lib">La salle voit</span>
+      <div class="rg-segments" id="rg-modes">
+        <button data-mode="auto" title="L'animation en cours, sinon l'accueil (touche A)">✨ Animation</button>
+        <button data-mode="questions" title="Les questions validées (touche Q)">🙋 Questions</button>
+        <button data-mode="accueil" title="Logo et titre de l'édition (touche H)">🏠 Accueil</button>
+        <button data-mode="noir" title="Écran noir, pour laisser la place à l'orateur (touche N)">⬛ Noir</button>
+      </div>
+      <div class="rg-mini-ecran" id="rg-mini" title="Aperçu de l'écran"></div>
+    </nav>
+
+    <nav class="rg-onglets" id="rg-onglets" aria-label="Sections">
+      <button data-col="deroule" class="actif">🗓️ Déroulé</button><button data-col="anims">✨ Animations</button><button data-col="qa">🙋 Questions <span id="rg-qa-badge" class="rg-pastille" hidden></span></button>
+    </nav>
+
     <main class="rg-grille">
-      <section class="rg-col">
+      <section class="rg-col" data-col="deroule">
         <div class="rg-carte rg-maintenant" id="rg-maintenant"></div>
         <div class="rg-carte rg-chrono">
-          <div class="rg-chrono-tete"><b>Chrono de l'intervenant</b><small>Indépendant de l'horloge : à lancer quand la personne prend la parole.</small></div>
+          <div class="rg-carte-tete"><b>Chrono de l'intervenant</b><small>Espace pour lancer ou mettre en pause</small></div>
           <div class="rg-chrono-zone">
             <div class="rg-chrono-temps" id="rg-chrono">00:00</div>
             <div class="rg-chrono-outils">
-              <label for="rg-chrono-duree">Durée prévue</label>
+              <label for="rg-chrono-duree">Durée</label>
               <input id="rg-chrono-duree" type="number" min="1" max="300" value="30"> min
               <button class="rg-btn rg-btn-fort" id="rg-chrono-go">▶ Démarrer</button>
-              <button class="rg-btn" id="rg-chrono-raz">Remettre à zéro</button>
+              <button class="rg-btn" id="rg-chrono-raz">↺</button>
             </div>
           </div>
           <div class="rg-jauge"><i id="rg-chrono-jauge"></i></div>
         </div>
         <div class="rg-carte">
-          <div class="rg-carte-tete"><b>Conducteur du jour</b><small>D'après la page Programme du cockpit.</small></div>
+          <div class="rg-carte-tete"><b>Conducteur</b><small>Un clic sur une séquence la prépare dans les colonnes Animations et Questions.</small></div>
           <ol class="rg-conducteur" id="rg-conducteur"></ol>
         </div>
       </section>
 
-      <section class="rg-col">
+      <section class="rg-col" data-col="anims">
         <div class="rg-carte">
           <div class="rg-carte-tete"><b>Animations</b><span id="rg-direct" class="rg-direct">Rien en direct</span></div>
+          <div id="rg-live"></div>
           <div id="rg-anims" class="rg-anims"></div>
-          <button class="rg-btn rg-btn-danger" id="rg-stop" hidden>■ Arrêter l'animation en cours</button>
-        </div>
-        <div class="rg-carte">
-          <div class="rg-carte-tete"><b>Ce que voit la salle</b><small>Mis à jour toutes les 3 secondes pendant une animation.</small></div>
-          <div id="rg-apercu" class="rg-apercu"><p class="rg-vide">Aucune animation en cours. L'écran affiche l'accueil de l'édition.</p></div>
         </div>
         <details class="rg-carte rg-aide">
           <summary><b>PowerPoint et écran de projection, pas à pas</b></summary>
           <ol>
-            <li>Branchez le vidéoprojecteur, puis touches <kbd>Windows</kbd> + <kbd>P</kbd> et choisissez « Étendre ».</li>
-            <li>Lancez le PowerPoint en mode Présentateur (onglet Diaporama, cocher « Utiliser le mode Présentateur »). La diapositive part sur le vidéoprojecteur.</li>
-            <li>Cliquez sur « Ouvrir l'écran de projection ». Glissez la nouvelle fenêtre sur le vidéoprojecteur, puis <kbd>F11</kbd> pour le plein écran.</li>
-            <li>Pour une animation, lancez-la ici, puis <kbd>Alt</kbd> + <kbd>Tab</kbd> vers la fenêtre de l'écran. Même raccourci pour revenir au PowerPoint.</li>
+            <li>Branchez le vidéoprojecteur, puis <kbd>Windows</kbd> + <kbd>P</kbd> et choisissez « Étendre ».</li>
+            <li>Lancez le PowerPoint en mode Présentateur. La diapositive part sur le vidéoprojecteur.</li>
+            <li>Cliquez sur « Écran de projection ». Glissez la fenêtre sur le vidéoprojecteur, puis <kbd>F11</kbd>.</li>
+            <li>Pour une animation, lancez-la ici, puis <kbd>Alt</kbd> + <kbd>Tab</kbd> vers l'écran. Même raccourci pour revenir au PowerPoint.</li>
           </ol>
-          <p>Une page web ne peut pas piloter PowerPoint. La bascule se fait au clavier. Faites un essai complet sur place la veille.</p>
+          <p>Sur le même ordinateur, l'écran suit la régie instantanément, même si internet ralentit.</p>
         </details>
+      </section>
+
+      <section class="rg-col" data-col="qa">
+        <div class="rg-carte" id="rg-qa"></div>
       </section>
     </main>
   </div>
 
-  <script src="assets/config.js?v=2.6.0"></script>
-  <script src="assets/jef.js?v=2.6.0"></script>
+  <script src="assets/config.js?v=2.7.0"></script>
+  <script src="assets/jef.js?v=2.7.0"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="assets/pages/regie.js?v=2.6.0"></script>
+  <script src="assets/pages/regie.js?v=2.7.0"></script>
 </body>
 </html>

@@ -5,7 +5,7 @@
   'use strict';
   var h = JEF.h, $ = JEF.$, $$ = JEF.$$;
   var id = JEF.parametre('id'), k = JEF.parametre('k');
-  var espace = null, q = null, pos = 0, rep = {}, minuteurImp = null, impCourante = null;
+  var espace = null, q = null, pos = 0, rep = {}, minuteurImp = null, impCourante = null, serieQa = null, qaDonnees = null, minuteurQa = null;
   var REPAS_LIB = { JM: 'Jeudi midi', GALA: 'Soirée de gala', VM: 'Vendredi midi' };
   var VISAGES = { 'Pas satisfait': '😞', 'Peu satisfait': '😕', 'Satisfait': '🙂', 'Très satisfait': '😀' };
   var CLE_ATTENTE = 'jef_reponses_en_attente';
@@ -46,6 +46,7 @@
       if (m) ouvrir(m[1]);
       viderAttente();
       suivreImpulsion(r.impulsion);
+      majSerie(r.serie || null);
     }).catch(function (e) { erreur(e.message); });
   }
 
@@ -55,7 +56,7 @@
     var repas = Object.keys(p.repas || {}).filter(function (c) { return p.repas[c]; }).map(function (c) { return REPAS_LIB[c] || c; });
     var aFaire = espace.questionnaires.filter(function (x) { return x.ouvert && !x.repondu && !x.enAttente; });
     JEF.rendre('#accueil', h`
-      <div id="zone-direct"></div>
+      <div id="zone-direct"></div><div id="zone-qa"></div>
       <section class="carte espace-entete" style="border-top:6px solid ${p.couleur};">
         <div class="petit">Bonjour</div>
         <h1>${p.prenom} ${p.nom}</h1>
@@ -78,7 +79,7 @@
       ${espace.programme.length ? h`<section class="carte"><h2>Programme</h2>${programme(espace.programme)}</section>` : ''}
       <p class="petit" style="text-align:center;">Une question ? <a href="mailto:${ed.email}">${ed.email}</a></p>`);
     $$('[data-q]').forEach(function (b) { b.addEventListener('click', function () { ouvrir(b.getAttribute('data-q')); }); });
-    afficherImpulsion();
+    afficherImpulsion(); afficherQa();
     vue('accueil');
   }
 
@@ -233,14 +234,15 @@
   function suivreImpulsion(initiale) {
     clearTimeout(minuteurImp);
     if (initiale !== undefined) { impCourante = initiale; afficherImpulsion(); }
-    var prochain = function () { minuteurImp = setTimeout(tic, (impCourante ? 9000 : 18000) + Math.random() * 5000); };
+    var prochain = function () { minuteurImp = setTimeout(tic, (impCourante || serieQa ? 9000 : 18000) + Math.random() * 5000); };
     function tic() {
       if (document.hidden || $('#accueil').hidden) { prochain(); return; }
       JEF.post('imp_lire', { data: { id: id, k: k } }, { essais: 0, delai: 15000 }).then(function (r) {
         var avant = impCourante ? impCourante.id + (impCourante.dejaRepondu ? '1' : '0') : '';
         impCourante = r.impulsion;
+        majSerie(r.serie);
         var apres = impCourante ? impCourante.id + (impCourante.dejaRepondu ? '1' : '0') : '';
-        if (avant !== apres || (impCourante && impCourante.type === 'questions')) afficherImpulsion();
+        if (avant !== apres || (impCourante && (impCourante.type === 'questions' || (impCourante.type === 'quiz' && impCourante.revele)))) afficherImpulsion();
       }).catch(function () { /* nouvel essai plus tard */ }).finally(prochain);
     }
     prochain();
@@ -256,9 +258,12 @@
     if (i.type === 'questionnaire') {
       var x = espace.questionnaires.filter(function (qq) { return qq.code === i.code; })[0];
       corps = x ? (x.repondu ? h`<p>✓ Vous avez déjà répondu. Merci !</p>` : h`<button class="btn btn-orange btn-l" data-q-direct="${i.code}" style="width:100%;justify-content:center;">Répondre maintenant</button>`) : h`<p class="petit">Ce questionnaire ne concerne pas votre profil.</p>`;
-    } else if (i.dejaRepondu) corps = h`<p class="direct-merci">✓ Réponse envoyée, regardez l'écran !</p>`;
+    } else if (i.dejaRepondu && !(i.type === 'quiz' && i.revele)) corps = h`<p class="direct-merci">✓ Réponse envoyée, regardez l'écran !</p>`;
     else if (i.type === 'nuage') corps = h`<div class="direct-mots"><input type="text" maxlength="40" placeholder="Un mot" data-mot><input type="text" maxlength="40" placeholder="Un autre (facultatif)" data-mot><input type="text" maxlength="40" placeholder="Un troisième (facultatif)" data-mot></div><button class="btn btn-orange btn-l" data-env-imp style="width:100%;justify-content:center;">Envoyer</button>`;
     else if (i.type === 'sondage') corps = h`<div class="choix-liste">${i.choix.map(function (c) { return h`<button type="button" class="choix-btn" data-env-imp data-v="${c}">${c}</button>`; })}</div>`;
+    else if (i.type === 'quiz' && i.revele) corps = h`<p class="direct-merci">La bonne réponse : <b>${i.bonne}</b></p>`;
+    else if (i.type === 'etoiles') corps = h`<div class="etoiles-choix">${[1, 2, 3, 4, 5].map(function (n) { return h`<button type="button" class="etoile" data-env-imp data-v="${n}" aria-label="${n + ' sur 5'}">★<small>${n}</small></button>`; })}</div>`;
+    else if (i.type === 'quiz') corps = h`<div class="choix-liste">${i.choix.map(function (c) { return h`<button type="button" class="choix-btn" data-env-imp data-v="${c}">${c}</button>`; })}</div>`;
     else if (i.type === 'note') corps = h`<div class="note-echelle">${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(function (n) { return h`<button type="button" class="note n${n}" data-env-imp data-v="${n}">${n}</button>`; })}</div>`;
     else if (i.type === 'questions') corps = h`<div class="direct-q"><textarea maxlength="300" rows="2" placeholder="Votre question" data-question></textarea><button class="btn btn-orange" data-env-imp>Envoyer</button></div>
       <div class="direct-liste">${(i.questions || []).map(function (qq) { return h`<button type="button" class="direct-vote ${qq.moi ? 'vote' : ''} ${qq.repondue ? 'repondue' : ''}" data-vote="${qq.id}" ${JEF.brut(qq.moi ? 'disabled' : '')}><b>👍 ${qq.votes}</b><span>${qq.texte}</span></button>`; })}</div>`;
@@ -268,7 +273,7 @@
       var valeur;
       if (i.type === 'nuage') { valeur = $$('[data-mot]', z).map(function (m) { return m.value.trim(); }).filter(String); if (!valeur.length) { JEF.toast('Écrivez au moins un mot.', 'erreur'); return; } }
       else if (i.type === 'questions') { valeur = $('[data-question]', z).value.trim(); if (valeur.length < 3) { JEF.toast('Écrivez votre question.', 'erreur'); return; } }
-      else valeur = i.type === 'note' ? Number(b.getAttribute('data-v')) : b.getAttribute('data-v');
+      else valeur = i.type === 'note' || i.type === 'etoiles' ? Number(b.getAttribute('data-v')) : b.getAttribute('data-v');
       var retablir = JEF.attente(b, 'Envoi');
       JEF.post('imp_repondre', { data: { id: id, k: k, imp: i.id, valeur: valeur } }, { essais: 4 }).then(function () {
         retablir();
@@ -280,6 +285,57 @@
     $$('[data-vote]', z).forEach(function (b) { b.addEventListener('click', function () {
       b.disabled = true; b.classList.add('vote');
       JEF.post('imp_repondre', { data: { id: id, k: k, imp: i.id, vote: b.getAttribute('data-vote') } }, { essais: 3 }).then(function () { suivreImpulsion(); }).catch(function (e) { JEF.toast(e.message, 'erreur'); });
+    }); });
+  }
+
+  // ----- Questions de la salle (une série par présentation) ----------------------------
+  function majSerie(serie) {
+    var avant = serieQa ? serieQa.id : '';
+    serieQa = serie || null;
+    if ((serieQa ? serieQa.id : '') !== avant) { qaDonnees = null; if (serieQa) lireQa(); else afficherQa(); }
+  }
+  function lireQa() {
+    clearTimeout(minuteurQa);
+    if (!serieQa) { afficherQa(); return; }
+    JEF.post('qa_lire', { data: { id: id, k: k } }, { essais: 1, delai: 15000 }).then(function (r) {
+      if (!r.serie) { serieQa = null; qaDonnees = null; afficherQa(); return; }
+      var saisie = $('#qa-texte') ? $('#qa-texte').value : '';
+      qaDonnees = r; afficherQa();
+      if (saisie && $('#qa-texte')) $('#qa-texte').value = saisie;
+    }).catch(function () { /* nouvel essai */ }).finally(function () {
+      if (serieQa) minuteurQa = setTimeout(function () { if (!document.hidden && !$('#accueil').hidden) lireQa(); else minuteurQa = setTimeout(lireQa, 5000); }, 12000 + Math.random() * 6000);
+    });
+  }
+  var ETATS_MIENNES = { 'En attente': 'En attente de validation', 'Validée': 'Visible par la salle', 'À l\'écran': 'À l\'écran', 'Répondue': 'Répondue', 'Rejetée': 'Non retenue' };
+  function afficherQa() {
+    var z = $('#zone-qa');
+    if (!z) return;
+    if (!serieQa) { JEF.rendre(z, ''); return; }
+    var Q = qaDonnees || { questions: [], restantes: 6, serie: serieQa };
+    var autres = Q.questions.filter(function (x) { return !x.mienne; }), miennes = Q.questions.filter(function (x) { return x.mienne; });
+    JEF.rendre(z, h`<section class="carte qa-carte"><div class="direct-badge qa-badge"><span class="point"></span> Questions ouvertes</div><h2>${serieQa.titre}</h2>
+      ${Q.restantes > 0 ? h`<div class="qa-form"><textarea id="qa-texte" maxlength="300" rows="2" placeholder="Votre question à l'intervenant"></textarea>
+        <label class="qa-anonyme"><input type="checkbox" id="qa-anonyme"> Ne pas afficher mon nom à l'écran</label>
+        <button class="btn btn-orange" id="qa-envoyer" type="button">Envoyer ma question</button></div>` : h`<p class="petit">Vous avez posé le maximum de questions pour cette présentation.</p>`}
+      ${miennes.length ? h`<div class="qa-miennes"><b>Mes questions</b>${miennes.map(function (x) { return h`<div class="qa-mienne"><span>${x.texte}</span><small class="etat-${x.etat === 'Rejetée' ? 'non' : x.etat === 'En attente' ? 'attente' : 'ok'}">${ETATS_MIENNES[x.etat] || x.etat}</small></div>`; })}</div>` : ''}
+      ${autres.length ? h`<div class="qa-autres"><b>Questions de la salle</b><small>Votez pour celles que vous voulez entendre.</small>${autres.map(function (x) {
+        return h`<button type="button" class="qa-vote ${x.moi ? 'vote' : ''} ${x.etat === 'Répondue' ? 'repondue' : ''}" data-qa-vote="${x.id}" ${JEF.brut(x.etat === 'Répondue' ? 'disabled' : '')}><span class="qa-pouce">👍<b>${x.votes}</b></span><span>${x.texte}<small>${x.auteur}${x.etat === 'Répondue' ? ' - répondue' : ''}</small></span></button>`; })}</div>` : ''}
+      <p class="qa-mention">Votre nom est connu de l'organisation, même si vous demandez à ne pas l'afficher.</p></section>`);
+    var env = $('#qa-envoyer');
+    if (env) env.addEventListener('click', function () {
+      var texte = $('#qa-texte').value.trim();
+      if (texte.length < 5) { JEF.toast('Écrivez votre question.', 'erreur'); return; }
+      var retablir = JEF.attente(env, 'Envoi');
+      JEF.post('qa_poser', { data: { id: id, k: k, serie: serieQa.id, texte: texte, anonyme: $('#qa-anonyme').checked } }, { essais: 4 }).then(function (r) {
+        retablir(); $('#qa-texte').value = '';
+        JEF.toast(r.moderation ? 'Question envoyée, elle sera visible après validation' : 'Question envoyée', 'ok');
+        if (navigator.vibrate) navigator.vibrate(40);
+        lireQa();
+      }).catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+    });
+    $$('[data-qa-vote]', z).forEach(function (b) { b.addEventListener('click', function () {
+      b.classList.toggle('vote');
+      JEF.post('qa_voter', { data: { id: id, k: k, question: b.getAttribute('data-qa-vote') } }, { essais: 3 }).then(function (r) { $('b', b).textContent = r.votes; }).catch(function (e) { b.classList.toggle('vote'); JEF.toast(e.message, 'erreur'); });
     }); });
   }
 
