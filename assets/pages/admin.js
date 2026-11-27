@@ -7,8 +7,9 @@
   'use strict';
   var h = JEF.h, $ = JEF.$, $$ = JEF.$$, brut = JEF.brut;
   var C = window.JEF_COCKPIT;
-  var D = null, session = null, vue = 'tableau', fiche = null, journal = null, prefs = {};
-  var PAGES_ADMIN = ['reglages', 'acces'];
+  var D = null, session = null, vue = 'portail', fiche = null, journal = null, prefs = {};
+  var PAGES_ADMIN = ['reglages', 'acces', 'editions'];
+  var espaceAffiche = null;
   var reglages = null, reglagesInitial = '', reglagesModifies = false;
   var connectes = [], tableCourante = null, filtresPages = {}, etatsTables = {};
   var COURT = { JM: 'J', GALA: 'G', VM: 'V' };
@@ -183,12 +184,13 @@
     $('#nav-bas').hidden = false;
     construireMenu();
     construireCompte();
+    $('#logo-accueil').addEventListener('click', function (e) { e.preventDefault(); aller('portail'); ouvrirMenu(false); });
     var depart = (location.hash || '').replace('#', '');
     var ficheDemandee = depart.indexOf('fiche=') === 0 ? decodeURIComponent(depart.slice(6)) : '';
     var typeDemande = /^JEF/.test(ficheDemandee) ? 'STAG' : (/^ENT/.test(ficheDemandee) ? 'ENT' : 'PRO');
-    vue = ficheDemandee ? (typeDemande === 'STAG' ? 'stagiaires' : (typeDemande === 'ENT' || /^EXP/.test(ficheDemandee) ? 'entreprises' : 'participants')) : (C.aides[depart] ? depart : lireLocal('jef_vue', 'tableau'));
+    vue = ficheDemandee ? (typeDemande === 'STAG' ? 'stagiaires' : (typeDemande === 'ENT' || /^EXP/.test(ficheDemandee) ? 'entreprises' : 'participants')) : (C.aides[depart] ? depart : lireLocal('jef_vue', 'portail'));
     if (vue === 'badges') vue = 'participants';
-    if (PAGES_ADMIN.indexOf(vue) !== -1 && !estAdmin()) vue = 'tableau';
+    if (PAGES_ADMIN.indexOf(vue) !== -1 && !estAdmin()) vue = 'portail';
     if (ficheDemandee && typeDemande === 'STAG') filtresPages.stagiaires = 'tous';
     JEF.ecranAttente('Ouverture du cockpit', 'Chargement des inscriptions, des badges et des entreprises');
     charger().then(function () {
@@ -205,14 +207,37 @@
     setInterval(function () { if (D && !document.hidden && !fiche && !$('#voile').classList.contains('ouvert') && !reglagesModifies) charger(true); }, 120000);
   }
 
+  /** Espace d'une page (le portail n'appartient à aucun espace). */
+  function espaceDe(v) { return C.menu.filter(function (g) { return g.pages.some(function (p) { return p[0] === v; }); })[0] || null; }
+  function pagesVisibles(g) { return g.pages.filter(function (p) { return estAdmin() || PAGES_ADMIN.indexOf(p[0]) === -1; }); }
+
+  /** Le menu ne montre que l'espace ouvert. Sur le portail, il liste les cinq espaces. */
   function construireMenu() {
-    JEF.rendre('#nav', C.menu.map(function (g) {
-      return h`<div class="menu-groupe"><div class="menu-groupe-titre"><i style="background:${g.couleur};"></i>${g.titre}</div>
-        ${g.pages.filter(function (p) { return estAdmin() || PAGES_ADMIN.indexOf(p[0]) === -1; }).map(function (p) { return h`<button class="menu-btn" data-vue="${p[0]}">${p[1]}<span class="compteur" id="c-${p[0]}" hidden></span></button>`; })}</div>`;
-    }));
+    var g = espaceDe(vue);
+    espaceAffiche = g ? g.id : null;
+    var raccourcis = h`<div class="menu-espaces" role="group" aria-label="Changer d'espace">${C.menu.map(function (x) {
+      return h`<button class="esp-mini ${x === g ? 'actif' : ''}" data-espace="${x.id}" title="${x.titre}" aria-label="${x.titre}" style="--c:${x.couleur};">${x.ico}</button>`; })}</div>`;
+    if (!g) {
+      JEF.rendre('#nav', h`<div class="menu-groupe"><div class="menu-groupe-titre"><i style="background:#0B2540;"></i>Espaces</div>
+        <button class="menu-btn" data-vue="portail" aria-current="page">Tous les espaces</button>
+        ${C.menu.map(function (x) { return h`<button class="menu-btn" data-espace="${x.id}"><span class="esp-ico">${x.ico}</span>${x.titre}</button>`; })}</div>`);
+    } else {
+      JEF.rendre('#nav', h`<button class="menu-retour" data-vue="portail">‹ Tous les espaces</button>${raccourcis}
+        <div class="menu-groupe"><div class="menu-groupe-titre"><i style="background:${g.couleur};"></i>${g.titre}</div>
+        ${pagesVisibles(g).map(function (p) { return h`<button class="menu-btn" data-vue="${p[0]}">${p[1]}<span class="compteur" id="c-${p[0]}" hidden></span></button>`; })}
+        ${g.id === 'jourj' ? h`<a class="menu-btn menu-externe" href="regie.html" target="_blank" rel="noopener">Régie ↗</a><a class="menu-btn menu-externe" href="scanner.html" target="_blank" rel="noopener">Scanner ↗</a>` : ''}</div>`);
+    }
     $('#menu-bas').textContent = 'Version ' + C.version;
     $$('#nav [data-vue]').forEach(function (b) { b.addEventListener('click', function () { aller(b.getAttribute('data-vue')); ouvrirMenu(false); }); });
-    $('#logo-accueil').addEventListener('click', function (e) { e.preventDefault(); aller('tableau'); ouvrirMenu(false); });
+    $$('#nav [data-espace]').forEach(function (b) { b.addEventListener('click', function () { ouvrirEspace(b.getAttribute('data-espace')); ouvrirMenu(false); }); });
+    if (D) majCompteurs();
+  }
+  function ouvrirEspace(id) {
+    var g = C.menu.filter(function (x) { return x.id === id; })[0];
+    if (!g) return;
+    var dernier = lireLocal('jef_vue_' + id, '');
+    var pages = pagesVisibles(g).map(function (p) { return p[0]; });
+    aller(pages.indexOf(dernier) !== -1 ? dernier : pages[0]);
   }
 
   function construireCompte() {
@@ -303,7 +328,7 @@
   // Navigation
   // ======================================================================
   function titrePage(v) {
-    var t = 'Cockpit';
+    var t = v === 'portail' ? 'Cockpit JEF' : 'Cockpit';
     C.menu.forEach(function (g) { g.pages.forEach(function (p) { if (p[0] === v) t = p[1]; }); });
     return t;
   }
@@ -316,10 +341,14 @@
     }
     if (!reglagesModifies) reglages = null; // réglages relus à chaque page : jamais de valeur périmée
     vue = v; ecrireLocal('jef_vue', v);
+    var esp = espaceDe(v); if (esp) ecrireLocal('jef_vue_' + esp.id, v);
     history.replaceState(null, '', '#' + v);
     fermerFiche(); afficher(); window.scrollTo(0, 0); signalerPresence();
   }
   function afficher() {
+    var esp = espaceDe(vue);
+    if ((esp ? esp.id : null) !== espaceAffiche) construireMenu();
+    document.body.setAttribute('data-espace', esp ? esp.id : 'portail');
     $('#titre-vue').textContent = titrePage(vue);
     document.title = titrePage(vue) + ' - Cockpit JEF ACSES';
     $$('#nav [data-vue]').forEach(function (b) { if (b.getAttribute('data-vue') === vue) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
@@ -331,7 +360,8 @@
     var f = { tableau: vueTableau, stagiaires: vueStagiaires, presences: vuePresences, qualiopi: vueQualiopi, acces: vueAcces, entreprises: vueEntreprises, badges: vueParticipants, participants: vueParticipants,
       accompagnants: function () { vueCategorie('accompagnants'); }, visiteurs: function () { vueCategorie('visiteurs'); }, intervenants: function () { vueCategorie('intervenants'); }, invites: function () { vueCategorie('invites'); },
       questionnaires: vueQuestionnaires, programme: vueProgramme, animation: vueAnimation, invitations: vueInvitations, communication: vueCommunication,
-      restauration: vueRestauration, jourj: vueJourJ, reglages: vueReglages, journal: vueJournal, aide: vueAide, nouveautes: vueNouveautes }[vue] || vueTableau;
+      restauration: vueRestauration, jourj: vueJourJ, reglages: vueReglages, journal: vueJournal, aide: vueAide, nouveautes: vueNouveautes,
+      portail: vuePortail, taches: vueTaches, editions: vueEditions }[vue] || vuePortail;
     f();
     brancherAide();
     $$('#vue [data-sur-place]').forEach(function (b) { b.addEventListener('click', function () { modaleSurPlace(); }); });
@@ -969,6 +999,9 @@
         ${panneau('Scanner de l\'accueil', 'Téléphone ou PC avec douchette. Tous les membres du bureau peuvent s\'y connecter.',
           h`<ol class="etapes-import"><li>Ouvrez le scanner sur chaque poste d'accueil.</li><li>Mode Accueil : scannez le QR code à l'arrivée. Écran vert, présence enregistrée pour toute la formation et repas affichés. Orange, déjà enregistré. Rouge, badge refusé.</li><li>Mode Vérifier : le scan ouvre la fiche de la personne, avec ses repas, et permet de renvoyer le badge ou l'attestation.</li></ol>`,
           h`<a class="btn btn-s btn-primaire" href="scanner.html" target="_blank" rel="noopener">Ouvrir le scanner</a>`)}
+        ${panneau('Régie et projection', 'Sur l\'ordinateur du vidéoprojecteur. S\'installe comme une application.',
+          h`<ol class="etapes-import"><li>La régie affiche la séquence en cours, la suivante et le temps restant, d'après le Programme.</li><li>Elle lance les animations et ouvre l'écran de projection dans une seconde fenêtre, à glisser sur le vidéoprojecteur.</li><li>Les PowerPoint restent dans PowerPoint, en mode Présentateur. On bascule avec Alt + Tab.</li></ol>`,
+          h`<a class="btn btn-s btn-primaire" href="regie.html" target="_blank" rel="noopener">Ouvrir la régie</a>`)}
         ${panneau('Envois avant et après', 'Programmés aux dates des réglages.', h`<dl class="infos"><dt>Rappel avec badge</dt><dd>${r.dateRappel || '-'}</dd><dt>Attestations</dt><dd>${r.dateAttestations || '-'}</dd><dt>Emails restants aujourd'hui</dt><dd>${r.quotaEmails}</dd></dl>`,
           h`<button class="btn btn-s" data-lancer="planifier">Programmer</button><button class="btn btn-s" data-lancer="rappels">Envoyer les rappels maintenant</button>`)}
         ${panneau('Plan de secours', 'En cas de coupure du réseau.', h`<ul style="margin:0;padding-left:18px;display:grid;gap:4px;">
@@ -979,6 +1012,183 @@
       </div>`);
     brancherLancer();
     $$('[data-export-direct]').forEach(function (b) { b.addEventListener('click', function () { exporter(b.getAttribute('data-export-direct')); }); });
+  }
+
+  // ======================================================================
+  // Portail des cinq espaces
+  // ======================================================================
+  function vuePortail() {
+    var st = D.stagiaires, badges = D.badges.filter(actifBadge), tous = st.filter(actif).concat(badges);
+    var aValider = st.filter(function (l) { return prefixe(l) === '3'; }).length;
+    var aEncaisser = st.filter(function (l) { return prefixe(l) === '4'; }).length;
+    var presents = tous.filter(estPresent).length;
+    var chiffres = {
+      inscriptions: [st.filter(actif).length + ' stagiaire(s), ' + badges.length + ' badge(s)', aValider + aEncaisser],
+      programme: [badges.filter(function (b) { return b.Profil === 'INTERVENANT'; }).length + ' intervenant(s)', 0],
+      jourj: [presents + ' présent(s) sur ' + tous.length, 0],
+      qualiopi: ['33 indicateurs suivis', 0],
+      administration: [D.reglages.modeTest ? 'Mode test actif' : 'Édition ' + (D.annee || ''), D.reglages.modeTest ? 1 : 0]
+    };
+    JEF.rendre('#vue', h`${aidePage('portail')}
+      <div class="portail">${C.menu.map(function (g) {
+        var pages = pagesVisibles(g), c = chiffres[g.id] || ['', 0];
+        return h`<section class="tuile-espace" style="--c:${g.couleur};">
+          <button class="tuile-tete" data-espace-tuile="${g.id}"><span class="tuile-ico">${g.ico}</span><span><b>${g.titre}</b><small>${g.texte}</small></span>${c[1] ? h`<span class="tuile-alerte">${c[1]}</span>` : ''}</button>
+          <div class="tuile-chiffre">${c[0]}</div>
+          <div class="tuile-pages">${pages.map(function (p) { return h`<button class="puce-filtre" data-aller="${p[0]}">${p[1]}</button>`; })}
+            ${g.id === 'jourj' ? h`<a class="puce-filtre" href="regie.html" target="_blank" rel="noopener">Régie ↗</a><a class="puce-filtre" href="scanner.html" target="_blank" rel="noopener">Scanner ↗</a>` : ''}</div>
+        </section>`;
+      })}</div>`);
+    $$('[data-espace-tuile]').forEach(function (b) { b.addEventListener('click', function () { ouvrirEspace(b.getAttribute('data-espace-tuile')); }); });
+    $$('#vue [data-aller]').forEach(function (b) { b.addEventListener('click', function () { aller(b.getAttribute('data-aller')); }); });
+  }
+
+  // ======================================================================
+  // Rétroplanning
+  // ======================================================================
+  var taches = null;
+  function vueTaches() {
+    if (!taches) {
+      JEF.rendre('#vue', h`${aidePage('taches')}<div class="chargement"><span class="rotation"></span>Chargement du rétroplanning</div>`);
+      JEF.post('module', { data: { op: 'taches_lire' } }).then(function (r) { taches = r; if (vue === 'taches') { vueTaches(); brancherAide(); } }).catch(function (e) { JEF.toast(e.message, 'erreur'); });
+      return;
+    }
+    var T = taches, auj = T.aujourdhui;
+    var enRetard = function (t) { return t.echeance && t.echeance < auj && (t.etat === 'À faire' || t.etat === 'En cours'); };
+    var ouverte = function (t) { return t.etat === 'À faire' || t.etat === 'En cours'; };
+    var filtre = filtresPages.taches || 'ouvertes';
+    var liste = T.lignes.filter(function (t) { return filtre === 'tout' || (filtre === 'ouvertes' && ouverte(t)) || (filtre === 'retard' && enRetard(t)) || (filtre === 'faites' && !ouverte(t)); });
+    var mois = function (d) { if (!d) return 'Sans échéance'; var x = new Date(d + 'T12:00:00'); return x.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }); };
+    var groupes = [], courant = null;
+    liste.forEach(function (t) { var m = mois(t.echeance); if (!courant || courant.m !== m) { courant = { m: m, l: [] }; groupes.push(courant); } courant.l.push(t); });
+    var classeEtat = { 'À faire': 't-orange', 'En cours': 't-bleu', 'Fait': 't-vert', 'Abandonné': 't-gris' };
+    JEF.rendre('#vue', h`${aidePage('taches')}
+      <div class="chiffres">
+        <div class="chiffre"><div class="lib">Tâches ouvertes</div><div class="val">${T.lignes.filter(ouverte).length}</div><div class="det">Premier jour : ${JEF.date(T.dateDebut)}</div></div>
+        <div class="chiffre ${T.lignes.some(enRetard) ? 'chiffre-alerte' : ''}"><div class="lib">En retard</div><div class="val">${T.lignes.filter(enRetard).length}</div></div>
+        <div class="chiffre"><div class="lib">Faites</div><div class="val">${T.lignes.filter(function (t) { return t.etat === 'Fait'; }).length}</div></div>
+      </div>
+      ${puces('taches', [['ouvertes', 'À faire', T.lignes.filter(ouverte).length], ['retard', 'En retard', T.lignes.filter(enRetard).length], ['faites', 'Faites ou abandonnées', T.lignes.filter(function (t) { return !ouverte(t); }).length], ['tout', 'Tout', T.lignes.length]], 'ouvertes')}
+      ${panneau('Rétroplanning de l\'édition', 'Trié par échéance. Un clic sur l\'état passe à l\'état suivant.',
+        groupes.length ? h`${groupes.map(function (g) {
+          return h`<h4 class="tache-mois">${g.m}</h4><div class="taches">${g.l.map(function (t) {
+            return h`<div class="tache ${enRetard(t) ? 'retard' : ''}" data-tache="${t.id}">
+              <div class="tache-date">${t.echeance ? JEF.date(t.echeance) : '-'}${t.decalage !== '' ? h`<small>${t.decalage >= 0 ? 'J-' + t.decalage : 'J+' + (-t.decalage)}</small>` : ''}</div>
+              <div class="tache-corps"><b>${t.titre}</b><small>${t.categorie}${t.responsable ? ' - ' + t.responsable : ''}${t.notes ? ' - ' + t.notes : ''}</small></div>
+              <button class="tag ${classeEtat[t.etat] || 't-gris'} tache-etat" data-etat-tache="${t.id}" title="Passer à l'état suivant">${t.etat}</button>
+              <button class="btn btn-s" data-modif-tache="${t.id}" aria-label="Modifier">✎</button></div>`;
+          })}</div>`;
+        })}` : h`<p class="indice">Aucune tâche ici. Ajoutez-en une, ou chargez le modèle de départ.</p>`,
+        h`<button class="btn btn-s" id="tache-modele">Charger le modèle</button><button class="btn btn-s btn-primaire" id="tache-ajout">+ Nouvelle tâche</button>`)}`);
+    brancherPuces('taches', vueTaches);
+    var appliquer = function (r) { taches = r; vueTaches(); brancherAide(); };
+    $$('[data-etat-tache]').forEach(function (b) { b.addEventListener('click', function () {
+      var t = T.lignes.filter(function (x) { return x.id === b.getAttribute('data-etat-tache'); })[0];
+      var suivant = T.etats[(T.etats.indexOf(t.etat) + 1) % T.etats.length];
+      var retablir = JEF.attente(b, '');
+      JEF.post('module', { data: { op: 'tache_etat', id: t.id, etat: suivant } }).then(function (r) { retablir(); appliquer(r); }).catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+    }); });
+    $$('[data-modif-tache]').forEach(function (b) { b.addEventListener('click', function () { modaleTache(T.lignes.filter(function (x) { return x.id === b.getAttribute('data-modif-tache'); })[0]); }); });
+    $('#tache-ajout').addEventListener('click', function () { modaleTache(null); });
+    $('#tache-modele').addEventListener('click', function () {
+      var b = this, retablir = JEF.attente(b, 'Chargement du modèle');
+      JEF.post('module', { data: { op: 'taches_modele' } }).then(function (r) { retablir(); JEF.toast(r.ajoutees ? r.ajoutees + ' tâche(s) ajoutée(s), à adapter' : 'Le modèle est déjà chargé', 'ok'); appliquer(r); })
+        .catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+    });
+  }
+  function modaleTache(t) {
+    var T = taches;
+    ouvrirModale(t ? 'Modifier la tâche' : 'Nouvelle tâche', h`
+      <div class="champ"><label class="obligatoire" for="t-titre">Tâche</label><input id="t-titre" name="titre" type="text" required value="${t ? t.titre : ''}"></div>
+      <div class="grille g2">
+        <div class="champ"><label for="t-ech">Échéance</label><input id="t-ech" name="echeance" type="date" value="${t ? t.echeance : ''}"></div>
+        <div class="champ"><label for="t-resp">Responsable</label><input id="t-resp" name="responsable" type="text" value="${t ? t.responsable : ''}" placeholder="Prénom ou rôle"></div>
+        <div class="champ"><label for="t-cat">Catégorie</label><select id="t-cat" name="categorie">${T.categories.map(function (c) { return h`<option ${brut(t && t.categorie === c ? 'selected' : '')}>${c}</option>`; })}</select></div>
+        <div class="champ"><label for="t-etat">État</label><select id="t-etat" name="etat">${T.etats.map(function (c) { return h`<option ${brut(t && t.etat === c ? 'selected' : '')}>${c}</option>`; })}</select></div>
+      </div>
+      <div class="champ"><label for="t-notes">Notes</label><textarea id="t-notes" name="notes" rows="3">${t ? t.notes : ''}</textarea></div>`, [
+      t ? { texte: 'Supprimer', classe: 'btn-danger', action: function (z, b) {
+        fermerModale();
+        confirmer('Supprimer la tâche', 'La tâche « ' + t.titre + ' » sera supprimée.', 'Supprimer', true).then(function (ok) {
+          if (!ok) return;
+          JEF.post('module', { data: { op: 'tache_supprimer', id: t.id } }).then(function (r) { taches = r; vueTaches(); brancherAide(); JEF.toast('Tâche supprimée', 'ok'); }).catch(function (e) { JEF.toast(e.message, 'erreur'); });
+        });
+      } } : { texte: 'Annuler' },
+      { texte: 'Enregistrer', classe: 'btn-primaire', action: function (z, b) {
+        var o = {}; $$('[name]', z).forEach(function (el) { o[el.name] = el.value.trim(); });
+        if (!o.titre) { JEF.toast('Donnez un titre à la tâche.', 'erreur'); return; }
+        if (t) o.id = t.id;
+        var retablir = JEF.attente(b, 'Enregistrement');
+        JEF.post('module', { data: { op: 'tache_maj', tache: o } }).then(function (r) { retablir(); fermerModale(); taches = r; vueTaches(); brancherAide(); JEF.toast('Tâche enregistrée', 'ok'); })
+          .catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+      } }]);
+  }
+
+  // ======================================================================
+  // Éditions et historique (administrateurs)
+  // ======================================================================
+  var editions = null;
+  function vueEditions() {
+    if (!estAdmin()) { aller('portail'); return; }
+    if (!editions) {
+      JEF.rendre('#vue', h`${aidePage('editions')}<div class="chargement"><span class="rotation"></span>Chargement de l'historique</div>`);
+      JEF.post('module', { data: { op: 'edition_etat' } }).then(function (r) { editions = r; if (vue === 'editions') { vueEditions(); brancherAide(); } }).catch(function (e) { JEF.toast(e.message, 'erreur'); });
+      return;
+    }
+    var E = editions, c = E.chiffres;
+    var suivante = String(Number(E.annee) + 1);
+    JEF.rendre('#vue', h`${aidePage('editions')}
+      <div class="chiffres">
+        <div class="chiffre"><div class="lib">Édition en cours</div><div class="val">${E.annee}</div><div class="det">${E.edition} - premier jour ${JEF.date(E.dateDebut)}</div></div>
+        <div class="chiffre"><div class="lib">Stagiaires</div><div class="val">${c.stagiaires}</div><div class="det">${c.presents} présence(s) tous profils</div></div>
+        <div class="chiffre"><div class="lib">Encaissé</div><div class="val">${JEF.euros ? JEF.euros(c.ca) : c.ca + ' €'}</div><div class="det">Paiements enregistrés</div></div>
+        <div class="chiffre ${E.cloturee ? '' : 'chiffre-alerte'}"><div class="lib">Archive</div><div class="val" style="font-size:16px;">${E.cloturee ? 'Faite' : 'Pas encore'}</div>${E.archive ? h`<div class="det"><a href="${E.archive}" target="_blank" rel="noopener">Ouvrir l'archive</a></div>` : ''}</div>
+      </div>
+      <div class="grille2">
+        ${panneau('1. Clôturer l\'édition ' + E.annee, 'À faire après l\'événement, attestations et bilan envoyés. Rien n\'est effacé : les onglets sont copiés dans un classeur d\'archive.',
+          h`<ul style="margin:0 0 8px;padding-left:18px;display:grid;gap:3px;"><li>Copie de 13 onglets dans « Archive JEF ${E.annee} », rangée dans Archives / JEF ${E.annee}.</li><li>Une ligne de chiffres dans l'historique ci-dessous.</li><li>L'archive est rattachée à l'indicateur Qualiopi 32.</li></ul>
+            ${E.cloturee ? h`<p class="indice">Déjà clôturée. Recommencer remplace la ligne d'historique et crée une nouvelle archive.</p>` : ''}`,
+          h`<button class="btn btn-s ${E.cloturee ? '' : 'btn-primaire'}" id="ed-cloturer">${E.cloturee ? 'Clôturer à nouveau' : 'Clôturer l\'édition'}</button>`)}
+        ${panneau('2. Préparer l\'édition ' + suivante, E.cloturee ? 'Vide les inscriptions, badges, réponses et journal. Garde tout le reste.' : 'Disponible après la clôture.',
+          h`<div class="grille g2">
+              <div class="champ"><label for="ed-annee">Année</label><input id="ed-annee" type="number" value="${suivante}" ${brut(E.cloturee ? '' : 'disabled')}></div>
+              <div class="champ"><label for="ed-debut">Premier jour</label><input id="ed-debut" type="date" ${brut(E.cloturee ? '' : 'disabled')}></div></div>
+            <label class="case"><input type="checkbox" id="ed-prog" checked ${brut(E.cloturee ? '' : 'disabled')}> Garder le programme comme trame, avec les dates décalées</label>
+            <label class="case"><input type="checkbox" id="ed-imp" checked ${brut(E.cloturee ? '' : 'disabled')}> Garder les animations comme modèles</label>`,
+          h`<button class="btn btn-s btn-danger" id="ed-preparer" ${brut(E.cloturee ? '' : 'disabled')}>Préparer l'édition suivante</button>`)}
+      </div>
+      ${panneau('Historique des éditions', 'Une ligne par édition clôturée.', E.historique.length ? h`<div class="table-zone"><table class="table"><thead><tr><th>Année</th><th>Ville</th><th>Stagiaires</th><th>Présences</th><th>Exposants</th><th>Visiteurs</th><th>Intervenants</th><th>Encaissé</th><th>Questionnaires</th><th>Archive</th></tr></thead>
+        <tbody>${E.historique.map(function (x) { return h`<tr><td data-titre="Année"><b>${x.annee}</b><small style="display:block;color:var(--texte-2);">${x.edition}</small></td><td data-titre="Ville">${x.ville}</td><td data-titre="Stagiaires">${x.stagiaires}</td><td data-titre="Présences">${x.presents}</td><td data-titre="Exposants">${x.exposants}</td><td data-titre="Visiteurs">${x.visiteurs}</td><td data-titre="Intervenants">${x.intervenants}</td><td data-titre="Encaissé">${x.ca} €</td><td data-titre="Questionnaires">${x.reponses}</td><td data-titre="Archive">${x.archive ? h`<a href="${x.archive}" target="_blank" rel="noopener">Ouvrir</a>` : '-'}</td></tr>`; })}</tbody></table></div>` : h`<p class="indice">Aucune édition clôturée pour l'instant.</p>`)}`);
+    $('#ed-cloturer').addEventListener('click', function () {
+      ouvrirModale('Clôturer l\'édition ' + E.annee, h`<p style="margin:0 0 8px;">Les onglets de l'année seront copiés dans un classeur d'archive. Rien n'est effacé ici.</p>
+        <div class="champ"><label for="ed-conf">Tapez ${E.annee} pour confirmer</label><input id="ed-conf" name="confirmation" type="text" inputmode="numeric" autocomplete="off"></div>`, [
+        { texte: 'Annuler' },
+        { texte: 'Clôturer', classe: 'btn-primaire', action: function (z, b) {
+          var retablir = JEF.attente(b, 'Copie des onglets, une minute environ');
+          JEF.post('module', { data: { op: 'edition_cloturer', confirmation: $('#ed-conf').value.trim() } }, { delai: 300000 }).then(function (r) {
+            retablir(); fermerModale(); editions = r.etat; vueEditions(); brancherAide(); JEF.toast('Édition ' + r.annee + ' archivée (' + r.onglets.length + ' onglets)', 'ok');
+          }).catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+        } }]);
+    });
+    var prep = $('#ed-preparer');
+    if (prep) prep.addEventListener('click', function () {
+      var annee = $('#ed-annee').value.trim(), debut = $('#ed-debut').value, garderProgramme = $('#ed-prog').checked, garderImpulsions = $('#ed-imp').checked;
+      if (!debut) { JEF.toast('Indiquez le premier jour de l\'édition ' + annee + '.', 'erreur'); return; }
+      ouvrirModale('Préparer l\'édition ' + annee, h`<p style="margin:0 0 6px;"><b>Seront vidés</b> : stagiaires, badges, réponses aux questionnaires et aux animations, journal. Ils restent lisibles dans l'archive ${E.annee}.</p>
+        <p style="margin:0 0 6px;"><b>Seront gardés</b> : réglages, questionnaires, entreprises, adhérents, Qualiopi (à mettre à jour), invitations, rétroplanning redaté${garderProgramme ? ', programme redaté' : ''}${garderImpulsions ? ', animations' : ''}.</p>
+        <p style="margin:0 0 8px;">Le mode test repasse à OUI.</p>
+        <div class="champ"><label for="ed-conf2">Tapez ${annee} pour confirmer</label><input id="ed-conf2" name="confirmation" type="text" inputmode="numeric" autocomplete="off"></div>`, [
+        { texte: 'Annuler' },
+        { texte: 'Préparer ' + annee, classe: 'btn-danger', action: function (z, b) {
+          var retablir = JEF.attente(b, 'Préparation de l\'édition ' + annee);
+          JEF.post('module', { data: { op: 'edition_preparer', annee: annee, dateDebut: debut, confirmation: $('#ed-conf2').value.trim(), garderProgramme: garderProgramme, garderImpulsions: garderImpulsions } }, { delai: 300000 }).then(function (r) {
+            retablir(); fermerModale(); editions = r.etat; taches = null; programme = null; animation = null;
+            ouvrirModale('Édition ' + r.annee + ' prête', h`<ul style="margin:0 0 8px;padding-left:18px;display:grid;gap:4px;">${r.rapport.map(function (x) { return h`<li>${x}</li>`; })}</ul>
+              <p style="margin:0;"><b>À relire dans Réglages</b> : ${r.aRelire.join(', ')}.</p>`, [{ texte: 'Ouvrir les réglages', classe: 'btn-primaire', action: function () { fermerModale(); aller('reglages'); } }]);
+            charger(true);
+          }).catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+        } }]);
+    });
   }
 
   // ======================================================================

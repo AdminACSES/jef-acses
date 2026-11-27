@@ -3,15 +3,21 @@
    Modifiable sans toucher à la logique (admin.js).
    ========================================================================== */
 window.JEF_COCKPIT = {
-  version: '2.5.0',
+  version: '2.6.0',
 
+  // Cinq espaces séparés, même connexion et même serveur. Chaque espace ne montre que ses pages.
   menu: [
-    { titre: 'Pilotage', couleur: '#2F6BFF', pages: [['tableau', 'Tableau de bord']] },
-    { titre: 'Participants', couleur: '#EB7E0C', pages: [['participants', 'Tous les participants'], ['stagiaires', 'Stagiaires'], ['accompagnants', 'Accompagnants'], ['entreprises', 'Exposants et entreprises'],
-      ['visiteurs', 'Visiteurs'], ['intervenants', 'Intervenants'], ['invites', 'Invités']] },
-    { titre: 'Formation et Qualiopi', couleur: '#6D28D9', pages: [['presences', 'Présences et attestations'], ['questionnaires', 'Questionnaires'], ['animation', 'Animation en direct'], ['qualiopi', 'Qualiopi']] },
-    { titre: 'Organisation', couleur: '#1E7B45', pages: [['programme', 'Programme'], ['invitations', 'Invitations'], ['communication', 'Communication'], ['restauration', 'Restauration'], ['jourj', 'Accueil jour J']] },
-    { titre: 'Administration', couleur: '#94A3B8', pages: [['reglages', 'Réglages'], ['acces', 'Accès'], ['journal', 'Journal'], ['aide', 'Mode d\'emploi'], ['nouveautes', 'Quoi de neuf']] }
+    { id: 'inscriptions', titre: 'Inscriptions et adhésions', ico: '👥', couleur: '#EB7E0C', texte: 'Dossiers, entreprises, paiements, badges et emails.',
+      pages: [['tableau', 'Tableau de bord'], ['participants', 'Tous les participants'], ['stagiaires', 'Stagiaires'], ['accompagnants', 'Accompagnants'], ['entreprises', 'Exposants et entreprises'],
+        ['visiteurs', 'Visiteurs'], ['invites', 'Invités'], ['invitations', 'Invitations'], ['communication', 'Communication'], ['restauration', 'Restauration']] },
+    { id: 'programme', titre: 'Programme et intervenants', ico: '🗓️', couleur: '#1E7B45', texte: 'Conducteur des journées, intervenants, rétroplanning.',
+      pages: [['programme', 'Programme'], ['intervenants', 'Intervenants'], ['taches', 'Rétroplanning']] },
+    { id: 'jourj', titre: 'Jour J et régie', ico: '🎬', couleur: '#BE185D', texte: 'Accueil, scanner, présences, animation, régie et écran.',
+      pages: [['jourj', 'Accueil jour J'], ['presences', 'Présences et attestations'], ['animation', 'Animation en direct']] },
+    { id: 'qualiopi', titre: 'Qualiopi', ico: '✅', couleur: '#6D28D9', texte: 'Questionnaires, indicateurs, dossier d\'audit.',
+      pages: [['qualiopi', 'Qualiopi'], ['questionnaires', 'Questionnaires']] },
+    { id: 'administration', titre: 'Administration', ico: '⚙️', couleur: '#94A3B8', texte: 'Réglages, éditions, accès, journal, aide.',
+      pages: [['reglages', 'Réglages'], ['editions', 'Éditions et historique'], ['acces', 'Accès'], ['journal', 'Journal'], ['aide', 'Mode d\'emploi'], ['nouveautes', 'Quoi de neuf']] }
   ],
 
   legendes: {
@@ -22,6 +28,24 @@ window.JEF_COCKPIT = {
   },
 
   aides: {
+    portail: {
+      texte: 'Le point de départ du cockpit. Chaque tuile ouvre un espace avec seulement ses pages. Le chiffre orange signale ce qui attend une action.',
+      points: ['Le menu de gauche ne montre que l\'espace ouvert. Le bouton « Tous les espaces », en haut du menu, ramène ici.',
+        'La régie et le scanner s\'ouvrent dans leur propre fenêtre et s\'installent comme des applications.']
+    },
+    taches: {
+      texte: 'Le rétroplanning de l\'édition : ce qu\'il faut faire avant, pendant et après les journées, avec une échéance et un responsable.',
+      points: ['Chaque tâche garde son écart avec le premier jour. À l\'édition suivante, les échéances se recalculent seules.',
+        '« Charger le modèle » ajoute une proposition de départ, à adapter. Il ne crée jamais de doublon.',
+        'Un clic sur l\'état fait passer la tâche à l\'état suivant. Les tâches en retard sont en rouge.']
+    },
+    editions: {
+      texte: 'Le passage d\'une édition à la suivante, sans changer de fichier ni d\'adresse. Réservé aux administrateurs.',
+      points: ['1. Après l\'événement, « Clôturer l\'édition » copie les onglets de l\'année dans un classeur d\'archive rangé dans Archives / JEF année, et ajoute une ligne à l\'historique.',
+        '2. Ensuite, « Préparer l\'édition suivante » vide les inscriptions, les badges, les réponses et le journal. Réglages, questionnaires, entreprises, adhérents, Qualiopi, invitations, animations et rétroplanning sont gardés.',
+        'Les dates sont décalées d\'autant que le premier jour. Les textes avec des jours de la semaine, le lieu et les tarifs sont à relire dans Réglages.',
+        'L\'archive est protégée par un avertissement : un administrateur peut encore la modifier, mais Google prévient avant.']
+    },
     tableau: {
       texte: 'Vue d\'ensemble de l\'édition. Les cartes orange signalent ce qui attend une action du bureau : un clic ouvre directement la bonne liste.',
       points: ['« Personnaliser le tableau de bord », en haut, permet de masquer des widgets et de changer leur ordre. Le réglage suit votre compte.','Les chiffres se mettent à jour à chaque actualisation, et seuls toutes les deux minutes.', 'Le tableau des repas donne les couverts par jour, à transmettre au traiteur.']
@@ -138,6 +162,21 @@ window.JEF_COCKPIT = {
   },
 
   modeEmploi: [
+    { titre: 'Les cinq espaces', blocs: [
+      ['p', 'Le cockpit s\'ouvre sur un portail à cinq tuiles. Chaque espace ne montre que ses pages : Inscriptions et adhésions, Programme et intervenants, Jour J et régie, Qualiopi, Administration.'],
+      ['p', 'Tout reste relié : une inscription apparaît aussitôt au scanner, un objectif du programme crée la question de l\'évaluation des acquis. Le découpage sert à ne voir que ce dont on a besoin.']
+    ] },
+    { titre: 'La régie du jour J', blocs: [
+      ['p', 'Ouvrez la régie (regie.html) sur l\'ordinateur relié au vidéoprojecteur. Elle affiche la séquence en cours, la suivante et le temps restant, d\'après le Programme.'],
+      ['ol', ['Branchez le vidéoprojecteur en écran étendu (touches Windows + P, puis « Étendre »).',
+        'Lancez les PowerPoint en mode Présentateur : la diapositive part sur le vidéoprojecteur, vos notes restent sur l\'ordinateur.',
+        'Depuis la régie, « Ouvrir l\'écran de projection » ouvre une seconde fenêtre. Glissez-la sur le vidéoprojecteur et passez-la en plein écran (F11).',
+        'Pour une animation, lancez-la depuis la régie puis basculez sur la fenêtre de l\'écran (Alt + Tab). Pour revenir au PowerPoint, Alt + Tab encore.']],
+      ['p', 'Une page web ne peut pas piloter PowerPoint : la bascule se fait au clavier. Répétez la manipulation sur place la veille.']
+    ] },
+    { titre: 'D\'une année sur l\'autre', blocs: [
+      ['p', 'On garde un seul fichier et une seule adresse. Après l\'événement, Administration, Éditions et historique : clôturez l\'édition, puis préparez la suivante. Relisez ensuite les réglages signalés.']
+    ] },
     { titre: 'Se repérer', blocs: [
       ['p', 'Le menu à gauche regroupe les pages par thème. En haut, la barre reste visible : titre de la page, recherche rapide, boutons Imprimer, Exporter et Actualiser, état de la synchronisation, personnes connectées et votre compte.'],
       ['p', 'Chaque page commence par une aide repliable avec la légende des couleurs. Elle reste ouverte ou fermée comme vous l\'avez laissée.'],
@@ -172,7 +211,9 @@ window.JEF_COCKPIT = {
     ] },
     { titre: 'Le badge', blocs: [
       ['p', 'Le badge s\'imprime sur une page A4, recto seul. On le plie en deux le bas derrière, puis en deux la droite derrière. Devant : le nom, le profil, les repas et le QR d\'identification. Derrière : le nom et le grand QR « Mon espace participant ». Le mode d\'emploi est imprimé à l\'intérieur.'],
-      ['p', 'À l\'accueil, le scanner accepte les deux QR codes : un badge retourné sur son cordon fonctionne quand même.']
+      ['p', 'À l\'accueil, le scanner accepte les deux QR codes : un badge retourné sur son cordon fonctionne quand même.'],
+      ['p', 'Imprimé en noir et blanc, le badge reste lisible : le profil est écrit en toutes lettres avec un code en carré noir (STA, BUR, EXP, VIS, VIP, INT, ACC), et chaque repas porte ✓ ou ✗. Le scan reste la vraie vérification.'],
+      ['p', 'À l\'intérieur, quand la feuille est à plat : le programme résumé à gauche, le pliage et les contacts à droite.']
     ] },
     { titre: 'Animation en direct', blocs: [
       ['p', 'Préparez les animations dans « Animation en direct » (le bouton « Créer les animations conseillées » en prépare 7). Ouvrez l\'écran de projection sur l\'ordinateur du vidéoprojecteur, puis lancez chaque animation au bon moment. Le public répond depuis son espace, avec le QR de son badge.'],
@@ -232,7 +273,7 @@ window.JEF_COCKPIT = {
   ],
 
   nouveautes: [
-    { version: '2.5.0', date: '27 novembre 2026', points: [
+    { version: '2.6.0', date: '27 novembre 2026', points: [
       'Questionnaires sur le modèle JEF 2026 : test d\'entrée et de fin, évaluation des acquis par jour construite avec les objectifs du Programme, courte satisfaction en fin de dernier jour, enquête des entreprises partenaires pour les seuls exposants.',
       'Questionnaires modernes sur téléphone : une question par écran, échelles du moins bon (à gauche) au meilleur (à droite), récapitulatif avant l\'envoi, réponses gardées sur le téléphone si le réseau sature.',
       'Animation en direct : nuage de mots, sondage, note, questions de la salle et lancement des questionnaires, avec un écran de projection. Slido reste possible en secours.',
