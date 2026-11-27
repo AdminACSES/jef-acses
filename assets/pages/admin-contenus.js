@@ -3,13 +3,13 @@
    Modifiable sans toucher à la logique (admin.js).
    ========================================================================== */
 window.JEF_COCKPIT = {
-  version: '2.4.2',
+  version: '2.5.0',
 
   menu: [
     { titre: 'Pilotage', couleur: '#2F6BFF', pages: [['tableau', 'Tableau de bord']] },
     { titre: 'Participants', couleur: '#EB7E0C', pages: [['participants', 'Tous les participants'], ['stagiaires', 'Stagiaires'], ['accompagnants', 'Accompagnants'], ['entreprises', 'Exposants et entreprises'],
       ['visiteurs', 'Visiteurs'], ['intervenants', 'Intervenants'], ['invites', 'Invités']] },
-    { titre: 'Formation et Qualiopi', couleur: '#6D28D9', pages: [['presences', 'Présences et attestations'], ['questionnaires', 'Questionnaires'], ['qualiopi', 'Qualiopi']] },
+    { titre: 'Formation et Qualiopi', couleur: '#6D28D9', pages: [['presences', 'Présences et attestations'], ['questionnaires', 'Questionnaires'], ['animation', 'Animation en direct'], ['qualiopi', 'Qualiopi']] },
     { titre: 'Organisation', couleur: '#1E7B45', pages: [['programme', 'Programme'], ['invitations', 'Invitations'], ['communication', 'Communication'], ['restauration', 'Restauration'], ['jourj', 'Accueil jour J']] },
     { titre: 'Administration', couleur: '#94A3B8', pages: [['reglages', 'Réglages'], ['acces', 'Accès'], ['journal', 'Journal'], ['aide', 'Mode d\'emploi'], ['nouveautes', 'Quoi de neuf']] }
   ],
@@ -96,6 +96,13 @@ window.JEF_COCKPIT = {
         '« Rapport PDF pour l\'audit » dépose le bilan dans le Drive Qualiopi de l\'année et le rattache à l\'indicateur (11 ou 30). Le rapport avec réponses individuelles ajoute le détail par personne.',
         'Modifiez les questions avant l\'ouverture : après les premières réponses, ajoutez plutôt des questions à la fin.']
     },
+    animation: {
+      texte: 'Nuage de mots, sondage, note et questions de la salle, affichés en direct sur l\'écran. Le public répond depuis son téléphone, avec le QR « Mon espace » de son badge.',
+      points: ['Ouvrez l\'écran de projection sur l\'ordinateur relié au vidéoprojecteur (bouton en haut). Il n\'a pas besoin de connexion Google.',
+        '« Lancer » affiche la question sur tous les téléphones et sur l\'écran. Une seule animation est en direct à la fois.',
+        '« Lancer un questionnaire » affiche « Sortez votre badge » avec le compteur de réponses : c\'est le moment de faire remplir le test d\'entrée, le test de fin ou l\'évaluation des acquis.',
+        'Après la séance, le bouton PDF classe les résultats dans le Drive Qualiopi. Slido reste possible en secours.']
+    },
     programme: {
       texte: 'Le conducteur des journées, séquence par séquence. Il s\'affiche dans l\'espace participant de chaque badge.',
       points: ['Ajoutez une ligne par séquence : accueil, conférence, questions, salon, repas, assemblée générale, soirée.', 'Les flèches changent l\'ordre. Pensez à enregistrer.']
@@ -163,6 +170,19 @@ window.JEF_COCKPIT = {
         'Intervenants : suivi du contact, du thème, de la logistique et des documents (CV, support, photo).',
         'Invités : sans repas par défaut. Les invitations institutionnelles se suivent dans Invitations.']]
     ] },
+    { titre: 'Le badge', blocs: [
+      ['p', 'Le badge s\'imprime sur une page A4, recto seul. On le plie en deux le bas derrière, puis en deux la droite derrière. Devant : le nom, le profil, les repas et le QR d\'identification. Derrière : le nom et le grand QR « Mon espace participant ». Le mode d\'emploi est imprimé à l\'intérieur.'],
+      ['p', 'À l\'accueil, le scanner accepte les deux QR codes : un badge retourné sur son cordon fonctionne quand même.']
+    ] },
+    { titre: 'Animation en direct', blocs: [
+      ['p', 'Préparez les animations dans « Animation en direct » (le bouton « Créer les animations conseillées » en prépare 7). Ouvrez l\'écran de projection sur l\'ordinateur du vidéoprojecteur, puis lancez chaque animation au bon moment. Le public répond depuis son espace, avec le QR de son badge.'],
+      ['p', 'Pour faire remplir un questionnaire en salle, lancez « Lancer un questionnaire » : l\'écran affiche « Sortez votre badge » et le compteur de réponses.']
+    ] },
+    { titre: 'Intervenants et Qualiopi', blocs: [
+      ['p', 'Dans Intervenants, « Suivi » envoie à chaque intervenant le lien de son espace. Il y dépose CV, photo et support, et donne l\'objectif de son intervention. Tout se range seul dans le Drive Qualiopi de l\'année et coche son suivi.'],
+      ['p', 'Dans Programme, choisir l\'intervenant d\'une séquence reprend son objectif. Les objectifs construisent l\'évaluation des acquis de chaque jour.'],
+      ['p', 'Un fichier déposé à la main dans le Drive Qualiopi est retrouvé par « Analyser le Drive », si le nom de l\'intervenant figure dans le nom du fichier.']
+    ] },
     { titre: 'Espace participant et questionnaires', blocs: [
       ['p', 'Chaque badge porte un deuxième QR code « Mon espace participant ». Scanné avec un téléphone, il ouvre une page personnelle : programme, repas et questionnaires du profil. Aucun mot de passe : le lien est signé.'],
       ['ul', ['Stagiaires : test d\'entrée, test de fin, évaluation des acquis et satisfaction.',
@@ -212,6 +232,17 @@ window.JEF_COCKPIT = {
   ],
 
   nouveautes: [
+    { version: '2.5.0', date: '27 novembre 2026', points: [
+      'Questionnaires sur le modèle JEF 2026 : test d\'entrée et de fin, évaluation des acquis par jour construite avec les objectifs du Programme, courte satisfaction en fin de dernier jour, enquête des entreprises partenaires pour les seuls exposants.',
+      'Questionnaires modernes sur téléphone : une question par écran, échelles du moins bon (à gauche) au meilleur (à droite), récapitulatif avant l\'envoi, réponses gardées sur le téléphone si le réseau sature.',
+      'Animation en direct : nuage de mots, sondage, note, questions de la salle et lancement des questionnaires, avec un écran de projection. Slido reste possible en secours.',
+      'Qualiopi automatique : programme, CV, supports, coordination, rapports, feuille de présence et bilan sont classés dans le Drive de l\'année et rattachés à leur indicateur. Bouton « Préparer le dossier d\'audit ».',
+      'Espace intervenant : chaque intervenant dépose son CV, sa photo et son support, donne son objectif et ses questions pour le test, son hôtel et ses repas.',
+      'Badge : nouveau pliage, le nom devant, le nom et le QR « Mon espace » derrière. Les deux QR codes enregistrent l\'arrivée.',
+      'Scanner : caméra directe sur téléphone sans clavier, plus de choix de demi-journée avec le scan unique.',
+      'Fenêtres qui ne se ferment plus par erreur, saisie gardée 30 minutes, menus visibles en demi-écran, attentes signalées pendant chaque enregistrement.',
+      'La demande de formation interne n\'est plus demandée au service formation : simple rappel pour le stagiaire.'
+    ] },
     { version: '2.4.2', date: '26 novembre 2026', points: [
       'Les mises à jour du site s\'affichent tout de suite, sans vider le cache du navigateur.'
     ] },

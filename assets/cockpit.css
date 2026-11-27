@@ -453,3 +453,82 @@ body.cockpit button, body.cockpit a, body.cockpit .btn, body.cockpit input, body
 }
 /* Application installée : pas de bouton d'installation, barre d'état intégrée */
 html.autonome body.cockpit .barre { padding-top: calc(6px + env(safe-area-inset-top)); }
+
+/* v2.5 : superpositions et fenêtres */
+.barre:has(.deroulant:not([hidden])) { z-index: 75; }
+.deroulant { max-width: min(320px, calc(100vw - 24px)); }
+.modale header { position: relative; padding-right: 52px; }
+.fermer-modale { all: unset; cursor: pointer; position: absolute; right: 14px; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 16px; color: var(--texte-2); }
+.fermer-modale:hover { background: #F1F5F9; color: var(--encre); }
+.fermer-modale:focus-visible { outline: 2px solid var(--bleu); }
+@media (min-width: 761px) and (max-width: 1180px) {
+  .barre { flex-wrap: wrap; row-gap: 6px; }
+  .recherche { order: 9; flex-basis: 100%; max-width: none; }
+  .actions-barre { margin-left: 0; }
+  .widgets { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 901px) and (max-width: 1000px) {
+  .cadre { grid-template-columns: 200px minmax(0, 1fr); }
+  .menu { width: 200px; }
+  .menu-btn { font-size: 12.5px; }
+  .barre h1 { font-size: 15px; }
+  .actions-barre .btn { padding: 5px 8px; font-size: 12px; }
+}
+@media (max-width: 900px) {
+  body.menu-ouvert .voile-menu { display: block; position: fixed; inset: 0; background: rgba(11, 37, 64, .4); z-index: 55; animation: fondu .15s ease; }
+}
+
+/* v2.5 : questionnaires, programme, intervenants, Qualiopi, animation */
+.histo { display: flex; align-items: flex-end; gap: 4px; height: 82px; }
+.histo div { flex: 1; display: grid; justify-items: center; gap: 2px; }
+.histo i { display: block; width: 100%; border-radius: 4px 4px 0 0; min-height: 2px; }
+.histo small { font-size: 10px; color: var(--texte-2); }
+.q-stat.q-sat { border-color: #F5C58F; background: #FFFBF5; }
+.suggestions { border: 1px solid #BFDBFE; background: #F5F9FD; border-radius: 10px; padding: 8px 12px; }
+.suggestions summary { cursor: pointer; font-weight: 700; color: var(--bleu); }
+.suggestion { border-top: 1px solid #DBEAFE; padding: 6px 0; font-size: 13px; }
+.suggestion div { white-space: pre-wrap; color: var(--texte-2); }
+.prog-cartes { display: grid; gap: 10px; }
+.prog-carte { border: 1px solid var(--trait); border-radius: 12px; padding: 10px 12px; background: #FBFCFE; display: grid; gap: 8px; }
+.prog-ligne1 { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.prog-ligne1 input, .prog-ligne1 select { padding: 6px 8px; font-size: 13px; width: auto; }
+.prog-ligne1 input.court { width: 86px; }
+.prog-outils { margin-left: auto; display: flex; gap: 4px; }
+.prog-carte .champ label .indice { font-weight: 400; }
+.docs-grille { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.doc-int { border: 1px dashed var(--trait-2); border-radius: 10px; padding: 8px 10px; display: grid; gap: 6px; justify-items: start; }
+.doc-int.ok { border-style: solid; border-color: #A7F3D0; background: #F0FDF7; }
+.doc-int.ok b { color: #166534; }
+.doc-int a { font-size: 12px; }
+.saisie-int { border: 1px solid #BFDBFE; background: #F5F9FD; border-radius: 12px; padding: 10px 12px; }
+.saisie-int h4 { margin: 0 0 6px; font-size: 12px; color: var(--bleu); text-transform: uppercase; letter-spacing: .05em; }
+.auto-q { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.auto-q div { border: 1px solid var(--trait); border-radius: 10px; padding: 8px 10px; display: grid; gap: 3px; }
+.auto-q small { color: var(--texte-2); }
+.auto-q .tag { justify-self: start; }
+.anim-tete { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.anim-direct { font-weight: 800; padding: 6px 12px; border-radius: 99px; background: #F1F5F9; color: var(--texte-2); }
+.anim-direct.on { background: #FDECEF; color: #B91C1C; }
+.anim-direct .point { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #E11D48; margin-right: 4px; animation: pulsation 1s ease-in-out infinite; }
+@keyframes pulsation { 50% { opacity: .3; } }
+.anim-grille { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.anim-liste { display: grid; gap: 6px; }
+.anim-item { display: grid; grid-template-columns: 30px 1fr auto; gap: 10px; align-items: center; border: 1px solid var(--trait); border-radius: 10px; padding: 8px 10px; background: #fff; }
+.anim-item.actif { border-color: #F87171; background: #FFF5F5; }
+.anim-item .ico { font-size: 20px; text-align: center; }
+.anim-item small { display: block; color: var(--texte-2); }
+.anim-actions { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.anim-apercu { min-height: 160px; }
+.anim-q { font-weight: 800; font-size: 15px; margin-bottom: 2px; }
+.mini-nuage { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-top: 8px; }
+.mini-nuage span { font-weight: 800; color: var(--bleu); }
+.mini-nuage span:nth-child(3n) { color: var(--orange-acses, #EB7E0C); }
+.mini-nuage span:nth-child(3n+1) { color: #1E7B45; }
+.anim-questions { display: grid; gap: 6px; margin-top: 8px; }
+.anim-questions div { display: grid; grid-template-columns: 34px 1fr auto auto; gap: 6px; align-items: center; border: 1px solid var(--trait); border-radius: 8px; padding: 6px 8px; }
+.anim-questions div.repondue { opacity: .55; }
+.anim-questions b { text-align: center; font-size: 16px; color: var(--bleu); }
+.choix-types { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
+@media (max-width: 900px) { .anim-grille { grid-template-columns: 1fr; } .docs-grille { grid-template-columns: 1fr; } .anim-item { grid-template-columns: 26px 1fr; } .anim-actions { grid-column: 1 / -1; justify-content: flex-start; } }
+.b-bleu { background: #EAF2FB; border-color: #BFDBFE; color: #15528F; flex-wrap: wrap; }
+button.chiffre.cliquable { position: relative; } button.chiffre.cliquable::after { float: none; margin: 0; position: absolute; right: 12px; top: 10px; }

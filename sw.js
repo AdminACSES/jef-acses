@@ -2,7 +2,7 @@
    Réseau d'abord : on voit toujours la dernière version publiée. Le cache sert seulement
    à ouvrir l'application sans réseau (le scanner garde alors ses scans en file d'attente).
    Les appels au serveur Apps Script ne passent jamais par le cache. */
-var CACHE = 'jef-appli-2.4.2';
+var CACHE = 'jef-appli-2.5.0';
 var BASE = ['assets/jef.css', 'assets/cockpit.css', 'assets/jef.js', 'assets/config.js', 'logo-acses.png'];
 
 self.addEventListener('install', function (e) {

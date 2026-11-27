@@ -159,7 +159,7 @@
         Il complète les informations administratives puis dépose la convention signée avec ce lien personnel :</div>
       </div>
       <div class="lien-copie"><input type="text" readonly value="${rep.lien}" aria-label="Lien du dossier"><button class="btn" type="button" id="copier">Copier</button></div>
-      <p class="petit" style="margin-top:14px;">Si votre établissement utilise une demande de formation interne, joignez-la au dossier. Votre service formation pourra la déposer avec la convention.</p>
+      <p class="petit" style="margin-top:14px;"><b>N'oubliez pas votre demande de formation interne</b> si votre établissement en utilise une : elle suit votre circuit habituel.</p>
       <p class="petit">Vous recevrez votre badge d'accès dès la validation de la convention par le bureau de l'ACSES.</p>
       ${rep.accompagnant ? h`<p class="petit">Votre accompagnant est enregistré (${rep.accompagnant}). Son badge partira avec le vôtre.</p>` : ''}
       <a class="btn" href="./" style="margin-top:8px;">Retour à l'accueil</a>`);

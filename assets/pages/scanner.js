@@ -10,7 +10,8 @@
   var BORNE = /[?&]borne=1/.test(location.search);
   var personnes = {}, creneaux = [], file = [], scansSession = 0, enCours = false, dernier = { code: '', t: 0 };
   var camera = null, cameraActive = false, cameraEnPause = false, horsLigne = false, mode = 'accueil';
-  var pleinOuvert = false, minuteurPlein = null;
+  var pleinOuvert = false, minuteurPlein = null, scanUnique = false;
+  var TACTILE = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
   var REPAS_LIB = { JM: 'Jeudi midi', GALA: 'Gala', VM: 'Vendredi midi' };
 
   // ----- Persistance locale -------------------------------------------------
@@ -21,7 +22,7 @@
 
   function majStats() {
     var n = Number($('#creneau').value);
-    var presents = Object.keys(personnes).filter(function (id) { return personnes[id]['p' + n]; }).length;
+    var presents = Object.keys(personnes).filter(function (id) { return scanUnique ? creneaux.some(function (c) { return personnes[id]['p' + c.n]; }) : personnes[id]['p' + n]; }).length;
     $('#st-presents').textContent = presents;
     $('#st-session').textContent = scansSession;
     $('#st-file').textContent = file.length;
@@ -101,7 +102,7 @@
     $('#plein').hidden = true;
     pleinOuvert = false;
     dernier = { code: dernier.code, t: Date.now() - 2500 }; // le même badge peut être relu 1,5 s après
-    if (!BORNE) { try { $('#saisie').focus(); } catch (e) { /* rien */ } }
+    if (!BORNE && !TACTILE) { try { $('#saisie').focus(); } catch (e) { /* rien */ } }
   }
 
   function historiser(v, p, r) {
@@ -115,7 +116,7 @@
 
   // ----- Traitement d'un scan -----------------------------------------------
   function idLocal(texte) {
-    var m = String(texte).match(/ID_ACSES:([A-Z]{3}\d{4}-\d{3,4}):/i) || String(texte).trim().toUpperCase().match(/^([A-Z]{3}\d{4}-\d{3,4})$/);
+    var m = String(texte).match(/ID_ACSES:([A-Z]{3}\d{4}-\d{3,4}):/i) || String(texte).match(/espace\.html\?id=([A-Z]{3}\d{4}-\d{3,4})&/i) || String(texte).trim().toUpperCase().match(/^([A-Z]{3}\d{4}-\d{3,4})$/);
     return m ? m[1].toUpperCase() : '';
   }
 
@@ -168,7 +169,7 @@
     $('#zone-lecteur').hidden = false;
     dernier = { code: '', t: 0 };
     repriseCamera();
-    try { $('#saisie').focus(); } catch (e) { /* rien */ }
+    if (!TACTILE) { try { $('#saisie').focus(); } catch (e) { /* rien */ } }
     window.scrollTo(0, 0);
   }
 
@@ -229,6 +230,7 @@
     $('#bandeau-mode').textContent = m === 'verifier' ? 'Mode contrôle : la fiche s\'ouvre, la présence n\'est pas pointée.' : 'Mode présence : chaque badge scanné est pointé présent.';
     suivant();
     $('#saisie').placeholder = m === 'verifier' ? 'Scanner ou saisir le badge à contrôler' : 'Douchette ou saisie : JEF2027-012';
+    if (TACTILE && !cameraActive) demarrerCamera();
   }
 
   function traiter(texte) {
@@ -241,9 +243,9 @@
     enCours = true;
     scansSession++;
     var n = Number($('#creneau').value);
-    JEF.post('scan', { data: { qr: texte, creneau: n } }, { delai: 15000 }).then(function (r) {
+    JEF.post('scan', { data: scanUnique ? { qr: texte } : { qr: texte, creneau: n } }, { delai: 15000 }).then(function (r) {
       etat(true);
-      if (r.personne && personnes[r.personne.id] && (r.resultat === 'OK' || r.resultat === 'DEJA')) personnes[r.personne.id]['p' + n] = true;
+      if (r.personne && personnes[r.personne.id] && (r.resultat === 'OK' || r.resultat === 'DEJA')) { if (scanUnique) creneaux.forEach(function (c) { personnes[r.personne.id]['p' + c.n] = true; }); else personnes[r.personne.id]['p' + n] = true; }
       ouvrirPlein(r);
     }).catch(function (e) {
       if (e.reseau || /trop de temps|Connexion impossible/.test(e.message)) { etat(false); enregistrerHorsLigne(texte); }
@@ -287,17 +289,32 @@
     return JEF.post('accueil_liste', {}, { delai: 45000 }).then(function (r) {
       etat(true);
       creneaux = r.creneaux;
+      scanUnique = !!r.scanUnique;
+      appliquerScanUnique();
       indexer(r.personnes);
       ecrireLocal(CLE_LISTE, r.personnes);
       ecrireLocal('jef_creneaux', creneaux);
       remplirCreneaux(r.creneauCourant);
     }).catch(function () {
       etat(false);
+      scanUnique = lireLocal('jef_scan_unique', 0) === 1;
+      appliquerScanUnique();
       creneaux = lireLocal('jef_creneaux', []);
       indexer(lireLocal(CLE_LISTE, []));
       remplirCreneaux(null);
       JEF.toast('Hors ligne : liste locale utilisée.', 'erreur');
     });
+  }
+
+  /** Un seul scan à l'arrivée : pas de demi-journée à choisir, la présence vaut pour toute la formation. */
+  function appliquerScanUnique() {
+    try { localStorage.setItem('jef_scan_unique', scanUnique ? '1' : '0'); } catch (e) { /* rien */ }
+    $('#creneau').hidden = scanUnique;
+    var lib = $('#lib-unique');
+    if (!lib) { lib = document.createElement('span'); lib.id = 'lib-unique'; lib.className = 'lib-unique'; $('#creneau').after(lib); }
+    lib.textContent = scanUnique ? 'Présence pour toute la formation' : '';
+    lib.hidden = !scanUnique;
+    var st = $('#st-presents'); if (st) st.nextElementSibling.textContent = scanUnique ? 'présents' : 'présents sur ce créneau';
   }
 
   function remplirCreneaux(courant) {
@@ -337,7 +354,8 @@
     $('#app').hidden = false;
     $('#utilisateur').textContent = s.email + ' (' + (s.role === 'admin' ? 'administrateur' : 'utilisateur') + ')';
     chargerListe().then(function () { if (file.length) synchroniser(); });
-    $('#saisie').focus();
+    // Téléphone : la caméra démarre seule et le clavier reste fermé. Ordinateur : curseur prêt pour la douchette.
+    if (TACTILE) demarrerCamera(); else $('#saisie').focus();
   }
 
   JEF.appli('scanner.html', function (dispo) { $('#b-installer').hidden = !dispo; });

@@ -1,0 +1,40 @@
+/* Écran de projection 16:9, lisible du fond de la salle */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; font-family: "Segoe UI", system-ui, Arial, sans-serif; background: #0B2540; color: #fff; overflow: hidden; }
+.ecran { height: 100vh; display: grid; grid-template-rows: auto 1fr auto; background: radial-gradient(circle at 50% 0, #15528F 0, #0B2540 70%); }
+.ec-tete { display: flex; align-items: center; gap: 1.2vw; padding: 1.2vw 2vw; font-weight: 700; font-size: 1.2vw; color: #CFE0F1; }
+.ec-tete img { height: 3vw; background: #fff; border-radius: .6vw; padding: .3vw .5vw; }
+.ec-etat { margin-left: auto; color: #FDBA74; }
+.ec-corps { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 4vw; min-height: 0; }
+.ec-pied { display: flex; justify-content: space-between; align-items: center; padding: 1vw 2vw; font-size: 1.3vw; color: #FDBA74; font-weight: 700; }
+.ec-plein { background: transparent; color: #94A3B8; border: 1px solid #334155; border-radius: 8px; padding: .4vw .9vw; cursor: pointer; font-size: .9vw; }
+.ec-question { font-size: 3.2vw; font-weight: 900; text-align: center; line-height: 1.15; max-width: 80vw; }
+.ec-compte { font-size: 1.4vw; color: #CFE0F1; margin: .6vw 0 2vw; }
+.ec-vide { font-size: 2vw; color: #94A3B8; text-align: center; }
+.ec-attente { font-size: 2vw; color: #94A3B8; }
+.ec-accueil { text-align: center; } .ec-accueil img { height: 9vw; background: #fff; border-radius: 1.4vw; padding: .8vw 1.2vw; } .ec-accueil h1 { font-size: 3.4vw; margin: 2vw 0 .6vw; } .ec-accueil p { font-size: 2vw; color: #FDBA74; margin: 0; font-weight: 700; }
+.ec-nuage { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .6vw 2vw; max-width: 86vw; background: #fff; border-radius: 2vw; padding: 2vw 3vw; min-height: 40vh; }
+.ec-nuage span { font-weight: 900; line-height: 1.05; animation: pop .4s ease-out; display: inline-block; }
+@keyframes pop { from { transform: scale(.4); opacity: 0; } }
+.ec-sondage { width: 76vw; display: grid; gap: 1.4vw; }
+.ec-ligne { display: grid; grid-template-columns: 22vw 1fr 7vw; gap: 1.2vw; align-items: center; font-size: 2vw; font-weight: 800; }
+.ec-barre { height: 3.2vw; background: rgba(255,255,255,.12); border-radius: 1vw; overflow: hidden; }
+.ec-barre i { display: block; height: 100%; border-radius: 1vw; transition: width .6s ease; }
+.ec-ligne b { text-align: right; }
+.ec-note { display: grid; grid-template-columns: auto 1fr; gap: 4vw; align-items: end; width: 76vw; }
+.ec-moyenne { font-size: 12vw; font-weight: 900; line-height: 1; } .ec-moyenne small { font-size: 3vw; color: #CFE0F1; margin-left: .6vw; }
+.ec-histo { display: flex; align-items: flex-end; gap: .8vw; height: 28vh; }
+.ec-histo div { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: .4vw; }
+.ec-histo i { width: 100%; border-radius: .6vw .6vw 0 0; min-height: 4px; transition: height .6s ease; }
+.ec-histo small { font-size: 1.3vw; color: #CFE0F1; }
+.ec-questions { width: 80vw; display: grid; gap: 1vw; }
+.ec-q { display: grid; grid-template-columns: 8vw 1fr; gap: 1.4vw; align-items: center; background: #fff; color: #0B2540; border-radius: 1.2vw; padding: 1.1vw 1.6vw; font-size: 1.8vw; font-weight: 700; animation: pop .4s ease-out; }
+.ec-q b { color: #EB7E0C; font-size: 2vw; }
+.ec-q.repondue { opacity: .4; }
+.ec-quest { text-align: center; display: grid; justify-items: center; gap: 1vw; }
+.ec-badge { font-size: 7vw; }
+.ec-quest h2 { font-size: 4vw; margin: 0; color: #FDBA74; }
+.ec-quest p { font-size: 2vw; max-width: 70vw; margin: 0; line-height: 1.35; }
+.ec-compteur { margin-top: 1.5vw; display: flex; align-items: baseline; gap: 1vw; } .ec-compteur b { font-size: 8vw; line-height: 1; } .ec-compteur span { font-size: 2vw; color: #CFE0F1; }
+.ec-jauge { width: 50vw; height: 1.4vw; background: rgba(255,255,255,.15); border-radius: 1vw; overflow: hidden; } .ec-jauge i { display: block; height: 100%; background: #1E7B45; transition: width .6s ease; }
+.ec-nuage { min-width: 56vw; }

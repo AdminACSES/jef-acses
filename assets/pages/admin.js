@@ -190,7 +190,9 @@
     if (vue === 'badges') vue = 'participants';
     if (PAGES_ADMIN.indexOf(vue) !== -1 && !estAdmin()) vue = 'tableau';
     if (ficheDemandee && typeDemande === 'STAG') filtresPages.stagiaires = 'tous';
+    JEF.ecranAttente('Ouverture du cockpit', 'Chargement des inscriptions, des badges et des entreprises');
     charger().then(function () {
+      JEF.ecranAttente(null);
       signalerPresence();
       if (ficheDemandee && trouver(typeDemande, ficheDemandee)) {
         history.replaceState(null, '', '#' + vue);
@@ -328,7 +330,7 @@
     if (!D) return;
     var f = { tableau: vueTableau, stagiaires: vueStagiaires, presences: vuePresences, qualiopi: vueQualiopi, acces: vueAcces, entreprises: vueEntreprises, badges: vueParticipants, participants: vueParticipants,
       accompagnants: function () { vueCategorie('accompagnants'); }, visiteurs: function () { vueCategorie('visiteurs'); }, intervenants: function () { vueCategorie('intervenants'); }, invites: function () { vueCategorie('invites'); },
-      questionnaires: vueQuestionnaires, programme: vueProgramme, invitations: vueInvitations, communication: vueCommunication,
+      questionnaires: vueQuestionnaires, programme: vueProgramme, animation: vueAnimation, invitations: vueInvitations, communication: vueCommunication,
       restauration: vueRestauration, jourj: vueJourJ, reglages: vueReglages, journal: vueJournal, aide: vueAide, nouveautes: vueNouveautes }[vue] || vueTableau;
     f();
     brancherAide();
@@ -1353,114 +1355,176 @@
         <div class="chiffre"><div class="lib">Soirée de gala</div><div class="val">${total.filter(function (b) { return JEF.oui(b.Repas_GALA); }).length}</div><div class="det">couverts</div></div></div>` : '';
     JEF.rendre('#vue', h`${aidePage(page)}${resume}
       ${panneau(cat.titre, cat.indice, h`${puces(cle, Object.keys(filtres).map(function (k) { return [k, filtres[k][0], liste.filter(filtres[k][1]).length]; }), 'tous')}${t.html}`,
-        h`${p === 'VISITEUR' ? h`<button class="btn btn-s" id="b-copier-lien">Copier le lien visiteurs</button>` : ''}<button class="btn btn-s" id="b-lot">Imprimer les badges affichés</button><button class="btn btn-s btn-primaire" id="b-ajouter">+ ${cat.ajouter}</button>`)}`);
+        h`${p === 'VISITEUR' ? h`<button class="btn btn-s" id="b-copier-lien">Copier le lien visiteurs</button>` : ''}${p === 'INTERVENANT' ? h`<button class="btn btn-s" id="b-analyser">Analyser le Drive</button><button class="btn btn-s" id="b-coord">Tableau de coordination PDF</button>` : ''}<button class="btn btn-s" id="b-lot">Imprimer les badges affichés</button><button class="btn btn-s btn-primaire" id="b-ajouter">+ ${cat.ajouter}</button>`)}`);
     t.monter();
     brancherPuces(cle, function () { vueCategorie(page); });
     $$('[data-puce-cat]').forEach(function (b) { b.addEventListener('click', function () { filtresPages[cle] = b.getAttribute('data-puce-cat'); vueCategorie(page); }); });
     $('#b-lot').addEventListener('click', function () { badgesEnLot(tableCourante.lignes, $('#b-lot')); });
     $('#b-ajouter').addEventListener('click', function () { modaleSurPlace({ profil: p, surPlace: false }); });
     var cl = $('#b-copier-lien'); if (cl) cl.addEventListener('click', function () { JEF.copier('https://jef.acses-asso.com/visiteur.html'); });
+    var ba = $('#b-analyser'); if (ba) ba.addEventListener('click', function () { analyserDrive(ba); });
+    var bc = $('#b-coord'); if (bc) bc.addEventListener('click', function () {
+      var fenetre = preparerFenetre('Préparation du tableau'), retablir = JEF.attente(bc, 'Création du PDF');
+      JEF.post('module', { data: { op: 'suivi_intervenants_pdf' } }, { delai: 300000 }).then(function (r) { retablir(); ouvrirPdfBase64(r.pdf, r.nom, fenetre); qualiopi = null; JEF.toast('Classé dans le Drive Qualiopi (indicateur 18)', 'ok'); })
+        .catch(function (e) { retablir(); if (fenetre) fenetre.close(); JEF.toast(e.message, 'erreur'); });
+    });
+  }
+
+  function analyserDrive(btn) {
+    var retablir = JEF.attente(btn, 'Analyse du Drive Qualiopi');
+    JEF.post('module', { data: { op: 'analyser_drive' } }, { delai: 300000 }).then(function (r) {
+      retablir(); qualiopi = null;
+      JEF.toast(r.retrouves ? r.retrouves + ' document(s) retrouvé(s) et coché(s)' : 'Aucun nouveau document trouvé. Le nom de l\'intervenant doit figurer dans le nom du fichier.', r.retrouves ? 'ok' : '');
+      charger(true);
+    }).catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
   }
 
   function modaleIntervenant(b) {
     var oui = function (v) { return brut(JEF.oui(v) ? 'checked' : ''); };
+    var doc = function (type, libelle, recu, url, accept) {
+      return h`<div class="doc-int ${JEF.oui(recu) ? 'ok' : ''}"><div><b>${JEF.oui(recu) ? '✓ ' : ''}${libelle}</b>${url ? h` <a href="${url}" target="_blank" rel="noopener">ouvrir</a>` : ''}</div>
+        <label class="btn btn-s">${JEF.oui(recu) ? 'Remplacer' : 'Déposer'}<input type="file" class="sr" data-doc="${type}" accept="${accept}"></label></div>`;
+    };
     ouvrirModale('Suivi de ' + nomComplet(b), h`
+      <div class="bandeau b-bleu" style="margin:0;"><span class="texte">L'intervenant peut tout remplir lui-même dans son espace : CV, photo, support, objectif, besoins, hôtel et repas.</span>
+        <span style="display:flex;gap:6px;flex-wrap:wrap;"><button type="button" class="btn btn-s" id="i-copier">Copier son lien</button>${b.Email ? h`<button type="button" class="btn btn-s btn-primaire" id="i-envoyer">Lui envoyer le lien</button>` : ''}</span></div>
+      <fieldset class="champ"><legend class="legende">Documents (classés seuls dans le Drive Qualiopi)</legend><div class="docs-grille">
+        ${doc('cv', 'CV (indicateur 21)', b.CV_Recu, b.CV_Fichier, '.pdf,.doc,.docx,.odt')}
+        ${doc('support', 'Support (indicateur 19)', b.Support_Recu, b.Support_Fichier, '.pdf,.ppt,.pptx,.odp,.key')}
+        ${doc('photo', 'Photo', b.Photo_Recue, b.Photo_Fichier, '.jpg,.jpeg,.png,.webp')}</div>
+        <p class="indice" style="margin:6px 0 0;">Un diaporama de plus de 30 Mo se dépose directement dans le dossier « 03 - Supports et présentations » du Drive Qualiopi, avec le nom de l'intervenant dans le nom du fichier, puis « Analyser le Drive ».</p></fieldset>
       <div class="grille g2">
         <div class="champ span2"><label for="i-theme">Thème de l'intervention</label><input id="i-theme" name="theme" type="text" value="${b.Theme_Intervention || ''}"></div>
         <div class="champ"><label for="i-creneau">Jour et heure</label><input id="i-creneau" name="creneau" type="text" value="${b.Creneau_Intervention || ''}" placeholder="Ex. jeudi 10 h 30"></div>
         <div class="champ"><label for="i-etat">État</label><select id="i-etat" name="etat">${ETATS_INTERVENANT.map(function (e) { return h`<option ${brut((b.Etat_Intervenant || 'À contacter') === e ? 'selected' : '')}>${e}</option>`; })}</select></div>
       </div>
-      <fieldset class="champ"><legend class="legende">Documents reçus (Qualiopi : CV pour l'indicateur 21, support pour le 19)</legend><div class="choix c3">
+      ${b.Objectif_Intervention || b.Besoins_Techniques || b.Questions_Test || b.Resume_Intervention ? h`<section class="saisie-int"><h4>Saisi par l'intervenant${b.Maj_Intervenant ? ' le ' + JEF.date(b.Maj_Intervenant, true) : ''}</h4>${infos([['Objectif', b.Objectif_Intervention], ['Résumé', b.Resume_Intervention], ['Besoins techniques', b.Besoins_Techniques], ['Questions proposées pour le test', b.Questions_Test], ['Arrivée', b.Arrivee_Intervenant], ['Repas la veille', JEF.oui(b.Repas_Veille) ? 'Oui' : '']])}</section>` : ''}
+      <fieldset class="champ"><legend class="legende">Documents reçus (cases cochées seules au dépôt)</legend><div class="choix c3">
         <label class="option puce"><input type="checkbox" name="cv" ${oui(b.CV_Recu)}><span class="titre">CV</span></label>
-        <label class="option puce"><input type="checkbox" name="support" ${oui(b.Support_Recu)}><span class="titre">Support (diaporama)</span></label>
+        <label class="option puce"><input type="checkbox" name="support" ${oui(b.Support_Recu)}><span class="titre">Support</span></label>
         <label class="option puce"><input type="checkbox" name="photo" ${oui(b.Photo_Recue)}><span class="titre">Photo</span></label></div></fieldset>
       <div class="grille g2">
         <div class="champ"><label for="i-hotel">Hôtel (nuits)</label><input id="i-hotel" name="hotel" type="text" value="${b.Hotel_Nuits || ''}" placeholder="Ex. mercredi et jeudi"></div>
         <div class="champ"><label for="i-frais">Frais pris en charge</label><input id="i-frais" name="frais" type="text" value="${b.Frais_Intervenant || ''}" placeholder="Ex. train, repas de la veille"></div>
-        <div class="champ span2"><label for="i-liens">Liens (CV, support dans le Drive)</label><textarea id="i-liens" name="liens" style="min-height:56px;">${b.Liens_Intervenant || ''}</textarea></div>
+        <div class="champ span2"><label for="i-liens">Notes et liens</label><textarea id="i-liens" name="liens" style="min-height:56px;">${b.Liens_Intervenant || ''}</textarea></div>
       </div>`,
     [{ texte: 'Annuler' }, { texte: 'Enregistrer', classe: 'btn-primaire', action: function (zone, btn) {
-      var retablir = JEF.attente(btn, 'Enregistrement');
+      var retablir = JEF.attente(btn, 'Enregistrement du suivi');
       JEF.post('module', { data: { op: 'intervenant_maj', id: b.ID, champs: JEF.lireFormulaire(zone) } }).then(function () { fermerModale(); JEF.toast('Suivi enregistré', 'ok'); charger(true); })
         .catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
     } }], 'large');
+    var lien = function (envoyer, btn) {
+      var retablir = JEF.attente(btn, envoyer ? 'Envoi du lien' : 'Préparation du lien');
+      JEF.post('module', { data: { op: 'int_lien', id: b.ID, envoyer: envoyer } }).then(function (r) { retablir(); if (envoyer) JEF.toast('Lien envoyé à ' + b.Email, 'ok'); else JEF.copier(r.lien); })
+        .catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+    };
+    $('#i-copier').addEventListener('click', function () { lien(false, this); });
+    var ie = $('#i-envoyer'); if (ie) ie.addEventListener('click', function () { lien(true, this); });
+    $$('#modale [data-doc]').forEach(function (inp) { inp.addEventListener('change', function () {
+      var f = inp.files[0]; if (!f) return;
+      if (f.size > 30 * 1048576) { JEF.toast('Plus de 30 Mo : déposez ce fichier directement dans le Drive Qualiopi.', 'erreur'); return; }
+      var lab = inp.closest('label'), retablir = JEF.attente(lab, 'Envoi et classement');
+      var lect = new FileReader();
+      lect.onload = function () {
+        JEF.post('module', { data: { op: 'int_doc', id: b.ID, type: inp.getAttribute('data-doc'), fichier: { nom: f.name, type: f.type, base64: String(lect.result).split(',')[1] } } }, { delai: 300000 })
+          .then(function (r) { retablir(); JEF.toast(r.nom + ' classé dans le Drive Qualiopi', 'ok'); fermerModale(); charger(true).then(function () { var nb = trouver('PRO', b.ID); if (nb) modaleIntervenant(nb); }); })
+          .catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+      };
+      lect.readAsDataURL(f);
+    }); });
   }
 
   // ----- Questionnaires Qualiopi --------------------------------------------------
-  var Q_CODES = [['ENTREE', 'Test d\'entrée', 'TEST'], ['FIN', 'Test de fin', 'TEST'], ['ACQUIS', 'Évaluation des acquis', 'ACQUIS'], ['SATISFACTION', 'Satisfaction congressistes', 'SATISFACTION'], ['ENTREPRISES', 'Satisfaction entreprises', 'ENTREPRISES']];
-  var resultatsQ = {};
+  var resultatsQ = {}, listeQ = null;
+  var TYPES_Q = { unique: 'Choix unique', multiple: 'Choix multiples', note10: 'Note de 0 à 10', echelle: 'Satisfaction (4 niveaux)', echelle3: 'Satisfaction (3 niveaux)', acquis: 'Niveau d\'acquisition (début et fin)', ouinon: 'Oui ou non', texte: 'Réponse écrite' };
   function vueQuestionnaires() {
-    var code = filtresPages.questionnaires || 'SATISFACTION';
-    var def = Q_CODES.filter(function (q) { return q[0] === code; })[0];
+    if (!listeQ) {
+      JEF.rendre('#vue', h`${aidePage('questionnaires')}<div class="chargement"><span class="rotation"></span>Chargement des questionnaires</div>`);
+      JEF.post('q_liste').then(function (x) { listeQ = x; if (vue === 'questionnaires') { vueQuestionnaires(); brancherAide(); } }).catch(function (e) { JEF.toast(e.message, 'erreur'); });
+      return;
+    }
+    var codes = listeQ.questionnaires.map(function (q) { return q.code; });
+    var code = codes.indexOf(filtresPages.questionnaires) !== -1 ? filtresPages.questionnaires : codes[0];
+    var def = listeQ.questionnaires.filter(function (q) { return q.code === code; })[0];
     var r = resultatsQ[code];
-    var onglets = h`<div class="barre-filtres" role="group" aria-label="Questionnaire">${Q_CODES.map(function (q) {
-      return h`<button class="puce-filtre" data-q="${q[0]}" aria-pressed="${q[0] === code ? 'true' : 'false'}">${q[1]}${resultatsQ[q[0]] ? h`<span class="n">${resultatsQ[q[0]].reponses}</span>` : ''}</button>`; })}</div>`;
+    var avertissements = h`${listeQ.modele2026 ? h`<div class="bandeau b-orange"><span class="texte"><b>Test de connaissances : questions du modèle 2026.</b> Remplacez-les par celles des intervenants 2027 avant l'ouverture.</span><button class="btn btn-s" data-lot-edit="TEST">Modifier le test</button></div>` : ''}
+      ${listeQ.programmeSansObjectif ? h`<div class="bandeau b-violet"><span class="texte"><b>Évaluation des acquis :</b> elle se construit avec les objectifs saisis dans Programme, un questionnaire par jour. En attendant, les 3 compétences générales sont utilisées.</span><button class="btn btn-s" data-aller="programme">Programme</button></div>` : ''}`;
+    var onglets = h`<div class="barre-filtres" role="group" aria-label="Questionnaire">${listeQ.questionnaires.map(function (q) {
+      return h`<button class="puce-filtre" data-q="${q.code}" aria-pressed="${q.code === code ? 'true' : 'false'}">${q.titre}<span class="n">${q.reponses}</span></button>`; })}</div>`;
     if (!r) {
-      JEF.rendre('#vue', h`${aidePage('questionnaires')}${onglets}<div class="chargement"><span class="rotation"></span>Chargement des réponses</div>`);
+      JEF.rendre('#vue', h`${aidePage('questionnaires')}${avertissements}${onglets}<div class="chargement"><span class="rotation"></span>Chargement des réponses</div>`);
       brancherQ();
       JEF.post('q_resultats', { data: { q: code } }).then(function (x) { resultatsQ[code] = x; if (vue === 'questionnaires') { vueQuestionnaires(); brancherAide(); } }).catch(function (e) { JEF.toast(e.message, 'erreur'); });
       return;
     }
     var taux = r.eligibles ? Math.round(r.reponses / r.eligibles * 100) : 0;
     var pg = r.progression;
-    JEF.rendre('#vue', h`${aidePage('questionnaires')}${onglets}
+    var lot = def.lot;
+    var editions = lot === 'TEST' ? [['TEST', 'Modifier le test']] : lot === 'ENTREPRISES' ? [['ENTREPRISES', 'Modifier les questions']] : [['SATISFACTION', 'Modifier la satisfaction']];
+    JEF.rendre('#vue', h`${aidePage('questionnaires')}${avertissements}${onglets}
       <div class="chiffres">
         <div class="chiffre"><div class="lib">Réponses</div><div class="val">${r.reponses}<small style="font-size:14px;color:var(--texte-2)"> / ${r.eligibles}</small></div><div class="jauge2"><i style="width:${taux}%"></i></div><div class="det">taux de réponse ${taux} %</div></div>
         <div class="chiffre"><div class="lib">État</div><div class="val" style="font-size:20px;">${r.etat.ouvert ? '🟢 Ouvert' : '⚪ Fermé'}</div><div class="det">${r.etat.raison || (r.etat.ouvert ? 'Les participants peuvent répondre' : '')}</div></div>
         ${pg ? h`<div class="chiffre"><div class="lib">Bonnes réponses, entrée puis fin</div><div class="val" style="font-size:22px;">${pg.moyenneEntree === null ? '-' : pg.moyenneEntree + ' %'} → ${pg.moyenneFin === null ? '-' : pg.moyenneFin + ' %'}</div><div class="det">${pg.apparies} participant(s) ont fait les deux tests</div></div>
           <div class="chiffre"><div class="lib">Progression moyenne</div><div class="val">${pg.progressionMoyenne === null ? '-' : (pg.progressionMoyenne > 0 ? '+' : '') + pg.progressionMoyenne}</div><div class="det">points, par participant</div></div>` : ''}
-        <div class="chiffre"><div class="lib">Qualiopi</div><div class="val" style="font-size:20px;">Indicateur ${r.indicateur}</div><div class="det">Le rapport PDF y est rattaché</div></div>
+        <div class="chiffre"><div class="lib">Qualiopi</div><div class="val" style="font-size:20px;">Indicateur${r.indicateurs.length > 1 ? 's' : ''} ${r.indicateurs.join(' et ')}</div><div class="det">Le rapport PDF y est rattaché</div></div>
       </div>
-      ${panneau(def[1], 'Les participants répondent depuis leur espace, ouvert par le QR « Mon espace » de leur badge ou le lien des emails.',
-        r.stats.length ? h`<div class="q-resultats">${r.stats.map(statQuestion)}</div>` : h`<p class="indice">Aucune question. Cliquez sur « Modifier les questions ».</p>`,
-        h`<button class="btn btn-s" id="q-actualiser">Actualiser</button><button class="btn btn-s" id="q-modifier">Modifier les questions</button>
-          <button class="btn btn-s" id="q-rapport-ind">Rapport avec réponses individuelles</button><button class="btn btn-s btn-primaire" id="q-rapport">Rapport PDF pour l'audit</button>`)}
-      ${panneauReglages('questionnaires', 'Ouverture des questionnaires', 'Automatique selon les demi-journées, ou forcé ouvert ou fermé. En mode test, tout est ouvert.', ['Q_ENTREE', 'Q_FIN', 'Q_ACQUIS', 'Q_SATISFACTION', 'Q_ENTREPRISES'])}`);
+      ${panneau(def.titre, 'Les participants répondent depuis leur espace, ouvert par le QR « Mon espace » de leur badge. Pour lancer le questionnaire en salle, utilisez Animation en direct.',
+        r.stats.length ? h`<div class="q-resultats">${r.stats.map(statQuestion)}</div>` : h`<p class="indice">Aucune question.</p>`,
+        h`<button class="btn btn-s" id="q-actualiser">Actualiser</button>${lot === 'ACQUIS' ? h`<button class="btn btn-s" data-aller="programme">Objectifs : page Programme</button>` : ''}
+          ${editions.map(function (x) { return h`<button class="btn btn-s" data-lot-edit="${x[0]}">${x[1]}</button>`; })}
+          <button class="btn btn-s" id="q-rapport-ind">Rapport avec réponses individuelles</button><button class="btn btn-s btn-primaire" id="q-rapport">Créer et classer le rapport PDF</button>`)}
+      ${panneauReglages('questionnaires', 'Ouverture des questionnaires', 'Automatique selon les journées, ou forcé ouvert ou fermé. En mode test, tout est ouvert.', ['Q_ENTREE', 'Q_FIN', 'Q_ACQUIS', 'Q_ENTREPRISES'])}`);
     brancherQ();
-    $('#q-actualiser').addEventListener('click', function () { delete resultatsQ[code]; vueQuestionnaires(); });
-    $('#q-modifier').addEventListener('click', function () { modaleQuestions(def[2]); });
+    $('#q-actualiser').addEventListener('click', function () { delete resultatsQ[code]; listeQ = null; vueQuestionnaires(); });
     [['#q-rapport', false], ['#q-rapport-ind', true]].forEach(function (x) {
       $(x[0]).addEventListener('click', function () {
-        var b = $(x[0]), fenetre = preparerFenetre('Préparation du rapport'), retablir = JEF.attente(b, 'Génération');
+        var b = $(x[0]), fenetre = preparerFenetre('Préparation du rapport'), retablir = JEF.attente(b, 'Création du rapport PDF');
         JEF.post('q_rapport', { data: { q: code, individuel: x[1] } }, { delai: 300000 }).then(function (rr) {
           retablir(); ouvrirPdfBase64(rr.pdf, rr.nom, fenetre); qualiopi = null;
-          JEF.toast('Rapport déposé dans le Drive Qualiopi et rattaché à l\'indicateur ' + r.indicateur, 'ok');
+          JEF.toast('Rapport classé dans le Drive Qualiopi et rattaché à l\'indicateur ' + r.indicateurs.join(' et '), 'ok');
         }).catch(function (e) { retablir(); if (fenetre) fenetre.close(); JEF.toast(e.message, 'erreur'); });
       });
     });
     monterPanneauxReglages();
   }
-  function brancherQ() { $$('[data-q]').forEach(function (b) { b.addEventListener('click', function () { filtresPages.questionnaires = b.getAttribute('data-q'); vueQuestionnaires(); brancherAide(); }); }); }
+  function brancherQ() {
+    $$('[data-q]').forEach(function (b) { b.addEventListener('click', function () { filtresPages.questionnaires = b.getAttribute('data-q'); vueQuestionnaires(); brancherAide(); }); });
+    $$('[data-lot-edit]').forEach(function (b) { b.addEventListener('click', function () { modaleQuestions(b.getAttribute('data-lot-edit')); }); });
+    $$('#vue [data-aller]').forEach(function (b) { b.addEventListener('click', function () { aller(b.getAttribute('data-aller')); }); });
+  }
 
   function statQuestion(s) {
     var barre = function (lib, n, total, coul, bonne) {
       var pct = total ? Math.round(n / total * 100) : 0;
       return h`<div class="l"><span>${lib}${bonne ? h` <b style="color:var(--vert);">✓</b>` : ''}</span><div class="b"><i style="width:${pct}%;background:${coul};"></i></div><b>${n}</b></div>`;
     };
+    var degrade = function (i, nb) { return ['#C8102E', '#EB7E0C', '#2575B3', '#1E7B45'].slice(4 - nb)[i] || 'var(--bleu-2)'; };
     var corps;
     if (s.type === 'texte') corps = s.textes.length ? h`<details><summary>${s.textes.length} réponse(s) écrite(s)</summary><ul class="verbatims">${s.textes.map(function (t) { return h`<li>${t}</li>`; })}</ul></details>` : h`<p class="indice" style="margin:0;">Aucune réponse écrite.</p>`;
     else if (s.type === 'acquis') corps = h`<div class="acquis-stats"><div><div class="indice">Au début</div><div class="barres">${Object.keys(s.debut).map(function (c) { return barre(c, s.debut[c], s.total, '#94A3B8'); })}</div></div>
-      <div><div class="indice">À la fin</div><div class="barres">${Object.keys(s.fin).map(function (c, i) { return barre(c, s.fin[c], s.total, ['#1E7B45', '#EB7E0C', '#C8102E'][i]); })}</div></div></div>`;
+      <div><div class="indice">À la fin</div><div class="barres">${Object.keys(s.fin).map(function (c, i) { return barre(c, s.fin[c], s.total, ['#C8102E', '#EB7E0C', '#1E7B45'][i]); })}</div></div></div>`;
+    else if (s.type === 'note10') corps = h`<div style="margin-bottom:6px;">Note moyenne <b style="font-size:18px;">${s.moyenne === null ? '-' : s.moyenne + ' / 10'}</b></div>
+      <div class="histo">${Object.keys(s.comptes).map(function (k) { var max = Math.max.apply(null, Object.keys(s.comptes).map(function (x) { return s.comptes[x]; }).concat([1])); return h`<div><i style="height:${Math.round(s.comptes[k] / max * 60)}px;background:${Number(k) >= 8 ? '#1E7B45' : Number(k) >= 5 ? '#2575B3' : '#EB7E0C'};"></i><small>${k}</small></div>`; })}</div>`;
     else {
-      var cles = s.type === 'note10' ? Object.keys(s.comptes).sort(function (a, b) { return b - a; }) : Object.keys(s.comptes);
-      corps = h`${s.type === 'note10' ? h`<div style="margin-bottom:6px;">Note moyenne <b style="font-size:18px;">${s.moyenne === null ? '-' : s.moyenne + ' / 10'}</b></div>` : ''}
-        <div class="barres">${cles.map(function (c) { var bonne = (s.bonnes || []).indexOf(c) !== -1; return barre(c, s.comptes[c], s.total, bonne ? 'var(--vert)' : 'var(--bleu-2)', bonne); })}</div>
+      var cles = Object.keys(s.comptes), echelle = s.type === 'echelle' || s.type === 'echelle3' || s.type === 'ouinon';
+      corps = h`<div class="barres">${cles.map(function (c, i) { var bonne = (s.bonnes || []).indexOf(c) !== -1; return barre(c, s.comptes[c], s.total, bonne ? 'var(--vert)' : echelle ? degrade(i, cles.length) : 'var(--bleu-2)', bonne); })}</div>
         ${s.tauxJuste !== undefined && s.tauxJuste !== null ? h`<div class="indice">Bonnes réponses : <b>${s.tauxJuste} %</b></div>` : ''}`;
     }
-    return h`<div class="q-stat"><h4>${s.n}. ${s.question}</h4>${s.objectif ? h`<div class="indice">${s.objectif}</div>` : ''}${corps}</div>`;
+    return h`<div class="q-stat ${s.bloc === 'Satisfaction' ? 'q-sat' : ''}"><h4>${s.n}. ${s.question}</h4>${s.objectif ? h`<div class="indice">${s.objectif}</div>` : ''}${corps}</div>`;
   }
 
   function modaleQuestions(lot) {
     ouvrirModale('Questions', h`<div class="chargement"><span class="rotation"></span>Chargement</div>`, [{ texte: 'Fermer' }], 'large');
     JEF.post('q_questions', { data: { lot: lot } }).then(function (r) {
       var lignes = r.questions.slice();
-      var TYPES = { unique: 'Choix unique', multiple: 'Choix multiples', note10: 'Note de 0 à 10', echelle: 'Échelle de satisfaction', acquis: 'Niveau d\'acquisition (début et fin)', ouinon: 'Oui ou non', texte: 'Réponse écrite' };
       var rendre = function () {
-        return h`${r.dejaRepondu ? h`<div class="bandeau b-orange"><span class="texte">Des réponses existent déjà. Modifier l'ordre ou le texte des questions fausse la comparaison : ajoutez plutôt des questions à la fin.</span></div>` : ''}
-          <p class="indice" style="margin:0;">${lot === 'TEST' ? 'Questions communes au test d\'entrée et au test de fin. Indiquez les bonnes réponses : le score est calculé seul. À écrire avec les intervenants.' : 'Choix séparés par une barre verticale |.'}</p>
+        return h`${r.dejaRepondu ? h`<div class="bandeau b-orange"><span class="texte">Des réponses existent déjà. Changer l'ordre ou le texte fausse la comparaison : ajoutez plutôt des questions à la fin.</span></div>` : ''}
+          <p class="indice" style="margin:0;">${lot === 'TEST' ? 'Questions communes au test d\'entrée et au test de fin, idéalement une par conférence. Indiquez les bonnes réponses : le score est calculé seul.' : 'Choix séparés par une barre verticale |. Les échelles vont toujours du moins bon (à gauche) au meilleur (à droite).'}</p>
+          ${r.suggestions && r.suggestions.length ? h`<details class="suggestions" open><summary>Questions proposées par les intervenants (${r.suggestions.length})</summary>${r.suggestions.map(function (x) { return h`<div class="suggestion"><b>${x.intervenant}</b>${x.theme ? ' - ' + x.theme : ''}<div>${x.texte}</div></div>`; })}</details>` : ''}
           <div id="q-liste" style="display:grid;gap:10px;">${lignes.map(function (q, i) {
             return h`<div class="q-edit" data-i="${i}">
-              <div class="q-edit-tete"><b>${i + 1}</b><select data-k="type">${Object.keys(TYPES).map(function (t) { return h`<option value="${t}" ${brut(q.type === t ? 'selected' : '')}>${TYPES[t]}</option>`; })}</select>
+              <div class="q-edit-tete"><b>${i + 1}</b><select data-k="type">${Object.keys(TYPES_Q).filter(function (t) { return lot === 'ACQUIS' || t !== 'acquis'; }).map(function (t) { return h`<option value="${t}" ${brut(q.type === t ? 'selected' : '')}>${TYPES_Q[t]}</option>`; })}</select>
                 <label class="case"><input type="checkbox" data-k="obligatoire" ${brut(q.obligatoire ? 'checked' : '')}> <span>Obligatoire</span></label>
                 <span style="margin-left:auto;display:flex;gap:4px;"><button type="button" class="btn btn-s" data-m="haut" aria-label="Monter">↑</button><button type="button" class="btn btn-s" data-m="bas" aria-label="Descendre">↓</button><button type="button" class="btn btn-s btn-danger" data-m="suppr" aria-label="Supprimer">✕</button></span></div>
               <textarea data-k="question" rows="2" placeholder="Texte de la question">${q.question}</textarea>
@@ -1472,9 +1536,7 @@
           <button type="button" class="btn btn-s" id="q-ajout">+ Ajouter une question</button>`;
       };
       var lire = function () {
-        lignes = $$('#q-liste .q-edit').map(function (z) {
-          var o = {}; $$('[data-k]', z).forEach(function (el) { o[el.getAttribute('data-k')] = el.type === 'checkbox' ? el.checked : el.value; }); return o;
-        });
+        lignes = $$('#q-liste .q-edit').map(function (z) { var o = {}; $$('[data-k]', z).forEach(function (el) { o[el.getAttribute('data-k')] = el.type === 'checkbox' ? el.checked : el.value; }); return o; });
       };
       var monter = function () {
         JEF.rendre('#modale-corps', rendre());
@@ -1490,12 +1552,12 @@
         });
         $('#q-ajout').addEventListener('click', function () { lire(); lignes.push({ question: '', type: lot === 'TEST' ? 'unique' : 'echelle', choix: '', bonnes: '', obligatoire: true, objectif: '' }); monter(); var t = $$('#q-liste textarea'); t[t.length - 1].focus(); });
       };
-      ouvrirModale('Questions : ' + { TEST: 'tests d\'entrée et de fin', ACQUIS: 'évaluation des acquis', SATISFACTION: 'satisfaction des congressistes', ENTREPRISES: 'satisfaction des entreprises' }[lot], h`<div></div>`,
+      ouvrirModale('Questions : ' + { TEST: 'tests d\'entrée et de fin', ACQUIS: 'évaluation des acquis', SATISFACTION: 'satisfaction (fin du dernier jour)', ENTREPRISES: 'satisfaction des entreprises' }[lot], h`<div></div>`,
         [{ texte: 'Annuler' }, { texte: 'Enregistrer les questions', classe: 'btn-primaire', action: function (zone, btn) {
           lire();
-          var retablir = JEF.attente(btn, 'Enregistrement');
+          var retablir = JEF.attente(btn, 'Enregistrement des questions');
           JEF.post('q_questions_maj', { data: { lot: lot, questions: lignes } }).then(function (x) {
-            fermerModale(); JEF.toast(x.questions.length + ' question(s) enregistrée(s)', 'ok'); resultatsQ = {}; if (vue === 'questionnaires') vueQuestionnaires();
+            fermerModale(); JEF.toast(x.questions.length + ' question(s) enregistrée(s)', 'ok'); resultatsQ = {}; listeQ = null; if (vue === 'questionnaires') vueQuestionnaires();
           }).catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
         } }], 'large');
       monter();
@@ -1511,45 +1573,177 @@
       return;
     }
     var jours = D.creneaux.map(function (c) { return c.date; }).filter(function (d, i, a) { return d && a.indexOf(d) === i; });
-    var ints = D.badges.filter(function (b) { return b.Profil === 'INTERVENANT' && actifBadge(b); });
+    var ints = programme.intervenants || [];
+    var nbObj = programme.lignes.filter(function (l) { return l.objectif; }).length;
     JEF.rendre('#vue', h`${aidePage('programme')}
-      ${panneau('Conducteur des journées', 'Affiché dans l\'espace participant de chaque badge. Une ligne par séquence. Glissez les lignes avec ↑ et ↓.',
-        h`<div class="table-defile" style="max-height:none;"><table class="tab prog-edit"><thead><tr><th>Jour</th><th>Heure</th><th>Durée</th><th>Séquence</th><th>Intervenants</th><th>Type</th><th>Diapo</th><th></th></tr></thead>
-          <tbody id="prog-lignes">${programme.lignes.map(function (l, i) {
-            return h`<tr data-i="${i}" style="cursor:default;">
-              <td><input data-k="jour" type="${/^\d{4}-/.test(l.jour) || !l.jour ? 'date' : 'text'}" value="${l.jour}" list="prog-jours"></td>
-              <td><input data-k="heure" type="text" value="${l.heure}" placeholder="9:00" style="width:70px;"></td>
-              <td><input data-k="duree" type="text" value="${l.duree}" placeholder="45 min" style="width:80px;"></td>
-              <td><input data-k="theme" type="text" value="${l.theme}" placeholder="Thème ou séquence"><input data-k="description" type="text" value="${l.description}" placeholder="Description (facultatif)" class="sous-champ"></td>
-              <td><input data-k="intervenants" type="text" value="${l.intervenants}" list="prog-ints"></td>
-              <td><select data-k="type">${programme.types.map(function (t) { return h`<option ${brut(t === l.type ? 'selected' : '')}>${t}</option>`; })}</select></td>
-              <td><input data-k="diaporama" type="text" value="${l.diaporama}" placeholder="n°" style="width:50px;"><input data-k="notes" type="hidden" value="${l.notes}"></td>
-              <td style="white-space:nowrap;"><button class="btn btn-s" data-m="haut" aria-label="Monter">↑</button><button class="btn btn-s" data-m="bas" aria-label="Descendre">↓</button><button class="btn btn-s btn-danger" data-m="suppr" aria-label="Supprimer">✕</button></td></tr>`;
-          })}</tbody></table></div>
+      <div class="chiffres">
+        <div class="chiffre"><div class="lib">Séquences</div><div class="val">${programme.lignes.length}</div></div>
+        <div class="chiffre"><div class="lib">Objectifs pédagogiques</div><div class="val">${nbObj}</div><div class="det">Ils construisent l'évaluation des acquis</div></div>
+        <button class="chiffre cliquable" data-aller="intervenants"><div class="lib">Intervenants</div><div class="val">${ints.length}</div><div class="det">Suivi, documents, espace intervenant</div></button>
+      </div>
+      ${panneau('Conducteur des journées', 'Une ligne par séquence. L\'objectif de chaque conférence crée la question de l\'évaluation des acquis du jour. Choisir l\'intervenant reprend son objectif s\'il l\'a saisi dans son espace.',
+        h`<div class="prog-cartes" id="prog-lignes">${programme.lignes.map(function (l, i) {
+            return h`<div class="prog-carte" data-i="${i}">
+              <div class="prog-ligne1">
+                <input data-k="jour" type="${/^\d{4}-/.test(l.jour) || !l.jour ? 'date' : 'text'}" value="${l.jour}" list="prog-jours" aria-label="Jour">
+                <input data-k="heure" type="text" value="${l.heure}" placeholder="9:00" aria-label="Heure" class="court">
+                <input data-k="duree" type="text" value="${l.duree}" placeholder="45 min" aria-label="Durée" class="court">
+                <select data-k="type" aria-label="Type">${programme.types.map(function (t) { return h`<option ${brut(t === l.type ? 'selected' : '')}>${t}</option>`; })}</select>
+                <input data-k="diaporama" type="text" value="${l.diaporama}" placeholder="Diapo n°" aria-label="Diaporama" class="court">
+                <span class="prog-outils"><button class="btn btn-s" data-m="haut" aria-label="Monter">↑</button><button class="btn btn-s" data-m="bas" aria-label="Descendre">↓</button><button class="btn btn-s btn-danger" data-m="suppr" aria-label="Supprimer">✕</button></span>
+              </div>
+              <div class="grille g2">
+                <div class="champ"><label>Séquence</label><input data-k="theme" type="text" value="${l.theme}" placeholder="Thème ou séquence"></div>
+                <div class="champ"><label>Intervenant</label><select data-k="intervenantId"><option value="">Aucun ou saisie libre</option>${ints.map(function (b) { return h`<option value="${b.id}" ${brut(b.id === l.intervenantId ? 'selected' : '')}>${b.nom}${b.organisme ? ' (' + b.organisme + ')' : ''}</option>`; })}</select></div>
+                <div class="champ span2"><label>Objectif pédagogique <span class="indice">(un verbe d'action : expliquer, identifier, analyser...)</span></label><input data-k="objectif" type="text" value="${l.objectif}" placeholder="Ex. Identifier les risques des panneaux photovoltaïques pour sécuriser leur intégration"></div>
+                <div class="champ"><label>Intervenants affichés</label><input data-k="intervenants" type="text" value="${l.intervenants}" placeholder="Rempli seul si un intervenant est choisi"></div>
+                <div class="champ"><label>Description</label><input data-k="description" type="text" value="${l.description}"></div>
+              </div><input data-k="notes" type="hidden" value="${l.notes}"></div>`;
+          })}</div>
           <datalist id="prog-jours">${jours.map(function (j) { return h`<option value="${j}">`; })}</datalist>
-          <datalist id="prog-ints">${ints.map(function (b) { return h`<option value="${nomComplet(b) + (b.Organisme ? ' (' + b.Organisme + ')' : '')}">`; })}</datalist>
-          <div style="display:flex;gap:8px;margin-top:10px;"><button class="btn btn-s" id="prog-ajout">+ Ajouter une ligne</button><span style="flex:1;"></span><button class="btn btn-s btn-primaire" id="prog-enr">Enregistrer le programme</button></div>`,
-        h`<button class="btn btn-s" data-aller="intervenants">Suivi des intervenants</button>`)}`);
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;"><button class="btn btn-s" id="prog-ajout">+ Ajouter une séquence</button><span style="flex:1;"></span><button class="btn btn-s btn-primaire" id="prog-enr">Enregistrer le programme</button></div>`,
+        h`<button class="btn btn-s" id="prog-pdf">Créer et classer le programme PDF</button><button class="btn btn-s" data-aller="questionnaires">Voir l'évaluation des acquis</button>`)}`);
     var lire = function () {
-      programme.lignes = $$('#prog-lignes tr').map(function (tr) { var o = {}; $$('[data-k]', tr).forEach(function (el) { o[el.getAttribute('data-k')] = el.value.trim(); }); return o; });
+      programme.lignes = $$('#prog-lignes .prog-carte').map(function (tr) { var o = {}; $$('[data-k]', tr).forEach(function (el) { o[el.getAttribute('data-k')] = el.value.trim(); }); return o; });
     };
     $$('#prog-lignes [data-m]').forEach(function (b) { b.addEventListener('click', function () {
-      lire(); var i = Number(b.closest('tr').getAttribute('data-i')), m = b.getAttribute('data-m');
+      lire(); var i = Number(b.closest('.prog-carte').getAttribute('data-i')), m = b.getAttribute('data-m');
       if (m === 'suppr') programme.lignes.splice(i, 1);
       else { var j = m === 'haut' ? i - 1 : i + 1; if (j < 0 || j >= programme.lignes.length) return; var x = programme.lignes[i]; programme.lignes[i] = programme.lignes[j]; programme.lignes[j] = x; }
       vueProgramme();
     }); });
+    $$('#prog-lignes [data-k=intervenantId]').forEach(function (sel) { sel.addEventListener('change', function () {
+      var b = ints.filter(function (x) { return x.id === sel.value; })[0], carte = sel.closest('.prog-carte');
+      if (!b) return;
+      if (!$('[data-k=objectif]', carte).value && b.objectif) $('[data-k=objectif]', carte).value = b.objectif;
+      if (!$('[data-k=theme]', carte).value && b.theme) $('[data-k=theme]', carte).value = b.theme;
+      $('[data-k=intervenants]', carte).value = b.nom + (b.organisme ? ' (' + b.organisme + ')' : '');
+    }); });
     $('#prog-ajout').addEventListener('click', function () {
       lire(); var der = programme.lignes[programme.lignes.length - 1] || {};
-      programme.lignes.push({ jour: der.jour || jours[0] || '', heure: '', duree: '', theme: '', description: '', intervenants: '', type: 'Conférence', diaporama: '', notes: '' });
+      programme.lignes.push({ jour: der.jour || jours[0] || '', heure: '', duree: '', theme: '', description: '', intervenants: '', type: 'Conférence', diaporama: '', notes: '', objectif: '', intervenantId: '' });
       vueProgramme();
+      var c = $$('#prog-lignes .prog-carte'); if (c.length) c[c.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
     $('#prog-enr').addEventListener('click', function () {
-      lire(); var b = $('#prog-enr'), retablir = JEF.attente(b, 'Enregistrement');
-      JEF.post('module', { data: { op: 'programme_maj', lignes: programme.lignes } }).then(function (r) { retablir(); programme = r; JEF.toast('Programme enregistré', 'ok'); })
+      lire(); var b = $('#prog-enr'), retablir = JEF.attente(b, 'Enregistrement du programme');
+      JEF.post('module', { data: { op: 'programme_maj', lignes: programme.lignes } }).then(function (r) { retablir(); programme = r; listeQ = null; resultatsQ = {}; JEF.toast('Programme enregistré, évaluation des acquis mise à jour', 'ok'); vueProgramme(); })
         .catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
     });
-    $$('[data-aller]').forEach(function (b) { b.addEventListener('click', function () { aller(b.getAttribute('data-aller')); }); });
+    $('#prog-pdf').addEventListener('click', function () {
+      var b = $('#prog-pdf'), fenetre = preparerFenetre('Préparation du programme'), retablir = JEF.attente(b, 'Création du programme PDF');
+      JEF.post('module', { data: { op: 'programme_pdf' } }, { delai: 300000 }).then(function (r) { retablir(); ouvrirPdfBase64(r.pdf, r.nom, fenetre); qualiopi = null; JEF.toast('Programme classé dans le Drive Qualiopi (indicateurs 5 et 6)', 'ok'); })
+        .catch(function (e) { retablir(); if (fenetre) fenetre.close(); JEF.toast(e.message, 'erreur'); });
+    });
+    $$('#vue [data-aller]').forEach(function (b) { b.addEventListener('click', function () { aller(b.getAttribute('data-aller')); }); });
+  }
+
+  // ----- Animation en direct (impulsions) ----------------------------------------
+  var animation = null, apercuMinuteur = null;
+  var TYPES_IMP = { nuage: ['☁️', 'Nuage de mots'], sondage: ['📊', 'Sondage'], note: ['⭐', 'Note de 0 à 10'], questions: ['🙋', 'Questions de la salle'], questionnaire: ['📝', 'Lancer un questionnaire'] };
+  function vueAnimation() {
+    clearInterval(apercuMinuteur);
+    if (!animation) {
+      JEF.rendre('#vue', h`${aidePage('animation')}<div class="chargement"><span class="rotation"></span>Chargement</div>`);
+      JEF.post('module', { data: { op: 'imp_liste' } }).then(function (r) { animation = r; if (vue === 'animation') { vueAnimation(); brancherAide(); } }).catch(function (e) { JEF.toast(e.message, 'erreur'); });
+      return;
+    }
+    var A = animation;
+    var parMoment = {};
+    A.impulsions.forEach(function (i) { (parMoment[i.moment || 'Libre'] = parMoment[i.moment || 'Libre'] || []).push(i); });
+    JEF.rendre('#vue', h`${aidePage('animation')}
+      <div class="anim-tete">
+        <div class="anim-direct ${A.active ? 'on' : ''}" id="anim-direct">${A.active ? h`<span class="point"></span> En direct` : 'Rien en direct'}</div>
+        <span style="flex:1;"></span>
+        <button class="btn btn-s" id="anim-copier">Copier le lien de l'écran</button>
+        <a class="btn btn-s btn-primaire" href="${A.ecran}" target="_blank" rel="noopener">Ouvrir l'écran de projection</a>
+        ${A.active ? h`<button class="btn btn-s btn-danger" id="anim-stop">Arrêter</button>` : ''}
+      </div>
+      <div class="anim-grille">
+        <div>${A.moments.filter(function (m) { return parMoment[m]; }).map(function (m) {
+          return panneau(m, '', h`<div class="anim-liste">${parMoment[m].map(function (i) {
+            var t = TYPES_IMP[i.type] || ['', i.type];
+            return h`<div class="anim-item ${i.id === A.active ? 'actif' : ''}" data-imp="${i.id}"><span class="ico">${t[0]}</span><div><b>${i.question}</b><small>${t[1]}${i.choix ? ' : ' + i.choix.split('|').join(', ') : ''} - ${i.reponses} réponse(s)</small></div>
+              <span class="anim-actions">${i.id === A.active ? h`<span class="tag t-vert">En cours</span>` : h`<button class="btn btn-s btn-action" data-lancer-imp="${i.id}">▶ Lancer</button>`}
+              <button class="btn btn-s" data-modif-imp="${i.id}" aria-label="Modifier">✎</button>${i.type !== 'questionnaire' && i.reponses ? h`<button class="btn btn-s" data-rapport-imp="${i.id}" title="Résultats en PDF, classés dans le Drive Qualiopi">PDF</button>` : ''}</span></div>`;
+          })}</div>`);
+        })}
+        ${A.impulsions.length ? '' : h`<p class="indice">Aucune animation préparée. Ajoutez-en une, ou créez les animations conseillées.</p>`}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;"><button class="btn btn-primaire" id="anim-ajout">+ Nouvelle animation</button>${A.impulsions.length ? '' : h`<button class="btn" id="anim-modeles">Créer les animations conseillées</button>`}</div></div>
+        <div>${panneau('Aperçu de l\'écran', 'Mis à jour toutes les 3 secondes.', h`<div id="anim-apercu" class="anim-apercu"><p class="indice">Lancez une animation pour voir les réponses arriver.</p></div>`)}</div>
+      </div>`);
+    $('#anim-copier').addEventListener('click', function () { JEF.copier(A.ecran); });
+    var st = $('#anim-stop'); if (st) st.addEventListener('click', function () { lancerImp('', st); });
+    $$('[data-lancer-imp]').forEach(function (b) { b.addEventListener('click', function () { lancerImp(b.getAttribute('data-lancer-imp'), b); }); });
+    $$('[data-modif-imp]').forEach(function (b) { b.addEventListener('click', function () { modaleImpulsion(A.impulsions.filter(function (i) { return i.id === b.getAttribute('data-modif-imp'); })[0]); }); });
+    $$('[data-rapport-imp]').forEach(function (b) { b.addEventListener('click', function () {
+      var fenetre = preparerFenetre('Préparation des résultats'), retablir = JEF.attente(b, 'Création du PDF');
+      JEF.post('module', { data: { op: 'imp_rapport', id: b.getAttribute('data-rapport-imp') } }, { delai: 300000 }).then(function (r) { retablir(); ouvrirPdfBase64(r.pdf, r.nom, fenetre); qualiopi = null; JEF.toast('Résultats classés dans le Drive Qualiopi', 'ok'); })
+        .catch(function (e) { retablir(); if (fenetre) fenetre.close(); JEF.toast(e.message, 'erreur'); });
+    }); });
+    $('#anim-ajout').addEventListener('click', function () { modaleImpulsion(null); });
+    var mo = $('#anim-modeles'); if (mo) mo.addEventListener('click', function () { creerModelesImp(mo); });
+    if (A.active) { apercuImp(); apercuMinuteur = setInterval(function () { if (vue !== 'animation') { clearInterval(apercuMinuteur); return; } if (!document.hidden) apercuImp(); }, 3000); }
+  }
+  function lancerImp(id, btn) {
+    var retablir = JEF.attente(btn, id ? 'Lancement' : 'Arrêt');
+    JEF.post('module', { data: { op: 'imp_lancer', id: id } }).then(function (r) { retablir(); animation = r; vueAnimation(); JEF.toast(id ? 'En direct sur les téléphones et l\'écran' : 'Animation arrêtée', 'ok'); })
+      .catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+  }
+  function apercuImp() {
+    JEF.post('module', { data: { op: 'imp_ecran' } }, { essais: 1, delai: 15000 }).then(function (r) {
+      var z = $('#anim-apercu'); if (!z) return;
+      var i = r.impulsion;
+      if (!i) { JEF.rendre(z, h`<p class="indice">Rien en direct.</p>`); return; }
+      var corps;
+      if (i.type === 'nuage') corps = h`<div class="mini-nuage">${(i.mots || []).map(function (m) { var max = i.mots[0][1]; return h`<span style="font-size:${12 + Math.round(m[1] / max * 18)}px;">${m[0]}</span>`; })}</div>`;
+      else if (i.type === 'sondage') corps = h`<div class="barres">${i.comptes.map(function (c) { return h`<div class="l"><span>${c[0]}</span><div class="b"><i style="width:${i.n ? Math.round(c[1] / i.n * 100) : 0}%;background:var(--bleu-2);"></i></div><b>${c[1]}</b></div>`; })}</div>`;
+      else if (i.type === 'note') corps = h`<div class="val" style="font-size:34px;font-weight:800;">${i.moyenne === null ? '-' : i.moyenne} <small style="font-size:14px;">/ 10</small></div>`;
+      else if (i.type === 'questions') corps = h`<div class="anim-questions">${(i.questions || []).map(function (q) { return h`<div class="${q.repondue ? 'repondue' : ''}"><b>${q.votes}</b><span>${q.texte}</span>
+          <button class="btn btn-s" data-qrep="${q.id}">${q.repondue ? 'Rouvrir' : 'Répondue'}</button><button class="btn btn-s" data-qmasq="${q.id}" aria-label="Masquer">✕</button></div>`; })}${(i.questions || []).length ? '' : h`<p class="indice">Pas encore de question.</p>`}</div>`;
+      else corps = h`<div class="val" style="font-size:34px;font-weight:800;">${i.n} <small style="font-size:14px;">/ ${i.attendus} réponses</small></div>`;
+      JEF.rendre(z, h`<div class="anim-q">${i.type === 'questionnaire' ? i.titreQuestionnaire : i.question}</div><div class="indice">${i.type === 'questionnaire' ? '' : i.n + ' participant(s)'}</div>${corps}`);
+      $$('[data-qrep]', z).forEach(function (b) { b.onclick = function () { JEF.post('module', { data: { op: 'imp_moderer', question: b.getAttribute('data-qrep'), action: 'repondue' } }).then(apercuImp); }; });
+      $$('[data-qmasq]', z).forEach(function (b) { b.onclick = function () { JEF.post('module', { data: { op: 'imp_moderer', question: b.getAttribute('data-qmasq'), action: 'masquer' } }).then(apercuImp); }; });
+    }).catch(function () { /* l'aperçu réessaie seul */ });
+  }
+  function modaleImpulsion(i) {
+    i = i || { type: 'nuage', moment: 'Ouverture', question: '', choix: '', code: '' };
+    ouvrirModale(i.id ? 'Modifier l\'animation' : 'Nouvelle animation', h`
+      <fieldset class="champ"><legend class="legende">Type</legend><div class="choix-types">${Object.keys(TYPES_IMP).map(function (t) {
+        return h`<label class="option puce"><input type="radio" name="type" value="${t}" ${brut(t === i.type ? 'checked' : '')}><span class="titre">${TYPES_IMP[t][0]} ${TYPES_IMP[t][1]}</span></label>`; })}</div></fieldset>
+      <div class="champ" id="imp-bloc-q"><label class="obligatoire" for="imp-q">Question affichée</label><input id="imp-q" name="question" type="text" maxlength="300" value="${i.question}" placeholder="Ex. Un mot pour décrire votre métier"></div>
+      <div class="champ" id="imp-bloc-choix"><label for="imp-choix">Choix (séparés par |)</label><input id="imp-choix" name="choix" type="text" value="${i.choix}" placeholder="Ex. CHU|CH|Clinique|EHPAD"></div>
+      <div class="champ" id="imp-bloc-code"><label for="imp-code">Questionnaire à lancer</label><select id="imp-code" name="code">${animation.questionnaires.map(function (q) { return h`<option value="${q.code}" ${brut(q.code === i.code ? 'selected' : '')}>${q.titre}</option>`; })}</select>
+        <span class="aide">L'écran affiche « Sortez votre badge, scannez le QR Mon espace » avec le compteur de réponses. Sur les téléphones, un bouton ouvre directement le questionnaire.</span></div>
+      <div class="champ"><label for="imp-moment">Moment</label><select id="imp-moment" name="moment">${animation.moments.map(function (m) { return h`<option ${brut(m === i.moment ? 'selected' : '')}>${m}</option>`; })}</select></div>`,
+    [i.id ? { texte: 'Supprimer', classe: 'btn-danger', action: function () {
+      confirmer('Supprimer l\'animation', 'Les réponses déjà reçues restent dans le classeur.', 'Supprimer', true).then(function (ok) {
+        if (ok) JEF.post('module', { data: { op: 'imp_supprimer', id: i.id } }).then(function (r) { animation = r; vueAnimation(); }).catch(function (e) { JEF.toast(e.message, 'erreur'); });
+      });
+    } } : { texte: 'Annuler' }, { texte: 'Enregistrer', classe: 'btn-primaire', action: function (zone, btn) {
+      var d = JEF.lireFormulaire(zone); d.op = 'imp_maj'; d.id = i.id || '';
+      if (d.type !== 'questionnaire' && !d.question) { JEF.toast('Écrivez la question.', 'erreur'); return; }
+      var retablir = JEF.attente(btn, 'Enregistrement');
+      JEF.post('module', { data: d }).then(function (r) { fermerModale(); animation = r; vueAnimation(); }).catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
+    } }]);
+    function adapter() { var t = ($('#modale input[name=type]:checked') || {}).value; $('#imp-bloc-q').hidden = t === 'questionnaire'; $('#imp-bloc-choix').hidden = t !== 'sondage'; $('#imp-bloc-code').hidden = t !== 'questionnaire'; }
+    $$('#modale input[name=type]').forEach(function (r) { r.addEventListener('change', adapter); }); adapter();
+  }
+  function creerModelesImp(btn) {
+    var modeles = [
+      { type: 'nuage', moment: 'Ouverture', question: 'En un mot, votre métier de chargé de sécurité aujourd\'hui ?' },
+      { type: 'sondage', moment: 'Ouverture', question: 'Vous venez d\'un...', choix: 'CHU|Centre hospitalier|Clinique|EHPAD|Autre' },
+      { type: 'questionnaire', moment: 'Ouverture', code: 'ENTREE' },
+      { type: 'questions', moment: 'Conférence', question: 'Vos questions à l\'intervenant' },
+      { type: 'questionnaire', moment: 'Clôture', code: 'FIN' },
+      { type: 'note', moment: 'Clôture', question: 'Quelle note donnez-vous à ces journées ?' },
+      { type: 'nuage', moment: 'Clôture', question: 'Ce que vous retenez, en un mot' }
+    ];
+    var retablir = JEF.attente(btn, 'Création');
+    modeles.reduce(function (p, m) { return p.then(function () { return JEF.post('module', { data: Object.assign({ op: 'imp_maj' }, m) }); }); }, Promise.resolve())
+      .then(function (r) { retablir(); animation = r; vueAnimation(); JEF.toast('7 animations créées, modifiables', 'ok'); })
+      .catch(function (e) { retablir(); JEF.toast(e.message, 'erreur'); });
   }
 
   // ----- Invitations institutionnelles -----------------------------------------
@@ -1825,12 +2019,22 @@
               <span class="etat-ind">${tag(COULEURS_STATUT[i.statut] || 't-gris', i.statut)}${i.maj ? h`<small>${i.maj}</small>` : ''}</span></button>`;
           })}</div>`;
         })}`,
-        h`${q.dossierDrive ? h`<a class="btn btn-s" href="${q.dossierDrive}" target="_blank" rel="noopener">Ouvrir le Drive Qualiopi</a>` : ''}<button class="btn btn-s" id="b-recharger-q">Actualiser</button>`)}
+        h`${q.dossierDrive ? h`<a class="btn btn-s" href="${q.dossierDrive}" target="_blank" rel="noopener">Ouvrir le Drive Qualiopi</a>` : ''}<button class="btn btn-s" id="b-recharger-q">Actualiser</button><button class="btn btn-s" id="b-analyser-q">Analyser le Drive</button><button class="btn btn-s btn-primaire" id="b-audit">Préparer le dossier d'audit</button>`)}
+      ${panneau('Ce que la plateforme classe seule', 'Chaque document est rangé dans « JEF ' + D.annee + ' » du Drive Qualiopi et rattaché à son indicateur, qui passe « En cours ». Vous le passez « Fourni » après vérification.', h`<div class="auto-q">
+        ${[['Programme et objectifs', '5, 6', 'Programme > Créer et classer le programme PDF'], ['CV des intervenants', '21', 'Espace intervenant, ou dépôt dans le suivi'], ['Supports et présentations', '19', 'Espace intervenant, dépôt, ou Analyser le Drive'],
+          ['Coordination des intervenants', '18', 'Intervenants > Tableau de coordination PDF'], ['Tests et évaluations des acquis', '8, 11', 'Questionnaires > Créer et classer le rapport PDF'], ['Satisfaction', '30', 'Questionnaires et Animation en direct'],
+          ['Feuille de présence', '12', 'Automatique avec les attestations'], ['Bilan de l\'édition', '32', 'Communication > Bilan PDF']].map(function (x) { return h`<div><b>${x[0]}</b><span class="tag t-violet nu">Ind. ${x[1]}</span><small>${x[2]}</small></div>`; })}</div>`)}
       ${panneauReglages('qualiopi', 'Réglages Qualiopi', 'Réservé aux administrateurs. Dossier Drive des justificatifs, identité et attestations.',
         ['ID_Dossier_Audit_Qualiopi', 'NDA', 'Signataire_Attestation', 'Date_Envoi_Attestations', 'URL_Questionnaire_Satisfaction', 'Scan_Unique'])}`);
     $$('[data-fq]').forEach(function (b) { b.addEventListener('click', function () { filtreQualiopi = b.getAttribute('data-fq'); vueQualiopi(); brancherAide(); }); });
     $$('[data-ind]').forEach(function (b) { b.addEventListener('click', function () { modaleIndicateur(Number(b.getAttribute('data-ind'))); }); });
     $('#b-recharger-q').addEventListener('click', function () { qualiopi = null; vueQualiopi(); brancherAide(); });
+    $('#b-analyser-q').addEventListener('click', function () { analyserDrive(this); });
+    $('#b-audit').addEventListener('click', function () {
+      var b = this, fenetre = preparerFenetre('Préparation du dossier d\'audit'), retablir = JEF.attente(b, 'Préparation du dossier d\'audit');
+      JEF.post('module', { data: { op: 'dossier_audit' } }, { delai: 300000 }).then(function (r) { retablir(); ouvrirPdfBase64(r.pdf, r.nom, fenetre); JEF.toast('Sommaire classé en tête du dossier Drive de l\'année', 'ok'); })
+        .catch(function (e) { retablir(); if (fenetre) fenetre.close(); JEF.toast(e.message, 'erreur'); });
+    });
     monterPanneauxReglages();
   }
 
@@ -2171,19 +2375,58 @@
   }
 
   // ----- Fenêtres ----------------------------------------------------------------
+  /*
+   * Fenêtres : elles ne se ferment jamais par erreur.
+   * - un clic à côté ne ferme que si rien n'a été saisi (et seulement s'il a commencé et fini sur le voile) ;
+   * - Échap demande confirmation si des champs sont remplis ;
+   * - la saisie est gardée 30 minutes : si la fenêtre se ferme quand même, elle revient remplie.
+   */
+  var modaleEtat = { cle: null, initial: '' };
+  function valeursModale() { var z = $('#modale-corps'); if (!z) return ''; return JSON.stringify($$('input:not([type=file]), select, textarea', z).map(function (el) { return el.type === 'checkbox' || el.type === 'radio' ? el.checked : el.value; })); }
+  function modaleModifiee() { return !!modaleEtat.cle && valeursModale() !== modaleEtat.initial; }
   function ouvrirModale(titre, corps, boutons, taille) {
     var m = $('#modale');
     m.className = 'modale ' + (taille || '');
-    JEF.rendre(m, h`<header><h3>${titre}</h3></header><form class="corps" id="modale-corps" novalidate>${corps}</form>
+    JEF.rendre(m, h`<header><h3>${titre}</h3><button type="button" class="fermer-modale" data-fermer-modale aria-label="Fermer">✕</button></header><form class="corps" id="modale-corps" novalidate>${corps}</form>
       <footer>${boutons.map(function (b, i) { return h`<button type="button" class="btn ${b.classe || ''} ${i === 0 && boutons.length > 1 ? 'gauche' : ''}" data-b="${i}">${b.texte}</button>`; })}</footer>`);
     $('#voile').classList.add('ouvert');
+    modaleEtat = { cle: 'jef_saisie_' + titre, initial: '' };
+    modaleEtat.initial = valeursModale();
+    restaurerSaisie();
     $$('[data-b]', m).forEach(function (el) {
       el.addEventListener('click', function () { var b = boutons[Number(el.getAttribute('data-b'))]; if (b.action) b.action($('#modale-corps'), el); else fermerModale(); });
     });
+    $('[data-fermer-modale]', m).addEventListener('click', function () { fermerModaleAvecGarde(); });
     $('#modale-corps').addEventListener('submit', function (e) { e.preventDefault(); });
-    var premier = $('input:not([type=checkbox]):not([type=file]), select', m); if (premier) premier.focus();
+    $('#modale-corps').addEventListener('input', memoriserSaisie);
+    $('#modale-corps').addEventListener('change', memoriserSaisie);
+    if (!mobile()) { var premier = $('input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea', m); if (premier) premier.focus(); }
   }
-  function fermerModale() { $('#voile').classList.remove('ouvert'); }
+  function memoriserSaisie() {
+    if (!modaleEtat.cle) return;
+    try { if (modaleModifiee()) sessionStorage.setItem(modaleEtat.cle, JSON.stringify({ t: Date.now(), v: valeursModale() })); } catch (e) { /* rien */ }
+  }
+  function restaurerSaisie() {
+    try {
+      var x = JSON.parse(sessionStorage.getItem(modaleEtat.cle) || 'null');
+      if (!x || Date.now() - x.t > 1800000) return;
+      var v = JSON.parse(x.v), els = $$('input:not([type=file]), select, textarea', $('#modale-corps'));
+      if (v.length !== els.length) return;
+      els.forEach(function (el, i) { if (el.type === 'checkbox' || el.type === 'radio') el.checked = !!v[i]; else el.value = v[i]; el.dispatchEvent(new Event('change', { bubbles: true })); });
+      JEF.toast('Votre saisie précédente a été restaurée.', 'ok');
+    } catch (e) { /* rien */ }
+  }
+  /** Fermeture normale (Annuler, enregistrement réussi) : la saisie mémorisée est oubliée. */
+  function fermerModale() {
+    try { if (modaleEtat.cle) sessionStorage.removeItem(modaleEtat.cle); } catch (e) { /* rien */ }
+    modaleEtat = { cle: null, initial: '' };
+    $('#voile').classList.remove('ouvert');
+  }
+  /** Croix, Échap ou clic à côté : on demande avant de perdre une saisie. */
+  function fermerModaleAvecGarde() {
+    if (!modaleModifiee()) { fermerModale(); return; }
+    if (window.confirm('Fermer sans enregistrer ? Ce que vous avez saisi reste gardé 30 minutes si vous rouvrez la même fenêtre.')) { memoriserSaisie(); modaleEtat = { cle: null, initial: '' }; $('#voile').classList.remove('ouvert'); }
+  }
   function confirmer(titre, texte, libelle, danger) {
     return new Promise(function (resoudre) {
       ouvrirModale(titre, h`<p style="margin:0;">${texte}</p>`, [
@@ -2262,9 +2505,11 @@
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden && D && Date.now() - derniereCharge > 60000 && !fiche && !$('#voile').classList.contains('ouvert') && !reglagesModifies) { derniereCharge = Date.now(); charger(true); }
   });
-  $('#voile').addEventListener('click', function (e) { if (e.target === this) fermerModale(); });
+  var downSurVoile = false;
+  $('#voile').addEventListener('mousedown', function (e) { downSurVoile = e.target === this; });
+  $('#voile').addEventListener('click', function (e) { if (e.target === this && downSurVoile && !modaleModifiee()) fermerModale(); downSurVoile = false; });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { if ($('#voile').classList.contains('ouvert')) fermerModale(); else if (fiche) fermerFicheUtilisateur(); }
+    if (e.key === 'Escape') { if ($('#voile').classList.contains('ouvert')) fermerModaleAvecGarde(); else if (fiche) fermerFicheUtilisateur(); }
     if (e.key === '/' && document.activeElement === document.body) { e.preventDefault(); $('#recherche').focus(); }
   });
   window.addEventListener('beforeunload', function (e) { if (reglagesModifies) { e.preventDefault(); e.returnValue = ''; } });

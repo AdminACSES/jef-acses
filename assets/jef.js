@@ -63,8 +63,12 @@
     options.redirect = 'follow';
     options.credentials = 'omit';
     return fetch(url, options).then(function (rep) {
-      if (!rep.ok) throw new Error('Le serveur a répondu ' + rep.status + '.');
-      return rep.json();
+      if (!rep.ok) { var x = new Error('Le serveur est très sollicité, nouvel essai en cours.'); x.surcharge = [429, 500, 502, 503, 504].indexOf(rep.status) !== -1; x.statut = rep.status; throw x; }
+      // Quand trop de demandes arrivent en même temps, Google renvoie une page d'erreur au lieu de la réponse :
+      // la demande n'a pas été traitée, elle peut être renvoyée sans risque de doublon.
+      return rep.text().then(function (t) {
+        try { return JSON.parse(t); } catch (e) { var y = new Error('Le serveur est très sollicité, nouvel essai en cours.'); y.surcharge = true; throw y; }
+      });
     }).catch(function (e) {
       if (e && e.name === 'AbortError') throw new Error('Le serveur met trop de temps à répondre. Vérifiez votre connexion et réessayez.');
       if (e instanceof TypeError) { var err = new Error('Connexion impossible avec le serveur. Vérifiez votre connexion internet.'); err.reseau = true; throw err; }
@@ -84,7 +88,15 @@
     var corps = Object.assign({ action: action }, contenu || {});
     var s = JEF.session();
     if (s && !corps.token) corps.token = s.token;
-    return appel(CONF.API_URL, { method: 'POST', body: JSON.stringify(corps) }, opts.delai || 90000).then(function (rep) {
+    var essais = opts.essais === undefined ? 3 : opts.essais;
+    function tenter(n) {
+      return appel(CONF.API_URL, { method: 'POST', body: JSON.stringify(corps) }, opts.delai || 90000).catch(function (e) {
+        if (!e.surcharge || n >= essais) { if (e.surcharge) e.message = 'Le serveur est très sollicité. Réessayez dans un instant.'; throw e; }
+        if (opts.surEssai) opts.surEssai(n + 1);
+        return attendre(Math.min(8000, 1200 * Math.pow(2, n)) + Math.random() * 900).then(function () { return tenter(n + 1); });
+      });
+    }
+    return tenter(0).then(function (rep) {
       if (rep && rep.code === 'session') { JEF.oublierSession(); if (JEF.onSessionExpiree) JEF.onSessionExpiree(); }
       if (!rep || rep.succes === false) {
         var e = new Error((rep && rep.message) || 'Erreur inconnue.');
@@ -119,12 +131,33 @@
   };
 
   /** Met un bouton en attente ; retourne une fonction qui le rétablit. */
+  /**
+   * Bouton en attente. Au-delà de 700 ms, une pastille fixe rappelle ce qui se passe,
+   * pour que personne ne quitte la page en croyant que rien ne se passe.
+   */
   JEF.attente = function (btn, texte) {
     if (!btn) return function () {};
     var avant = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<span class="rotation" aria-hidden="true"></span> ' + JEF.esc(texte || 'Patientez...');
-    return function () { btn.disabled = false; btn.innerHTML = avant; };
+    var minuteur = setTimeout(function () { JEF.pastille(texte || 'Patientez'); }, 700);
+    return function () { clearTimeout(minuteur); JEF.pastille(null); btn.disabled = false; btn.innerHTML = avant; };
+  };
+  var compteurPastille = 0;
+  JEF.pastille = function (texte) {
+    var p = document.getElementById('pastille-attente');
+    if (texte === null) { compteurPastille = Math.max(0, compteurPastille - 1); if (p && !compteurPastille) p.classList.remove('visible'); return; }
+    compteurPastille++;
+    if (!p) { p = document.createElement('div'); p.id = 'pastille-attente'; p.className = 'pastille-attente'; p.setAttribute('role', 'status'); document.body.appendChild(p); }
+    p.innerHTML = '<span class="rotation" aria-hidden="true"></span><span><b>' + JEF.esc(texte) + '</b><small>Ne fermez pas la page, cela peut prendre quelques secondes.</small></span>';
+    p.classList.add('visible');
+  };
+  /** Écran d'attente plein écran (chargement d'une page) : JEF.ecranAttente('Chargement...') puis JEF.ecranAttente(null). */
+  JEF.ecranAttente = function (texte, etape) {
+    var z = document.getElementById('ecran-attente');
+    if (texte === null) { if (z) { z.classList.add('fin'); setTimeout(function () { z.remove(); }, 260); } return; }
+    if (!z) { z = document.createElement('div'); z.id = 'ecran-attente'; z.className = 'ecran-attente'; z.setAttribute('role', 'status'); document.body.appendChild(z); }
+    z.innerHTML = '<div class="ea-carte"><img src="logo-acses.png" alt=""><div class="ea-anneau"></div><b>' + JEF.esc(texte) + '</b>' + (etape ? '<small>' + JEF.esc(etape) + '</small>' : '') + '<div class="ea-barre"><i></i></div></div>';
   };
 
   JEF.copier = function (texte) {
